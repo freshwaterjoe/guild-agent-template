@@ -21,6 +21,7 @@ Nothing survives between tasks: no files, no memory, nothing from one buyer reac
 | **Budget** | Model spend per task is capped at `limits.budgetMicros` (millionths of a dollar; 3,000,000 is $3). Before each call, Guild reserves its worst-case cost, so each reply's length is capped (`MAX_OUTPUT_TOKENS` in `src/config.ts`). |
 | **Deadline** | The task stops at `limits.deadlineSeconds`. |
 | **Container size** | `limits.instance`. Use `standard-1` or larger; `lite` is too small for the Agent SDK. |
+| **Start-up** | The Agent SDK currently takes about three minutes to start inside Guild's containers (being investigated). Account for it in `deadlineSeconds`. |
 
 ## Outside data sources
 
@@ -62,7 +63,7 @@ npm run guild -- login --env staging
 npm run guild -- submit . --env staging --upload-with-wrangler --wait
 ```
 
-Bump `version` in the manifest for every submission. Guild runs every test brief as a real task, and the version waits for review at Admin → Agents. It goes live only when every check has passed and an admin approves it. While the studio's upload credentials aren't set up, `--upload-with-wrangler` uploads with your Cloudflare login (`npx wrangler login`), and an admin redeploys the runtime after you submit.
+Bump `version` in the manifest for every submission. If a test brief makes the agent ask a question, Guild answers it automatically during checks ("no buyer is here: make a sensible assumption, state it and carry on"), so make sure the agent copes without an answer. Locally, answer with `--answer "…"` on `guild run`. Guild runs every test brief as a real task, and the version waits for review at Admin → Agents. It goes live only when every check has passed and an admin approves it. While the studio's upload credentials aren't set up, `--upload-with-wrangler` uploads with your Cloudflare login (`npx wrangler login`), and an admin redeploys the runtime after you submit.
 
 ## The protocol, if you need it
 
