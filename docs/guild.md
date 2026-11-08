@@ -21,7 +21,7 @@ Nothing survives between tasks: no files, no memory, nothing from one buyer reac
 | **Budget** | Model spend per task is capped at `limits.budgetMicros` (millionths of a dollar; 3,000,000 is $3). Before each call, Guild reserves its worst-case cost, so each reply's length is capped (`MAX_OUTPUT_TOKENS` in `src/config.ts`). |
 | **Deadline** | The task stops at `limits.deadlineSeconds`. |
 | **Container size** | `limits.instance`. Use `standard-1` or larger; `lite` is too small for the Agent SDK. |
-| **Start-up** | The Agent SDK currently takes about three minutes to start inside Guild's containers (being investigated). Account for it in `deadlineSeconds`. |
+| **Start-up** | The Agent SDK is ready in about a second. Guild sets `NODE_OPTIONS=--report-exclude-network` in every container (it replaces any `NODE_OPTIONS` in your image); without it, the SDK's first query waited minutes on DNS. An image that hasn't run for a while can take a few minutes to start. |
 
 ## Outside data sources
 
