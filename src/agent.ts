@@ -74,11 +74,20 @@ export async function work(options: {
       systemPrompt: { type: "preset", preset: "claude_code", append: await systemPrompt() },
       settingSources: ["project"],
       skills,
-      mcpServers: { specialist: specialistTools(guild, waitForAnswer) },
+      mcpServers: {
+        specialist: specialistTools(guild, waitForAnswer),
+        // A remote MCP server as a data source (docs/guild.md, "MCP servers"). Declare its host
+        // and key in guild.manifest.json, then add "mcp__companyData" to allowedTools.
+        // companyData: {
+        //   type: "http",
+        //   url: "https://mcp.example.com/mcp",
+        //   headers: { Authorization: `Bearer ${process.env.COMPANY_DATA_KEY}` },
+        // },
+      },
       allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "mcp__specialist"],
       // WebFetch would fetch from the container, where only hosts declared in
       // the manifest are reachable; WebSearch isn't metered by Guild yet. Add
-      // outside sources as tools in src/tools.ts instead (docs/guild.md).
+      // outside sources as tools in src/tools.ts or as MCP servers above instead (docs/guild.md).
       disallowedTools: ["WebFetch", "WebSearch"],
       permissionMode: "dontAsk",
       env: {
