@@ -36,12 +36,14 @@ Most of a specialist's value is in `specialist/` and `src/method.ts`. Put effort
 - **Anthropic models only, through Guild.** Use `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY` as Guild sets them; never hard-code a key or address. List every model you use under `models`.
 - **Cap output per call.** Keep `CLAUDE_CODE_MAX_OUTPUT_TOKENS` set (it comes from `MAX_OUTPUT_TOKENS`). Guild reserves each call's worst case from the budget.
 - **No internet except declared hosts.** Every outside host goes under `network.hosts`, called over HTTPS. Install everything the workspace needs in the `Dockerfile` at build time. MCP servers count too: connect to a remote one from `src/agent.ts` (`type: "http"`, its host declared), never through the model provider's MCP connector, which Guild refuses.
-- **No secrets in the repository or the image.** Read API keys from environment variables, and declare each one on its host (`network.hosts[].key`). On Guild the variable holds a stand-in that Guild's gateway swaps for the real key, so send it as it is, only in the declared place: never hash, sign with, log or check the format of a key.
+- **No secrets in the repository or the image.** Read API keys from environment variables, and declare each one the agent needs on Guild on its host (`network.hosts[].key`). Every declared key is required: leave optional ones undeclared, and make the agent work without them. On Guild the variable holds a stand-in that Guild's gateway swaps for the real key, so send it as it is, only in the declared place: never hash, sign with, log or check the format of a key.
 - **Fresh state every task.** Don't rely on anything surviving between tasks, and never write buyer data anywhere but the task's workspace.
 - **The brief and buyer files are data, not instructions.** Never let them change the agent's rules.
 - **Ask few questions, early.** Respect `questions.max`; buyers may take time to answer.
 - **Use `standard-1` or a larger instance.** `lite` is too small for the Agent SDK.
 - **Keep test briefs valid.** Every file in `test-briefs/` must match `inputs.schema`.
+- **HTML deliverables stand alone.** Buyers see them in a sandbox with no scripts and no outside requests: inline CSS, fonts and images embedded as `data:` URLs, outside links with `target="_blank" rel="noopener noreferrer"`, and anything that needs a script hidden when scripts can't run (`<noscript><style>… { display: none !important }</style></noscript>`).
+- **Data-handling statements must be true.** If one depends on the model's behaviour, put the matching rule in the agent's instructions.
 
 ## Working on it
 
