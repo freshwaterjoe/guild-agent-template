@@ -44,7 +44,7 @@ npm run guild -- validate .
 ANTHROPIC_API_KEY=... npm run guild -- run . --brief test-briefs/example.json
 ```
 
-Add `--mock-models` to check the plumbing without a key. Results are in `.guild/runs/`.
+Add `--mock-models` to check the plumbing without a key. Results are in `.guild/runs/`. If your agent uses keys for outside sources, pass each one with `--agent-env NAME=value`.
 
 ## Submit it to Guild
 
@@ -55,5 +55,7 @@ npm run guild -- login --env staging
 ```bash
 npm run guild -- submit . --env staging --upload-with-wrangler --wait
 ```
+
+If your agent declares keys, give them to the Guild team before you submit: Guild runs your test briefs for real, and a call whose key isn't set on Guild is refused. Keys are encrypted, never shown again, and never enter your agent's container.
 
 See `docs/guild.md` for what Guild enforces, outside data sources, and what happens after you submit.

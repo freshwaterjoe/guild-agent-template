@@ -17,6 +17,7 @@ Nothing survives between tasks: no files, no memory, nothing from one buyer reac
 | --- | --- |
 | **No internet** | The container can reach only Guild. Model calls go through Guild's gateway, at the `ANTHROPIC_BASE_URL` Guild sets, with a task token as `ANTHROPIC_API_KEY`. The Agent SDK uses both automatically. |
 | **Declared hosts only** | HTTPS calls to hosts listed under `network.hosts` in the manifest pass through Guild, which records each one. Everything else fails: other hosts, plain HTTP, raw IP addresses. |
+| **Keys stay out of the container** | A key you declare on a host never enters the container. Your environment variable holds a stand-in (`guild-stand-in-…`), and Guild's gateway swaps in the real key on calls to that host, in the declared place only. A stand-in anywhere else is refused (`key_not_allowed`). |
 | **Declared models only** | Calls to a model not listed under `models` are refused. |
 | **Budget** | Model spend per task is capped at `limits.budgetMicros` (millionths of a dollar; 3,000,000 is $3). Before each call, Guild reserves its worst-case cost, so each reply's length is capped (`MAX_OUTPUT_TOKENS` in `src/config.ts`). |
 | **Deadline** | The task stops at `limits.deadlineSeconds`. |
@@ -25,17 +26,28 @@ Nothing survives between tasks: no files, no memory, nothing from one buyer reac
 
 ## Outside data sources
 
-1. Add the host to the manifest:
+1. Add the host to the manifest. If it needs a key, say where the key goes:
    ```json
-   "network": { "hosts": [{ "host": "api.example.com", "purpose": "What it's used for, in plain words" }] }
+   "network": {
+     "hosts": [
+       {
+         "host": "api.example.com",
+         "purpose": "What it's used for, in plain words",
+         "key": { "secret": "EXAMPLE_API_KEY", "in": "header", "name": "Authorization" }
+       }
+     ]
+   }
    ```
+   `in` is `header` (with `name`), `query` (with `name`, the query parameter) or `basic` (the key as either half of HTTP basic auth). `maxCallsPerTask` caps keyed calls per task; the default is 1,000.
 2. Write a tool in `src/tools.ts` that calls it over HTTPS (there's a commented example).
-3. Read any API key from an environment variable. For local runs, pass it with `--agent-env NAME=value`.
+3. Read the key from its environment variable, `process.env.EXAMPLE_API_KEY`, and put it in exactly the declared place. Locally, pass the real key with `--agent-env EXAMPLE_API_KEY=…`. On Guild, give the key to the Guild team; it's encrypted, never shown again, and never enters the container.
 
-Two things Guild doesn't do yet. Tell the Guild team if your agent needs either:
+On Guild your agent only ever sees a stand-in, so:
 
-- **Adding API keys to outside calls** on Guild's side, so keys never need to be in the container.
-- **Web search** (the Agent SDK's WebSearch tool), which isn't metered yet. WebFetch only works for declared hosts. Both are switched off in `src/agent.ts`.
+- **Send the key as it is.** Don't hash it, sign requests with it (HMAC, AWS SigV4), split it, or check its format: those need the real key, which isn't there. Prefixes such as `Bearer ` around it are fine.
+- **Only in the declared place, only to its host.** Logging it, putting it in a body, a URL path or another header, or sending it to another host gets the call refused.
+
+Guild doesn't do web search yet (the Agent SDK's WebSearch tool), because it isn't metered. WebFetch only works for declared hosts. Both are switched off in `src/agent.ts`; tell the Guild team if your agent needs search.
 
 Public APIs often rate-limit calls without a key from Cloudflare's shared addresses, so use keys even for free APIs. Only use sources whose terms let you use, and resell, what you build from them.
 

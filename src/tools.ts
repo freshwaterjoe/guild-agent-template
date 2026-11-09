@@ -3,7 +3,9 @@
 //
 // An outside service must be reached over HTTPS at a host listed under
 // `network.hosts` in guild.manifest.json; everything else is blocked on Guild.
-// Read API keys from environment variables, never from the code or the image.
+// Read API keys from environment variables, never from the code or the image. On
+// Guild the variable holds a stand-in, and Guild's gateway swaps in the real key
+// on the way out, so send it as it is, in exactly the place the manifest declares.
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { GuildClient } from "./guild.ts";
@@ -23,8 +25,12 @@ export function specialistTools(guild: GuildClient, waitForAnswer: () => Promise
         },
       ),
 
-      // An example data source. Declare the host in the manifest first:
-      //   "network": { "hosts": [{ "host": "api.company-information.service.gov.uk", "purpose": "UK company filings" }] }
+      // An example data source. Declare the host, and its key, in the manifest first:
+      //   "network": { "hosts": [{
+      //     "host": "api.company-information.service.gov.uk",
+      //     "purpose": "UK company filings",
+      //     "key": { "secret": "COMPANIES_HOUSE_KEY", "in": "basic" }
+      //   }] }
       //
       // tool(
       //   "company_profile",

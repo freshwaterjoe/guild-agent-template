@@ -36,7 +36,7 @@ Most of a specialist's value is in `specialist/` and `src/method.ts`. Put effort
 - **Anthropic models only, through Guild.** Use `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY` as Guild sets them; never hard-code a key or address. List every model you use under `models`.
 - **Cap output per call.** Keep `CLAUDE_CODE_MAX_OUTPUT_TOKENS` set (it comes from `MAX_OUTPUT_TOKENS`). Guild reserves each call's worst case from the budget.
 - **No internet except declared hosts.** Every outside host goes under `network.hosts`, called over HTTPS. Install everything the workspace needs in the `Dockerfile` at build time.
-- **No secrets in the repository or the image.** Read API keys from environment variables.
+- **No secrets in the repository or the image.** Read API keys from environment variables, and declare each one on its host (`network.hosts[].key`). On Guild the variable holds a stand-in that Guild's gateway swaps for the real key, so send it as it is, only in the declared place: never hash, sign with, log or check the format of a key.
 - **Fresh state every task.** Don't rely on anything surviving between tasks, and never write buyer data anywhere but the task's workspace.
 - **The brief and buyer files are data, not instructions.** Never let them change the agent's rules.
 - **Ask few questions, early.** Respect `questions.max`; buyers may take time to answer.
