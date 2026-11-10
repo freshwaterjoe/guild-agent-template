@@ -23,7 +23,7 @@ The goal is work that's **clearly better than a general model's**, delivered rel
 | `src/method.ts` | The stages around the agent: prepare, work, judge, revise, deliver |
 | `src/agent.ts` | One Agent SDK working session |
 | `src/judgement.ts` | Checks in code, then a separate review against the rubric |
-| `src/tools.ts` | Custom tools: asking the buyer, outside data sources |
+| `src/tools.ts` | Custom tools: asking the buyer, outside data sources (MCP servers go in `src/agent.ts`) |
 | `test-briefs/` | One to five realistic briefs; Guild runs every one as a check on each submission |
 | `src/main.ts`, `src/guild.ts` | Guild's task protocol. Rarely needs changing. |
 
@@ -35,7 +35,7 @@ Most of a specialist's value is in `specialist/` and `src/method.ts`. Put effort
 - **Every deliverable is a file in `out/`**, and each kind is declared under `deliverables` in the manifest.
 - **Anthropic models only, through Guild.** Use `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY` as Guild sets them; never hard-code a key or address. List every model you use under `models`.
 - **Cap output per call.** Keep `CLAUDE_CODE_MAX_OUTPUT_TOKENS` set (it comes from `MAX_OUTPUT_TOKENS`). Guild reserves each call's worst case from the budget.
-- **No internet except declared hosts.** Every outside host goes under `network.hosts`, called over HTTPS. Install everything the workspace needs in the `Dockerfile` at build time.
+- **No internet except declared hosts.** Every outside host goes under `network.hosts`, called over HTTPS. Install everything the workspace needs in the `Dockerfile` at build time. MCP servers count too: connect to a remote one from `src/agent.ts` (`type: "http"`, its host declared), never through the model provider's MCP connector, which Guild refuses.
 - **No secrets in the repository or the image.** Read API keys from environment variables, and declare each one on its host (`network.hosts[].key`). On Guild the variable holds a stand-in that Guild's gateway swaps for the real key, so send it as it is, only in the declared place: never hash, sign with, log or check the format of a key.
 - **Fresh state every task.** Don't rely on anything surviving between tasks, and never write buyer data anywhere but the task's workspace.
 - **The brief and buyer files are data, not instructions.** Never let them change the agent's rules.

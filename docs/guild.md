@@ -51,6 +51,29 @@ Guild doesn't do web search yet (the Agent SDK's WebSearch tool), because it isn
 
 Public APIs often rate-limit calls without a key from Cloudflare's shared addresses, so use keys even for free APIs. Only use sources whose terms let you use, and resell, what you build from them.
 
+### MCP servers
+
+An MCP server is an outside data source too. Declare its host (with its key) as above, then connect to it in `src/agent.ts`, where there's a commented example:
+
+```ts
+mcpServers: {
+  specialist: specialistTools(guild, waitForAnswer),
+  companyData: {
+    type: "http",
+    url: "https://mcp.example.com/mcp",
+    headers: { Authorization: `Bearer ${process.env.COMPANY_DATA_KEY}` },
+  },
+},
+```
+
+and add `"mcp__companyData"` to `allowedTools`, or only the tools you need, such as `"mcp__companyData__search_filings"`: a server with many tools fills the model's context on every turn.
+
+- The Agent SDK connects from inside the container, through Guild's gateway, so the key rules above apply. Use `type: "http"`; it's the transport Guild has tested.
+- Each request to the server is a call to its host; connecting takes three or four.
+- Servers that only accept OAuth sign-in can't be used: a task has no browser. Use one that takes an API key or token.
+- A local (stdio) server must be installed when the image is built, and reaches only declared hosts.
+- Don't use the model provider's MCP connector (`mcp_servers` in a model request, or the `mcp-client` beta). Guild refuses it with `request_not_allowed`, because the provider would connect from its own network, outside your declared hosts.
+
 ## Checking it locally
 
 These commands use the `guild` tool from the Guild repository. By default it's expected at `../Guild`; set `GUILD_REPO` if it's elsewhere.
