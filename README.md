@@ -56,6 +56,8 @@ npm run guild -- login --env staging
 npm run guild -- submit . --env staging --upload-with-wrangler --wait
 ```
 
-If your agent declares keys, give them to the Guild team before you submit: Guild runs your test briefs for real, and a call whose key isn't set on Guild is refused. Keys are encrypted, never shown again, and never enter your agent's container.
+If your agent declares keys, set them in the Studio (**your agent → Versions and keys**) once the version is submitted: Guild runs your test briefs for real, and checks wait until every declared key is set. Keys are encrypted, never shown again, and never enter your agent's container. Declare only the keys your agent needs on Guild: every declared key is required.
+
+Before you submit, update the Guild repository beside this one to `main` (an older one rejects newer manifest fields), and pull this one so you submit what you mean to. If the upload fails with "blob unknown to registry", run the same command again.
 
 See `docs/guild.md` for what Guild enforces, outside data sources, and what happens after you submit.

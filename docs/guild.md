@@ -40,7 +40,7 @@ Nothing survives between tasks: no files, no memory, nothing from one buyer reac
    ```
    `in` is `header` (with `name`), `query` (with `name`, the query parameter) or `basic` (the key as either half of HTTP basic auth). `maxCallsPerTask` caps keyed calls per task; the default is 1,000.
 2. Write a tool in `src/tools.ts` that calls it over HTTPS (there's a commented example).
-3. Read the key from its environment variable, `process.env.EXAMPLE_API_KEY`, and put it in exactly the declared place. Locally, pass the real key with `--agent-env EXAMPLE_API_KEY=…`. On Guild, give the key to the Guild team; it's encrypted, never shown again, and never enters the container.
+3. Read the key from its environment variable, `process.env.EXAMPLE_API_KEY`, and put it in exactly the declared place. Locally, pass the real key with `--agent-env EXAMPLE_API_KEY=…`. On Guild, set it in the Studio (**your agent → Versions and keys**); it's encrypted, never shown again, and never enters the container. Declare only the keys your agent needs on Guild: every declared key is required, and checks wait until all are set. A key the agent can do without stays undeclared and local.
 
 On Guild your agent only ever sees a stand-in, so:
 
@@ -88,6 +88,21 @@ npm run guild -- run . --brief test-briefs/example.json
 
 `run` builds the image and runs it in Docker, on a network whose only reachable host is a local stand-in for Guild. Model calls go to Anthropic with your own `ANTHROPIC_API_KEY`. Add `--mock-models` to test the plumbing without a key or cost. Results land in `.guild/runs/`.
 
+## HTML deliverables
+
+Buyers see an HTML deliverable on the task page in a sandbox: no scripts, no outside requests (stylesheets, fonts, images), no forms, and links that open only in a new tab. Markdown, plain text and images are shown as they are; other types download. So an HTML deliverable should stand alone:
+
+- CSS inline, in `<style>`.
+- Fonts and images embedded as `data:` URLs. For fonts, add the `@fontsource` packages to `dependencies` and read the `.woff2` files into `@font-face` rules when you write the file. Loading Google Fonts doesn't work on Guild, and tells a font host who's reading.
+- Outside links with `target="_blank" rel="noopener noreferrer"`.
+- Anything that needs a script hidden when scripts can't run, with a line saying the buyer can download the file to use it (a downloaded file runs normally). Use `!important`, because your own stylesheet comes later:
+
+```html
+<noscript><style>.needs-script { display: none !important; }</style></noscript>
+```
+
+Open a check's file from the Studio to see it exactly as buyers will.
+
 ## Submitting
 
 ```bash
@@ -98,7 +113,9 @@ npm run guild -- login --env staging
 npm run guild -- submit . --env staging --upload-with-wrangler --wait
 ```
 
-Bump `version` in the manifest for every submission. If a test brief makes the agent ask a question, Guild answers it automatically during checks ("no buyer is here: make a sensible assumption, state it and carry on"), so make sure the agent copes without an answer. Locally, answer with `--answer "…"` on `guild run`. Guild runs every test brief as a real task, and the version waits for review at Admin → Agents. It goes live only when every check has passed and an admin approves it. While the studio's upload credentials aren't set up, `--upload-with-wrangler` uploads with your Cloudflare login (`npx wrangler login`), and an admin redeploys the runtime after you submit.
+Bump `version` in the manifest for every submission. If a test brief makes the agent ask a question, Guild answers it automatically during checks ("no buyer is here: make a sensible assumption, state it and carry on"), so make sure the agent copes without an answer. Locally, answer with `--answer "…"` on `guild run`. Guild runs every test brief as a real task, at real model cost, then the version waits for review. Follow it in the Studio, under **your agent → Versions and keys**: each check as it runs, the files it delivered (opened in the same sandbox buyers get), and the review. It goes live only when every check has passed and an admin approves it. While the studio's upload credentials aren't set up, `--upload-with-wrangler` uploads with your Cloudflare login (`npx wrangler login`), and an admin redeploys the runtime after you submit.
+
+A version number can be submitted once, even if that version is rejected: bump it every time. Submit from an up-to-date checkout of this repository, with the Guild repository beside it on `main`. If the upload fails with "blob unknown to registry", run the same command again.
 
 ## The protocol, if you need it
 
