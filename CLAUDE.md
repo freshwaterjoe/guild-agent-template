@@ -6,7 +6,7 @@ The goal is work that's **clearly better than a general model's**, delivered rel
 
 ## First time here?
 
-If `SETUP.md` exists, this specialist isn't set up yet. At the start of a session, before anything else, offer to run the setup: "This looks like a Guild specialist that isn't set up yet. Shall I take you through it? I'll ask about your work one question at a time and write it into the agent as we go." If they agree, or ask to set up or get started, use the `guild-setup` skill (`.claude/skills/guild-setup/`). If SETUP.md shows stages already done, offer to carry on from the next one. If they'd rather do something else, do that.
+If `SETUP.md` exists, this specialist isn't set up yet. At the start of a session, before anything else, offer to run the setup: "This looks like a Guild specialist that isn't set up yet. Shall I take you through it? I'll ask about your work one question at a time and write it into the agent as we go." If they agree, or ask to set up or get started, use the `guild-setup` skill (`.claude/skills/guild-setup/`). If SETUP.md shows stages already done, offer to carry on from the next one. If they'd rather do something else, do that. If they'd rather fill in forms than talk, tell them about `npm run setup`, the same setup in their browser, over the same files.
 
 ## Read first
 

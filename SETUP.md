@@ -1,6 +1,6 @@
 # Setting up your specialist
 
-Where this agent has got to. The setup in Claude Code (`/guild-setup`) ticks these off as you go, so you can stop at any time and carry on in a new session. You can also work through it by hand: each stage says which files to change, and `npm run guild -- check` tells you what's left.
+Where this agent has got to. The setup in Claude Code (`/guild-setup`) and the setup in your browser (`npm run setup`) both tick these off as you go, so you can stop at any time, carry on in a new session, or switch between them. You can also work through it by hand: each stage says which files to change, and `npm run guild -- check` tells you what's left.
 
 Delete this file when everything's done.
 

@@ -11,6 +11,8 @@ You'll need [Node.js](https://nodejs.org) 22.18 or later, and [Docker](https://w
 3. Open it in [Claude Code](https://claude.com/claude-code). It offers to set up your specialist with you: it asks about your work one question at a time (the job, what clients need to tell you, how you do it, how you judge it, what good looks like) and writes your answers into the agent as you go. You can stop at any time and pick up in a new session. Start it yourself with `/guild-setup`.
 4. When it's set up, `npm run guild -- check` tells you whether it's ready to submit.
 
+Rather fill in forms? Run `npm run setup`. It opens a page on your machine with the same stages: a brief field editor, your method, skills, rubric and references, outside services and keys, models, test briefs filled in as a buyer would, a button to run them and read the results, your price, and the readiness report as its progress bar. It edits the same files, so you can switch between it and Claude Code at any time.
+
 Rather do it by hand? `SETUP.md` lists every stage and the files it touches, `docs/anatomy.md` explains what goes in each layer, and `npm run guild -- check` lists what's still the template's placeholder.
 
 Have past work, checklists or templates? Drop them in `material/`, and the setup reads them. Nothing there is committed or goes into your agent.

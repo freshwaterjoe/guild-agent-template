@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up your specialist</title>
+<style>
+:root {
+  --bg: #f7f6f3; --panel: #ffffff; --ink: #1d1c1a; --muted: #6b6860; --line: #e4e1da; --accent: #2f5d50;
+  --accent-ink: #ffffff; --fail: #b3261e; --warn: #8a5a00; --pass: #2f6b3a; --tip: #3b5b8c; --soft: #f0eee9;
+  --radius: 10px; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161615; --panel: #1f1e1c; --ink: #ecebe7; --muted: #a39f96; --line: #34322e; --accent: #7fb8a5; --accent-ink: #10201b;
+    --fail: #ff8a80; --warn: #e6b450; --pass: #8fd19e; --tip: #9ab8e6; --soft: #2a2926; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+header { position: sticky; top: 0; z-index: 2; display: flex; gap: 16px; align-items: center; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
+header h1 { font-size: 16px; margin: 0; flex: 1; }
+header .sub { color: var(--muted); font-weight: 400; }
+.pill { padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--soft); }
+.pill.fail { color: var(--fail); } .pill.pass { color: var(--pass); }
+.layout { display: grid; grid-template-columns: 250px 1fr; min-height: calc(100vh - 56px); }
+nav { border-right: 1px solid var(--line); padding: 12px 8px; background: var(--panel); }
+nav a { display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 8px; color: var(--ink); text-decoration: none; font-size: 14px; }
+nav a:hover { background: var(--soft); }
+nav a.active { background: var(--accent); color: var(--accent-ink); }
+nav .tick { width: 18px; text-align: center; color: var(--muted); }
+nav a.active .tick { color: inherit; }
+nav .badge { margin-left: auto; font-size: 12px; color: var(--fail); font-weight: 600; }
+nav a.active .badge { color: inherit; }
+main { padding: 24px 28px 80px; max-width: 980px; }
+h2 { margin: 0 0 4px; font-size: 22px; }
+h3 { margin: 24px 0 8px; font-size: 16px; }
+.lead { color: var(--muted); margin: 0 0 20px; }
+.grid { display: grid; grid-template-columns: 1fr 280px; gap: 24px; align-items: start; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+.ask { background: var(--soft); border-radius: var(--radius); padding: 14px 16px; font-size: 14px; position: sticky; top: 76px; }
+.ask h4 { margin: 0 0 6px; font-size: 13px; text-transform: none; color: var(--muted); }
+.ask ul { margin: 0; padding-left: 18px; } .ask li { margin: 4px 0; }
+label.field { display: block; margin: 0 0 14px; }
+label.field > span { display: block; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+label.field > small, .hint { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; }
+input[type=text], input[type=number], input[type=password], input[type=url], select, textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font: inherit; }
+textarea { min-height: 120px; resize: vertical; }
+textarea.doc { min-height: 380px; font-family: var(--mono); font-size: 13px; line-height: 1.55; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; } .row > * { flex: 1; min-width: 140px; }
+.check { display: flex; gap: 8px; align-items: center; margin: 6px 0 12px; font-size: 14px; }
+button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.danger { color: var(--fail); }
+button.link { border: none; background: none; padding: 0; color: var(--accent); text-decoration: underline; }
+button:disabled { opacity: .5; cursor: default; }
+.actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.saved { color: var(--pass); font-size: 13px; }
+.issues { border-left: 3px solid var(--fail); padding: 8px 12px; background: var(--soft); border-radius: 6px; margin: 0 0 14px; font-size: 14px; }
+.issues li { margin: 2px 0; }
+.finding { display: flex; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.finding:first-child { border-top: none; }
+.mark { width: 18px; flex: none; font-weight: 700; text-align: center; }
+.mark.fail { color: var(--fail); } .mark.warn { color: var(--warn); } .mark.pass { color: var(--pass); } .mark.tip { color: var(--tip); } .mark.todo { color: var(--muted); }
+pre.log { background: #111; color: #e8e6e1; padding: 12px; border-radius: 8px; max-height: 420px; overflow: auto; font: 12px/1.5 var(--mono); white-space: pre-wrap; }
+pre.file { background: var(--soft); padding: 14px; border-radius: 8px; max-height: 520px; overflow: auto; font: 13px/1.55 var(--mono); white-space: pre-wrap; }
+.item { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.item-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.item-head strong { flex: 1; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; } th, td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+code { font-family: var(--mono); font-size: 13px; background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+.note { font-size: 14px; color: var(--muted); }
+.toast { position: fixed; bottom: 18px; right: 18px; background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; font-size: 14px; max-width: 420px; }
+.toast.error { background: var(--fail); color: #fff; }
+.stage-done { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; align-content: start; } nav { border-right: none; border-bottom: 1px solid var(--line); display: flex; overflow-x: auto; } nav a { white-space: nowrap; } .grid { grid-template-columns: 1fr; } .ask { position: static; } main { padding: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Set up your specialist <span class="sub"></span></h1>
+  <span id="readiness" class="pill">Checking…</span>
+  <button id="recheck" type="button">Check again</button>
+</header>
+<div class="layout">
+  <nav id="nav" aria-label="Stages"></nav>
+  <main id="main"><p class="lead">Loading…</p></main>
+</div>
+<script>
+"use strict";
+const TOKEN = new URLSearchParams(location.search).get("t") || "";
+let S = null;          // the state from the server
+let current = location.hash.slice(1) || "job";
+let lastRunLog = "";   // the last run's output, kept while you move around
+
+// ---- Small helpers ----------------------------------------------------------------------
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs || {})) {
+    if (value === undefined || value === null || value === false) continue;
+    if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
+    else if (key === "class") el.className = value;
+    else if (key === "value") el.value = value;
+    else if (key === "checked") el.checked = Boolean(value);
+    else el.setAttribute(key, value === true ? "" : value);
+  }
+  for (const child of children.flat(Infinity)) {
+    if (child === null || child === undefined || child === false) continue;
+    el.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return el;
+}
+const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
+const dollars = (micros) => "$" + (micros / 1e6).toFixed(micros >= 1e6 ? 2 : 4);
+function toast(message, error) {
+  const el = h("div", { class: "toast" + (error ? " error" : ""), role: "status" }, message);
+  document.body.append(el);
+  setTimeout(() => el.remove(), error ? 7000 : 2500);
+}
+async function api(path, body) {
+  const response = await fetch(path, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "x-guild-setup": TOKEN, "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Something went wrong (" + response.status + ").");
+  if (data.state) { S = data.state; renderChrome(); }
+  return data;
+}
+async function streamTo(path, body, pre) {
+  pre.textContent = "";
+  const response = await fetch(path, { method: "POST", headers: { "x-guild-setup": TOKEN, "content-type": "application/json" }, body: JSON.stringify(body) });
+  if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || "Couldn't start."); }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    pre.textContent += decoder.decode(value, { stream: true });
+    pre.scrollTop = pre.scrollHeight;
+  }
+}
+function field(label, input, hint) { return h("label", { class: "field" }, h("span", {}, label), input, hint ? h("small", {}, hint) : null); }
+function text(value, onInput, attrs) { return h("input", { type: "text", value: value ?? "", oninput: (e) => onInput(e.target.value), ...attrs }); }
+function area(value, onInput, attrs) { return h("textarea", { oninput: (e) => onInput(e.target.value), ...attrs }, value ?? ""); }
+function number(value, onInput, attrs) { return h("input", { type: "number", value: value ?? "", oninput: (e) => onInput(e.target.value === "" ? undefined : Number(e.target.value)), ...attrs }); }
+function select(value, options, onChange) {
+  return h("select", { onchange: (e) => onChange(e.target.value) }, options.map(([v, label]) => h("option", { value: v, selected: v === value ? "selected" : null }, label)));
+}
+function checkbox(label, checked, onChange) { return h("label", { class: "check" }, h("input", { type: "checkbox", checked, onchange: (e) => onChange(e.target.checked) }), label); }
+function issuesFor(prefixes) {
+  const list = (S.issues || []).filter((issue) => prefixes.some((p) => issue.path === p || issue.path.startsWith(p + ".") || issue.path.startsWith(p + "[")));
+  return list.length ? h("ul", { class: "issues" }, list.map((i) => h("li", {}, h("code", {}, i.path || "manifest"), " ", i.message))) : null;
+}
+function saveButton(label, action) {
+  const status = h("span", { class: "saved" });
+  const button = h("button", { class: "primary", type: "button", onclick: async () => {
+    button.disabled = true;
+    try { await action(); status.textContent = "Saved"; setTimeout(() => (status.textContent = ""), 2500); render(); }
+    catch (error) { toast(error.message, true); }
+    finally { button.disabled = false; }
+  } }, label || "Save");
+  return [button, status];
+}
+async function saveManifest(manifest) {
+  const result = await api("/api/manifest", { manifest });
+  if (result.issues.length) toast(result.issues.length + " problem" + (result.issues.length === 1 ? "" : "s") + " in the manifest: see the notes in red.", true);
+}
+function asks(items) { return h("aside", { class: "ask" }, h("h4", {}, "Questions to think about"), h("ul", {}, items.map((item) => h("li", {}, item)))); }
+function stageToggle(number) {
+  const stage = (S.stages || []).find((s) => s.number === number);
+  if (!stage) return null;
+  return h("div", { class: "stage-done" }, checkbox("This stage is done (ticks it in SETUP.md, which Claude Code's /guild-setup reads too)", stage.done, async (done) => {
+    try { await api("/api/stage", { number, done }); render(); } catch (error) { toast(error.message, true); }
+  }));
+}
+function section(title, lead, body, asksList, stage) {
+  return [h("h2", {}, title), h("p", { class: "lead" }, lead), h("div", { class: "grid" }, h("div", {}, body, stageToggle(stage)), asksList ? asks(asksList) : h("div"))];
+}
+function needManifest() {
+  if (S.manifest) return null;
+  return h("div", { class: "issues" }, S.manifestError || "There's no manifest yet.", " Fix guild.manifest.json by hand, then press Check again.");
+}
+
+// ---- Brief fields: JSON Schema properties, as simple kinds -----------------------------------
+function kindOf(prop) {
+  if (prop.type === "string" && Array.isArray(prop.enum)) return "choice";
+  if (prop.type === "string" && !prop.format && !prop.pattern) return (prop.maxLength || 0) > 500 ? "long" : "text";
+  if (prop.type === "number") return "number";
+  if (prop.type === "integer") return "integer";
+  if (prop.type === "boolean") return "boolean";
+  return "advanced";
+}
+const KINDS = [["text", "Short text"], ["long", "Long text"], ["choice", "Choice from a list"], ["number", "Number"], ["integer", "Whole number"], ["boolean", "Yes or no"]];
+function applyKind(prop, kind) {
+  for (const key of ["type", "enum", "minLength", "maxLength", "minimum", "maximum"]) delete prop[key];
+  if (kind === "text") Object.assign(prop, { type: "string", maxLength: 500 });
+  if (kind === "long") Object.assign(prop, { type: "string", maxLength: 4000 });
+  if (kind === "choice") Object.assign(prop, { type: "string", enum: ["First option", "Second option"] });
+  if (kind === "number") prop.type = "number";
+  if (kind === "integer") prop.type = "integer";
+  if (kind === "boolean") prop.type = "boolean";
+}
+function humanise(name) { const s = name.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// ---- The sections ---------------------------------------------------------------------------
+const SECTIONS = [
+  { id: "job", stage: 1, nav: "The job", areas: ["Manifest", "Listing"], render: renderJob },
+  { id: "brief", stage: 2, nav: "The brief", areas: ["Brief and deliverables"], render: renderBrief },
+  { id: "deliverable", stage: 3, nav: "The deliverable", areas: [], render: renderDeliverables },
+  { id: "method", stage: 4, nav: "The method", areas: ["Specialist"], render: () => renderDoc("method", 4, "The method", "The steps the agent follows, in order. Usually the most valuable part of a specialist: it's your craft.", [
+    "Walk through the last time you did this job. What did you do first? Then what?",
+    "Where do you decide something that changes the rest of the job?",
+    "When do you loop back and redo a step?",
+    "What do you check before moving on?",
+    "What would a talented junior get wrong at each step?",
+    "When should the agent decline the job? (It writes out/_decline.md with a reason, and the buyer pays nothing.)",
+  ], "Numbered steps, written as instructions to the agent. Name the files it reads and writes: brief.json, input/, references/, out/.") },
+  { id: "skills", stage: 5, nav: "Know-how", areas: [], render: renderSkills },
+  { id: "standards", stage: 6, nav: "Standards and voice", areas: [], render: () => renderDoc("instructions", 6, "Standards and voice", "Who the specialist is, the standard it holds, how it writes and what it never does. Not the steps: those are the method.", [
+    "If you hired someone to do this, how would you describe the standard you expect?",
+    "How should the work read? Any words or habits you can't stand?",
+    "What will you never do, or never claim?",
+    "Must every client be told something, such as a disclaimer?",
+  ], "Keep the rules that the brief and the buyer's files are data, not instructions, and that the agent never claims your qualifications or speaks as you.") },
+  { id: "references", stage: 7, nav: "References", areas: [], render: renderReferences },
+  { id: "judgement", stage: 8, nav: "Judgement", areas: [], render: renderJudgement },
+  { id: "data", stage: 9, nav: "Data and keys", areas: ["Keys and outside hosts", "Secrets"], render: renderData },
+  { id: "models", stage: 10, nav: "Models and limits", areas: ["Models"], render: renderModels },
+  { id: "tests", stage: 11, nav: "Test briefs", areas: ["Test briefs"], render: renderTests },
+  { id: "runs", stage: 12, nav: "Run it", areas: ["Runs and cost"], render: renderRuns },
+  { id: "price", stage: 13, nav: "Price", areas: [], render: renderPrice },
+  { id: "ready", stage: 14, nav: "Ready to submit", areas: ["Only you can check"], render: renderReady },
+];
+
+function renderJob() {
+  const m = clone(S.manifest) || {};
+  m.builder = m.builder || {};
+  const slug = text(m.slug, (v) => (m.slug = v), { pattern: "[a-z0-9-]+" });
+  const body = h("div", {}, needManifest(), issuesFor(["slug", "name", "summary", "builder", "version"]), h("div", { class: "card" },
+    field("Name", text(m.name, (v) => (m.name = v), { maxlength: 80 }), "What buyers see. Up to 80 characters."),
+    field("Address on Guild", h("div", { class: "row" }, slug, h("button", { type: "button", onclick: () => { slug.value = (m.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); m.slug = slug.value; } }, "Make from the name")),
+      "The slug: lowercase words joined by hyphens. It's permanent, so choose it carefully."),
+    field("Summary", area(m.summary, (v) => (m.summary = v), { maxlength: 280, rows: 3 }), "The sentence a buyer reads first: the job, for whom, and why it beats a general model. Up to 280 characters. Never how it works inside."),
+    h("div", { class: "row" },
+      field("Built by", text(m.builder.name, (v) => (m.builder.name = v), { maxlength: 80 }), "Your name, or your business's."),
+      field("Your website", text(m.builder.url, (v) => (m.builder.url = v || undefined), { type: "url" }), "Optional.")),
+    field("Version", text(m.version, (v) => (m.version = v)), "Start at 0.1.0. Raise it for every submission."),
+    h("div", { class: "actions" }, saveButton("Save", () => saveManifest(m)))));
+  return section("The job", "What this agent does, for whom, and why someone would hire it rather than ask a general model.", body, [
+    "In a sentence or two: what job will it do, and for whom?",
+    "What does a general model get wrong about this work?",
+    "Who pays for this work today, and what do they pay a person?",
+    "If it's three jobs, which one would you start with?",
+  ], 1);
+}
+
+function renderBrief() {
+  const m = clone(S.manifest) || {};
+  m.inputs = m.inputs || { schema: { type: "object", properties: {}, required: [] } };
+  const schema = m.inputs.schema;
+  schema.properties = schema.properties || {};
+  schema.required = schema.required || [];
+  let entries = Object.entries(schema.properties);
+  const list = h("div");
+  const commit = () => { schema.properties = Object.fromEntries(entries); schema.required = schema.required.filter((n) => n in schema.properties); };
+  function draw() {
+    list.replaceChildren(...entries.map(([name, prop], index) => {
+      const kind = kindOf(prop);
+      const required = schema.required.includes(name);
+      const item = h("div", { class: "item" },
+        h("div", { class: "item-head" }, h("strong", {}, prop.title || humanise(name)), name.startsWith("_") ? h("span", { class: "note" }, "hidden from buyers") : null,
+          h("button", { type: "button", disabled: index === 0, onclick: () => { [entries[index - 1], entries[index]] = [entries[index], entries[index - 1]]; draw(); } }, "↑"),
+          h("button", { type: "button", disabled: index === entries.length - 1, onclick: () => { [entries[index + 1], entries[index]] = [entries[index], entries[index + 1]]; draw(); } }, "↓"),
+          h("button", { type: "button", class: "danger", onclick: () => { entries.splice(index, 1); draw(); } }, "Remove")),
+        h("div", { class: "row" },
+          field("Field name", text(name, (v) => { const clean = v.replace(/[^A-Za-z0-9_]/g, ""); if (required) schema.required = schema.required.map((n) => (n === name ? clean : n)); entries[index][0] = clean; name = clean; }), "For the agent: letters, numbers, underscores."),
+          field("Label", text(prop.title, (v) => (prop.title = v || undefined)), "What buyers see. Optional.")),
+        kind === "advanced" ? h("p", { class: "note" }, "This field uses settings the wizard doesn't edit. Change it in guild.manifest.json; it's kept as it is.") :
+        h("div", {},
+          field("Kind", select(kind, KINDS, (v) => { applyKind(prop, v); draw(); })),
+          field("Hint", text(prop.description, (v) => (prop.description = v || undefined)), "Shown under the field: what to put there, with an example."),
+          kind === "choice" ? field("Choices, one per line", area((prop.enum || []).join("\n"), (v) => (prop.enum = v.split("\n").map((s) => s.trim()).filter(Boolean)), { rows: 4 })) : null,
+          kind === "text" || kind === "long" ? h("div", { class: "row" },
+            field("Shortest answer", number(prop.minLength, (v) => (prop.minLength = v), { min: 0 }), "In characters. Optional."),
+            field("Longest answer", number(prop.maxLength, (v) => (prop.maxLength = v), { min: 1 }), "In characters.")) : null,
+          kind === "number" || kind === "integer" ? h("div", { class: "row" },
+            field("Lowest", number(prop.minimum, (v) => (prop.minimum = v))), field("Highest", number(prop.maximum, (v) => (prop.maximum = v)))) : null),
+        checkbox("Required: the work is impossible without it", required, (on) => { schema.required = on ? [...new Set([...schema.required, name])] : schema.required.filter((n) => n !== name); }));
+      return item;
+    }));
+  }
+  draw();
+  const add = h("button", { type: "button", onclick: () => { let n = 1; while (entries.some(([k]) => k === "field_" + n)) n++; entries.push(["field_" + n, { type: "string", maxLength: 500 }]); draw(); } }, "Add a field");
+
+  m.inputs.files = m.inputs.files;
+  const files = m.inputs.files || { accept: [], maxCount: 0, maxTotalBytes: 0 };
+  const TYPES = [["application/pdf", "PDF"], ["text/plain", "Text"], ["text/markdown", "Markdown"], ["text/csv", "CSV"], ["image/png", "PNG image"], ["image/jpeg", "JPEG image"],
+    ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "Word (needs a converter in the Dockerfile)"], ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Excel (needs a converter in the Dockerfile)"]];
+  const filesCard = h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "Files buyers can attach"),
+    TYPES.map(([type, label]) => checkbox(label, (files.accept || []).includes(type), (on) => { files.accept = on ? [...new Set([...(files.accept || []), type])] : files.accept.filter((t) => t !== type); })),
+    h("div", { class: "row" },
+      field("Most files", number(files.maxCount, (v) => (files.maxCount = v), { min: 0, max: 20 }), "0 to 20."),
+      field("Most in total (MB)", number(files.maxTotalBytes ? Math.round(files.maxTotalBytes / 1e6) : 0, (v) => (files.maxTotalBytes = Math.round((v || 0) * 1e6)), { min: 0, max: 100 }), "Up to 100 MB.")),
+    h("p", { class: "note" }, "Buyers can't yet be made to attach a file. If the work needs one, your method says what to do without it."));
+
+  m.questions = m.questions || { allowed: false, max: 0 };
+  const questions = h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "Questions during the job"),
+    checkbox("The agent may ask the buyer a question partway through", m.questions.allowed, (on) => { m.questions.allowed = on; m.questions.max = on ? Math.max(1, m.questions.max || 1) : 0; }),
+    field("Most questions", number(m.questions.max, (v) => (m.questions.max = v || 0), { min: 0, max: 5 }), "Most agents do better asking none and stating their assumptions. Buyers may take a while to answer."));
+
+  const intakeOn = Boolean(m.intake);
+  let intakeText = S.files.intake ?? "";
+  const tryNotes = area("", () => {}, { rows: 4, placeholder: "Paste some notes a buyer might send you…" });
+  const tryLog = h("pre", { class: "log", hidden: true });
+  const intakeCard = h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "Paste your notes"),
+    h("p", { class: "note" }, "Buyers paste their notes, an email or a description, and Guild fills in your brief from it and says what's missing. Guild runs it on Claude Haiku and pays for it. It sees only your brief's fields and these instructions, never your method. It suits fields of a few sentences, not whole documents."),
+    checkbox("Offer it on my agent's brief page", intakeOn, (on) => { if (on) m.intake = { modes: ["paste"], instructionsFile: "intake.md", ...(m.intake || {}) }; else delete m.intake; }),
+    field("What to find out (intake.md)", area(intakeText, (v) => (intakeText = v), { class: "doc", style: "min-height:160px" }), "What to find out, in what order, and what a good answer looks like. Never how the work is done."),
+    field("Line above the box", text(m.intake && m.intake.opening, (v) => { if (m.intake) m.intake.opening = v || undefined; }), "Optional, up to 500 characters."),
+    h("details", {}, h("summary", {}, "Try it with your own Anthropic key"), field("Notes", tryNotes),
+      h("button", { type: "button", onclick: async (e) => { e.target.disabled = true; tryLog.hidden = false; try { await saveAll(); await streamTo("/api/intake", { notes: tryNotes.value }, tryLog); } catch (error) { toast(error.message, true); } e.target.disabled = false; } }, "Fill in the brief"), tryLog));
+
+  async function saveAll() {
+    commit();
+    if (files.maxCount || (files.accept || []).length) m.inputs.files = files; else delete m.inputs.files;
+    if (m.intake || intakeText.trim()) await api("/api/file", { name: "intake", content: intakeText });
+    await saveManifest(m);
+  }
+  const body = h("div", {}, needManifest(), issuesFor(["inputs", "questions", "intake"]),
+    h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "Fields"), h("p", { class: "note" }, "Ask only for what changes the result. Three to six is typical."), list, add),
+    filesCard, questions, intakeCard, h("div", { class: "actions" }, saveButton("Save the brief", saveAll)));
+  return section("The brief", "What buyers fill in when they hire your agent.", body, [
+    "Before you start a job like this, what do you always need to know?",
+    "What do clients forget to tell you, that you have to chase?",
+    "Which of those are essential, and which are nice to have?",
+    "Do clients send files? What kinds?",
+    "Do clients often have messy notes rather than tidy answers? Then offer paste your notes.",
+  ], 2);
+}
+
+function renderDeliverables() {
+  const m = clone(S.manifest) || {};
+  m.deliverables = m.deliverables || [];
+  let outputs = (S.config.requiredOutputs || []).join(", ");
+  const TYPES = [["text/markdown", "Markdown"], ["text/html", "Web page (HTML)"], ["application/pdf", "PDF"], ["text/csv", "CSV"], ["application/json", "JSON"], ["image/png", "PNG image"], ["text/plain", "Text"]];
+  const list = h("div");
+  function draw() {
+    list.replaceChildren(...m.deliverables.map((d, index) => h("div", { class: "item" },
+      h("div", { class: "item-head" }, h("strong", {}, d.name || "New deliverable"), h("button", { type: "button", class: "danger", onclick: () => { m.deliverables.splice(index, 1); draw(); } }, "Remove")),
+      field("Name", text(d.name, (v) => (d.name = v)), "Lowercase words joined by hyphens, such as lease-review. Name the file after it: out/lease-review.md."),
+      field("What the buyer gets", text(d.description, (v) => (d.description = v), { maxlength: 280 }), "Written for the buyer. Up to 280 characters."),
+      h("div", {}, h("span", { class: "hint" }, "Formats"), TYPES.map(([type, label]) => checkbox(label, (d.contentTypes || []).includes(type), (on) => { d.contentTypes = on ? [...new Set([...(d.contentTypes || []), type])] : (d.contentTypes || []).filter((t) => t !== type); }))),
+      (d.contentTypes || []).includes("text/html") ? h("p", { class: "note" }, "Buyers see web pages in a sandbox with no scripts or outside requests: inline CSS, embedded images and fonts, outside links in a new tab.") : null)));
+  }
+  draw();
+  const body = h("div", {}, needManifest(), issuesFor(["deliverables"]), h("div", { class: "card" }, list,
+    h("button", { type: "button", onclick: () => { m.deliverables.push({ name: "", description: "", contentTypes: ["text/markdown"] }); draw(); } }, "Add a deliverable")),
+    S.config.requiredOutputs ? h("div", { class: "card" }, field("Files that must be written", text(outputs, (v) => (outputs = v)), "Comma-separated file names in out/, such as lease-review.md. The work only counts as done when each exists and isn't empty (REQUIRED_OUTPUTS in src/config.ts). Use the same names in your method and rubric.")) : null,
+    h("div", { class: "actions" }, saveButton("Save", async () => {
+      if (S.config.requiredOutputs) await api("/api/models", { requiredOutputs: outputs.split(",").map((s) => s.trim()).filter(Boolean) });
+      await saveManifest(m);
+    })));
+  return section("The deliverable", "What buyers get at the end. Every file the agent writes to out/ is delivered.", body, [
+    "What does the client get at the end?",
+    "What format do they want it in?",
+    "How long or big is a typical one? What's its structure?",
+    "Can you add one you're proud of to References? What makes it excellent?",
+  ], 3);
+}
+
+function renderDoc(name, stage, title, lead, asksList, hint) {
+  let content = S.files[name] ?? "";
+  const body = h("div", {}, h("div", { class: "card" }, field(TEXTS[name], area(content, (v) => (content = v), { class: "doc" }), hint),
+    h("p", { class: "note" }, "Notes inside <!-- … --> are for you: the agent never sees them. Put anything unfinished in one, as <!-- TODO: … -->."),
+    h("div", { class: "actions" }, saveButton("Save", () => api("/api/file", { name, content })))));
+  return section(title, lead, body, asksList, stage);
+}
+const TEXTS = { method: "specialist/method.md", instructions: "specialist/instructions.md", rubric: "specialist/rubric.md" };
+
+function renderSkills() {
+  const list = h("div");
+  let editing = null;
+  function draw() {
+    list.replaceChildren(...S.skills.map((skill) => h("div", { class: "item" },
+      h("div", { class: "item-head" }, h("strong", {}, skill.folder), skill.folder === "example-know-how" ? h("span", { class: "note" }, "the template's example") : null,
+        h("button", { type: "button", onclick: () => { editing = { ...skill, previous: skill.folder }; draw(); } }, "Edit"),
+        h("button", { type: "button", class: "danger", onclick: async () => { if (!confirm("Delete the skill " + skill.folder + "?")) return; try { await api("/api/skill/delete", { folder: skill.folder }); render(); } catch (e) { toast(e.message, true); } } }, "Delete")),
+      h("div", { class: "note" }, skill.description || "No description: the agent won't know when to use it."))), editing ? editor() : h("button", { type: "button", onclick: () => { editing = { folder: "", description: "", body: "" }; draw(); } }, "Add a skill"));
+  }
+  function editor() {
+    const e = editing;
+    return h("div", { class: "card" },
+      field("Name", text(e.folder, (v) => (e.folder = v)), "Lowercase words joined by hyphens: the topic, such as rent-reviews."),
+      field("When to use it", text(e.description, (v) => (e.description = v)), "The agent picks skills by this. Say when it applies: \"Use whenever a lease mentions rent reviews.\""),
+      field("The know-how", area(e.body, (v) => (e.body = v), { class: "doc" }), "Concrete rules, thresholds and examples beat principles."),
+      h("div", { class: "actions" }, saveButton("Save the skill", async () => { await api("/api/skill", e); editing = null; }), h("button", { type: "button", onclick: () => { editing = null; draw(); } }, "Cancel")));
+  }
+  draw();
+  return section("Know-how", "What you know that a general model gets wrong, one topic per skill.", h("div", {}, list), [
+    "What do you know about this work that a general model gets wrong?",
+    "What are your rules of thumb?",
+    "Do you use checklists, frameworks or house rules?",
+    "What did it take you years to learn?",
+  ], 5);
+}
+
+function renderReferences() {
+  const input = h("input", { type: "file", multiple: true });
+  const upload = h("button", { type: "button", class: "primary", onclick: async () => {
+    upload.disabled = true;
+    try {
+      for (const file of input.files) {
+        const base64 = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result).split(",")[1] || ""); r.onerror = reject; r.readAsDataURL(file); });
+        await api("/api/reference", { name: file.name, base64 });
+      }
+      input.value = ""; toast("Added"); render();
+    } catch (error) { toast(error.message, true); }
+    upload.disabled = false;
+  } }, "Add files");
+  const body = h("div", {}, h("div", { class: "card" },
+    S.references.length ? h("table", {}, h("tr", {}, h("th", {}, "File"), h("th", {}, "Size"), h("th", {})), S.references.map((ref) => h("tr", {}, h("td", {}, ref.name), h("td", {}, Math.max(1, Math.round(ref.bytes / 1024)) + " KB"),
+      h("td", {}, ref.name === "README.md" ? null : h("button", { type: "button", class: "danger", onclick: async () => { if (!confirm("Remove " + ref.name + "?")) return; try { await api("/api/reference/delete", { name: ref.name }); render(); } catch (e) { toast(e.message, true); } } }, "Remove"))))) : h("p", { class: "note" }, "No references yet."),
+    h("h3", {}, "Add references"), input, h("div", { class: "actions" }, upload),
+    h("p", { class: "note" }, "Small, plain files work best: Markdown, text, CSV, small images. Anonymise client details, add a note on what makes each one excellent, and only add what you have the right to use in a paid service. Everything here goes into your agent; buyers never see it.")));
+  return section("References", "Examples of excellent work, templates and house styles for the agent to study. Often worth more than any instruction.", body, [
+    "Which three examples would you show a talented junior?",
+    "Do you have a template or outline you always start from?",
+    "Is there bad work that teaches something? Label it clearly.",
+    "Do you have the right to use these?",
+  ], 7);
+}
+
+function renderJudgement() {
+  const m = clone(S.manifest) || {};
+  m.checks = m.checks || [];
+  let rubric = S.files.rubric ?? "";
+  const checks = h("div");
+  function draw() {
+    checks.replaceChildren(...m.checks.map((c, index) => h("div", { class: "row" },
+      text(c.id, (v) => (c.id = v), { placeholder: "id" }), text(c.description, (v) => (c.description = v), { placeholder: "What buyers are told it checks", style: "flex:3" }),
+      h("button", { type: "button", class: "danger", style: "flex:none", onclick: () => { m.checks.splice(index, 1); draw(); } }, "Remove"))),
+      h("button", { type: "button", onclick: () => { m.checks.push({ id: "", description: "" }); draw(); } }, "Add a check"));
+  }
+  draw();
+  const body = h("div", {}, issuesFor(["checks"]), h("div", { class: "card" }, field("specialist/rubric.md", area(rubric, (v) => (rubric = v), { class: "doc" }), "Must-haves a reviewer can check by reading the work (fail if any is missing), then quality points. The agent sees this too, and checks its own work against it.")),
+    h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "Checks buyers are told about"), h("p", { class: "note" }, "Shown on your listing as checks the agent runs before delivery. List only what really runs."), checks),
+    h("div", { class: "actions" }, saveButton("Save", async () => { await api("/api/file", { name: "rubric", content: rubric }); await saveManifest(m); })));
+  return section("Judgement", "The bar the work must clear before it's delivered. A separate reviewer reads the work against your rubric, and the agent revises until it passes.", body, [
+    "When you review someone else's work like this, what do you check first?",
+    "What makes you send work back?",
+    "What would make you refuse to deliver it at all?",
+    "Could a program check anything: every section present, numbers adding up?",
+  ], 8);
+}
+
+function renderData() {
+  const m = clone(S.manifest) || {};
+  m.network = m.network || { hosts: [] };
+  const list = h("div");
+  function draw() {
+    list.replaceChildren(...m.network.hosts.map((host, index) => h("div", { class: "item" },
+      h("div", { class: "item-head" }, h("strong", {}, host.host || "New service"), h("button", { type: "button", class: "danger", onclick: () => { m.network.hosts.splice(index, 1); draw(); } }, "Remove")),
+      h("div", { class: "row" }, field("Address", text(host.host, (v) => (host.host = v.replace(/^https?:\/\//, "").replace(/\/.*$/, ""))), "The host name, such as api.example.com."),
+        field("What it's for", text(host.purpose, (v) => (host.purpose = v), { maxlength: 280 }), "Buyers and reviewers see this.")),
+      checkbox("It needs a key", Boolean(host.key), (on) => { if (on) host.key = { secret: "", in: "header", name: "Authorization", maxCallsPerTask: 50 }; else delete host.key; draw(); }),
+      host.key ? h("div", {},
+        h("div", { class: "row" },
+          field("Key's name", text(host.key.secret, (v) => (host.key.secret = v.trim().toUpperCase().replace(/[\s-]+/g, "_").replace(/[^A-Z0-9_]/g, ""))), "Capitals and underscores, such as EXAMPLE_API_KEY. Your code reads it from this environment variable."),
+          field("Where it goes", select(host.key.in, [["header", "A header"], ["query", "A query parameter"], ["basic", "Basic sign-in"]], (v) => { host.key.in = v; if (v === "basic") delete host.key.name; else host.key.name = host.key.name || "Authorization"; draw(); })),
+          host.key.in === "basic" ? null : field(host.key.in === "header" ? "Header" : "Parameter", text(host.key.name, (v) => (host.key.name = v)))),
+        h("div", { class: "row" },
+          field("Most calls per task", number(host.key.maxCallsPerTask, (v) => (host.key.maxCallsPerTask = v), { min: 1, max: 10000 }), "About what one task needs. A low limit stops a brief from talking your agent into spending your credit."),
+          h("div", {}, checkbox("The agent can do without it", host.key.required === false, (on) => { if (on) host.key.required = false; else delete host.key.required; })))) : null)));
+  }
+  draw();
+  const keys = h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "Keys on this machine"),
+    h("p", { class: "note" }, "For running your agent here. They're saved in .env, which git and Docker ignore, and never shown again. On Guild, you set your agent's keys in the Studio after submitting, and they never enter its container."),
+    S.keys.map((key) => { const input = h("input", { type: "password", placeholder: key.set ? "Set. Paste a new one to replace it" : "Paste the key", autocomplete: "off" });
+      return h("div", { class: "row", style: "align-items:center;margin-bottom:8px" }, h("code", { style: "flex:none;min-width:200px" }, key.name), h("span", { class: "note", style: "flex:none;min-width:60px" }, key.set ? "set" : "not set"), input,
+        h("button", { type: "button", style: "flex:none", onclick: async () => { try { await api("/api/key", { name: key.name, value: input.value }); input.value = ""; toast("Saved to .env"); render(); } catch (e) { toast(e.message, true); } } }, "Save")); }));
+  const body = h("div", {}, needManifest(), issuesFor(["network"]), h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "Outside services"),
+    h("p", { class: "note" }, "Agents can reach only the services listed here, over HTTPS. Each also needs code that calls it: a tool in src/tools.ts, or an MCP server in src/agent.ts. Ask Claude Code or a developer to write it; docs/guild.md explains how."), list,
+    h("button", { type: "button", onclick: () => { m.network.hosts.push({ host: "", purpose: "" }); draw(); } }, "Add a service")),
+    h("div", { class: "actions" }, saveButton("Save", () => saveManifest(m))), keys);
+  return section("Data and keys", "Information a model doesn't have: databases, APIs, registries, your own data.", body, [
+    "Does the work need information a model doesn't have?",
+    "Do you have an account and key, and may you use and resell what you build from it?",
+    "Could the agent manage without it, if the key isn't set?",
+    "What tools would you reach for: to render, calculate, convert or validate?",
+  ], 9);
+}
+
+function renderModels() {
+  const m = clone(S.manifest) || {};
+  m.limits = m.limits || {};
+  m.revisions = m.revisions || { included: 1 };
+  const models = S.options.models.map((x) => [x.id, x.id + (x.input ? "  ($" + (x.input / 1e6).toFixed(2) + " in, $" + (x.output / 1e6).toFixed(2) + " out per million tokens)" : "")]);
+  let model = S.config.model, reviewModel = S.config.reviewModel;
+  const body = h("div", {}, needManifest(), issuesFor(["models", "limits", "revisions"]), h("div", { class: "card" },
+    S.config.model ? h("div", { class: "row" },
+      field("Does the work", select(model, models, (v) => (model = v)), "Opus 5.5 suits most expert work; Sonnet 5.5 is cheaper for simpler jobs; Fable 5.2 for the hardest reasoning, at twice Opus's price."),
+      field("Reviews the work", select(reviewModel, models, (v) => (reviewModel = v)), "The same model is safest; a cheaper one if the rubric is mechanical.")) :
+      h("p", { class: "note" }, "src/config.ts doesn't use the template's MODEL lines, so change models there by hand, and list each one in the manifest."),
+    h("div", { class: "row" },
+      field("Budget per task ($)", number(m.limits.budgetMicros ? m.limits.budgetMicros / 1e6 : undefined, (v) => (m.limits.budgetMicros = Math.round((v || 0) * 1e6)), { min: 0, max: 50, step: 0.5 }), "Model spend cap, up to $50. Start at about three times a typical run's cost."),
+      field("Deadline (minutes)", number(m.limits.deadlineSeconds ? Math.round(m.limits.deadlineSeconds / 60) : undefined, (v) => (m.limits.deadlineSeconds = Math.round((v || 0) * 60)), { min: 1, max: 240 }), "1 to 240.")),
+    h("div", { class: "row" },
+      field("Container size", select(m.limits.instance, S.options.instances.map((i) => [i, i]), (v) => (m.limits.instance = v)), "standard-1 or larger for the Agent SDK."),
+      field("Revisions included", number(m.revisions.included, (v) => (m.revisions.included = v), { min: S.options.revisions.min, max: S.options.revisions.max }), "How many times a buyer can ask for changes, with feedback. 1 is usual; you pay each revision's model cost.")),
+    h("div", { class: "actions" }, saveButton("Save", async () => {
+      if (S.config.model) {
+        await api("/api/models", { model, reviewModel });
+        m.models = m.models || [];
+        for (const id of [model, reviewModel]) if (!m.models.some((x) => x.model === id)) m.models.push({ provider: "anthropic", model: id });
+      }
+      await saveManifest(m);
+    }))));
+  return section("Models and limits", "Which Claude models do the work, and the limits Guild holds each task to.", body, null, 10);
+}
+
+function briefInput(prop, value, onInput) {
+  const kind = kindOf(prop);
+  if (kind === "choice") return select(value ?? "", [["", "(not set)"], ...prop.enum.map((v) => [v, v])], (v) => onInput(v || undefined));
+  if (kind === "boolean") return select(value === true ? "yes" : value === false ? "no" : "", [["", "(not set)"], ["yes", "Yes"], ["no", "No"]], (v) => onInput(v === "" ? undefined : v === "yes"));
+  if (kind === "number" || kind === "integer") return number(value, onInput);
+  if (kind === "long") return area(value, (v) => onInput(v || undefined), { rows: 5 });
+  if (kind === "text") return text(value, (v) => onInput(v || undefined));
+  return area(value === undefined ? "" : JSON.stringify(value), (v) => { try { onInput(v ? JSON.parse(v) : undefined); } catch { /* keep typing */ } }, { rows: 3, placeholder: "JSON" });
+}
+
+/** A brief's schema problem in plain words, where it's a common one. */
+function plainIssue(issue) {
+  const missing = issue.match(/required property "([^"]+)"/);
+  if (missing) return "Missing " + labelFor(missing[1]) + ", which is required.";
+  const tooLong = issue.match(/^brief\/([^:]+): String is too long/i);
+  if (tooLong) return labelFor(tooLong[1]) + " is longer than the field allows.";
+  return issue;
+}
+function labelFor(name) { const prop = (((S.manifest || {}).inputs || {}).schema?.properties || {})[name]; return "“" + ((prop && prop.title) || humanise(name)) + "”"; }
+
+function renderTests() {
+  const props = Object.entries(((S.manifest || {}).inputs || {}).schema?.properties || {});
+  let editing = null;
+  const list = h("div");
+  function draw() {
+    list.replaceChildren(...S.testBriefs.map((t) => h("div", { class: "item" },
+      h("div", { class: "item-head" }, h("strong", {}, t.name), h("button", { type: "button", onclick: () => { editing = { name: t.name, previous: t.name, brief: clone(t.brief) || {} }; draw(); } }, "Edit"),
+        h("button", { type: "button", class: "danger", onclick: async () => { if (!confirm("Delete " + t.name + "?")) return; try { await api("/api/test-brief/delete", { name: t.name }); render(); } catch (e) { toast(e.message, true); } } }, "Delete")),
+      t.issues.length ? h("ul", { class: "issues" }, t.issues.map((i) => h("li", {}, plainIssue(i)))) : h("div", { class: "note" }, "Matches the brief."))),
+      editing ? editor() : S.testBriefs.length < 5 ? h("button", { type: "button", onclick: () => { editing = { name: "", brief: {} }; draw(); } }, "Add a test brief") : h("p", { class: "note" }, "Guild runs at most five."));
+  }
+  function editor() {
+    const e = editing;
+    return h("div", { class: "card" }, field("Name", text(e.name, (v) => (e.name = v)), "What it tests: typical, messy, thin."),
+      props.map(([name, prop]) => field((prop.title || humanise(name)) + ((S.manifest.inputs.schema.required || []).includes(name) ? " (required)" : ""), briefInput(prop, e.brief[name], (v) => { if (v === undefined) delete e.brief[name]; else e.brief[name] = v; }), prop.description)),
+      h("div", { class: "actions" }, saveButton("Save the test brief", async () => { await api("/api/test-brief", e); editing = null; }), h("button", { type: "button", onclick: () => { editing = null; draw(); } }, "Cancel")));
+  }
+  draw();
+  return section("Test briefs", "Three to five realistic briefs, filled in as a buyer would. Guild runs every one as a real task on each submission, and review reads the results.", h("div", {}, list,
+    h("p", { class: "note" }, "Each must be one your agent should complete: a check that declines fails. Test briefs can't carry files yet.")), [
+    "Think of a real job you did recently, anonymised. Turn it into a brief.",
+    "What's a hard one: messy, ambiguous, or bigger than usual?",
+    "What's a thin one: the least a buyer might give you?",
+  ], 11);
+}
+
+function renderRuns() {
+  const log = h("pre", { class: "log", hidden: !lastRunLog }, lastRunLog);
+  const viewer = h("div");
+  const keySet = (S.keys.find((k) => k.name === "ANTHROPIC_API_KEY") || {}).set;
+  const run = (mock) => async (e) => {
+    const buttons = e.target.parentElement.querySelectorAll("button"); buttons.forEach((b) => (b.disabled = true));
+    log.hidden = false;
+    try { await streamTo("/api/run", { mock }, log); lastRunLog = log.textContent; await api("/api/check", {}); render(); } catch (error) { lastRunLog = log.textContent; toast(error.message, true); }
+    buttons.forEach((b) => (b.disabled = false));
+  };
+  const runs = S.readiness.runs || [];
+  const table = runs.length ? h("table", {}, h("tr", {}, h("th", {}, "Test brief"), h("th", {}, "Last run"), h("th", {}, "Time"), h("th", {}, "Model cost"), h("th", {}, "Files")),
+    runs.map((r) => h("tr", {}, h("td", {}, r.brief), h("td", {}, r.outcome === "not-run" ? "not run" : r.outcome + (r.mocked ? " (mock models)" : "")), h("td", {}, r.seconds == null ? "" : r.seconds < 60 ? r.seconds + " s" : Math.floor(r.seconds / 60) + " min " + (r.seconds % 60) + " s"),
+      h("td", {}, r.costMicros == null ? "" : dollars(r.costMicros)),
+      h("td", {}, (r.delivered || []).map((name) => h("div", {}, h("button", { type: "button", class: "link", onclick: async () => {
+        try { const response = await fetch("/api/run-file?run=" + encodeURIComponent(r.runDir) + "&name=" + encodeURIComponent(name), { headers: { "x-guild-setup": TOKEN } });
+          const body = await response.text(); viewer.replaceChildren(h("h3", {}, r.brief + ": " + name), h("pre", { class: "file" }, body)); viewer.scrollIntoView({ behavior: "smooth" }); } catch (err) { toast(err.message, true); } } }, name))), r.reason && r.outcome !== "completed" ? h("div", { class: "note" }, r.reason) : null)))) : h("p", { class: "note" }, "No test briefs yet.");
+  const body = h("div", {}, h("div", { class: "card" },
+    h("p", {}, "Runs every test brief in Docker, sealed off as on Guild, with your own Anthropic key. Each is held to your budget, so at most " + dollars(((S.manifest || {}).limits || {}).budgetMicros || 0) + " a brief, usually much less."),
+    keySet ? null : h("p", { class: "issues" }, "Add your Anthropic key under Data and keys first, or run with mock models to test the plumbing for free."),
+    h("div", { class: "actions" }, h("button", { type: "button", class: "primary", disabled: !keySet, onclick: run(false) }, "Run the test briefs"), h("button", { type: "button", onclick: run(true) }, "Plumbing only (free)")),
+    h("p", { class: "note" }, "Needs Docker running. The first run builds your agent's image, which takes a few minutes."), log),
+    h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "Results"), table, h("p", { class: "note" }, "Read every result as a buyer would. Would you be happy to be paid for it? Change the method, skills, references or rubric, then run again.")), viewer);
+  return section("Run it", "See the work your agent does, and what each task costs.", body, null, 12);
+}
+
+function renderPrice() {
+  const m = clone(S.manifest) || {};
+  m.pricing = m.pricing || { currency: "USD", tiers: [] };
+  const list = h("div");
+  function draw() {
+    list.replaceChildren(...m.pricing.tiers.map((tier, index) => h("div", { class: "item" },
+      h("div", { class: "item-head" }, h("strong", {}, tier.name || "New price"), m.pricing.tiers.length > 1 ? h("button", { type: "button", class: "danger", onclick: () => { m.pricing.tiers.splice(index, 1); draw(); } }, "Remove") : null),
+      h("div", { class: "row" }, field("Name", text(tier.name, (v) => (tier.name = v))), field("Id", text(tier.id, (v) => (tier.id = v)), "Lowercase, such as standard."),
+        field("Price (US dollars)", number(tier.priceCents ? tier.priceCents / 100 : undefined, (v) => (tier.priceCents = Math.round((v || 0) * 100)), { min: 0, step: 1 }))),
+      field("Description", text(tier.description, (v) => (tier.description = v || undefined)), "Optional."))));
+  }
+  draw();
+  const margins = (S.readiness.findings || []).filter((f) => f.area === "Runs and cost" && /your share/.test(f.message));
+  const cost = (S.readiness.findings || []).find((f) => /Model cost per task/.test(f.message));
+  const body = h("div", {}, needManifest(), issuesFor(["pricing"]), h("div", { class: "card" }, list,
+    h("p", { class: "note" }, "Guild doesn't yet tell your agent which price a buyer chose, so one price is simplest.")),
+    h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "What you'd make"),
+      h("p", { class: "note" }, "Guild takes " + S.options.commissionBps / 100 + "% when your agent delivers. You pay model costs from your share, for every attempt and revision."),
+      cost ? h("p", {}, cost.message) : h("p", { class: "note" }, "Run your test briefs to see what a task costs."), margins.map((f) => h("p", {}, f.message))),
+    h("div", { class: "actions" }, saveButton("Save", () => saveManifest(m))));
+  return section("Price", "Price on the value of the work to the buyer, then check the cost leaves you enough.", body, [
+    "What would you charge a client for this? How long does it take you?",
+    "What's the result worth to the buyer?",
+  ], 13);
+}
+
+const MARKS = { fail: "✗", warn: "!", tip: "+", todo: "☐", pass: "✓" };
+function findingList(findings) { return findings.map((f) => h("div", { class: "finding" }, h("span", { class: "mark " + f.level }, MARKS[f.level]), h("span", {}, f.message))); }
+function renderReady() {
+  const r = S.readiness;
+  const areas = [...new Set(r.findings.map((f) => f.area))];
+  const order = ["fail", "warn", "tip", "todo", "pass"];
+  const body = h("div", {}, h("div", { class: "card" }, h("p", {}, h("strong", {}, r.ready ? "Ready to submit, once you've gone through what only you can check." : "Not ready yet: " + r.counts.fail + " to fix.")),
+    h("p", { class: "note" }, MARKS.fail + " fix before submitting · " + MARKS.warn + " worth fixing · " + MARKS.tip + " would make it better · " + MARKS.todo + " only you can check · " + MARKS.pass + " done")),
+    areas.map((area) => h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, area), findingList(r.findings.filter((f) => f.area === area).sort((a, b) => order.indexOf(a.level) - order.indexOf(b.level))))),
+    h("div", { class: "card" }, h("h3", { style: "margin-top:0" }, "Submitting"), h("p", {}, "When it's ready, in a terminal in this folder: sign in once, then submit."),
+      h("pre", { class: "file" }, "npm run guild -- login\nnpm run guild -- submit . --wait"), h("p", { class: "note" }, "Then set any keys in the Studio (your agent → Versions and keys). Guild runs your test briefs as checks, and a person reviews the results.")));
+  return section("Ready to submit", "Guild's readiness check, run on this folder. It calls no models.", body, null, 14);
+}
+
+// ---- Chrome: header and navigation ---------------------------------------------------------------
+function renderChrome() {
+  const r = S.readiness;
+  const title = document.querySelector("#title .sub");
+  title.textContent = S.manifest && S.manifest.name ? "· " + S.manifest.name : "";
+  const pill = document.getElementById("readiness");
+  pill.className = "pill " + (r.ready ? "pass" : "fail");
+  pill.textContent = r.ready ? "Ready to submit" : r.counts.fail + " to fix";
+  const nav = document.getElementById("nav");
+  nav.replaceChildren(...SECTIONS.map((s) => {
+    const stage = (S.stages || []).find((x) => x.number === s.stage);
+    const fails = r.findings.filter((f) => f.level === "fail" && s.areas.includes(f.area)).length;
+    return h("a", { href: "#" + s.id, class: s.id === current ? "active" : "" }, h("span", { class: "tick" }, stage && stage.done ? "✓" : String(s.stage)), s.nav, fails ? h("span", { class: "badge" }, fails) : null);
+  }));
+}
+function render() {
+  if (!S) return;
+  renderChrome();
+  const s = SECTIONS.find((x) => x.id === current) || SECTIONS[0];
+  document.getElementById("main").replaceChildren(...[s.render()].flat());
+}
+window.addEventListener("hashchange", () => { current = location.hash.slice(1) || "job"; render(); window.scrollTo(0, 0); });
+document.getElementById("recheck").addEventListener("click", async () => { try { await api("/api/check", {}); render(); toast("Checked"); } catch (e) { toast(e.message, true); } });
+api("/api/state").then((data) => { S = data; render(); }).catch((error) => { document.getElementById("main").replaceChildren(h("p", { class: "issues" }, error.message)); });
+</script>
+</body>
+</html>
