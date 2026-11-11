@@ -2,7 +2,9 @@
 // the file to shape around your craft (docs/anatomy.md, "Method").
 //
 //   1. Prepare   a fresh workspace: the brief, the buyer's files, your skills and references
-//   2. Work      one Agent SDK session, following specialist/method.md
+//                (and, for a buyer's revision, the earlier delivery in previous/)
+//   2. Work      one Agent SDK session, following specialist/method.md. If the job can't be
+//                done well, the agent writes out/_decline.md and the task fails with its reason
 //   3. Judge     checks in code, then a review against specialist/rubric.md
 //   4. Revise    if the work falls short, the same session fixes what review found
 //   5. Deliver   everything in out/, with a summary
@@ -32,13 +34,26 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
 
     // 2. Work ----------------------------------------------------------------
     await guild.progress("Starting work", 10);
-    let result = await work({ workdir, brief: task.brief, guild, signal, waitForAnswer: control.waitForAnswer });
+    let result = await work({
+      workdir,
+      brief: task.brief,
+      guild,
+      signal,
+      waitForAnswer: control.waitForAnswer,
+      buyerRevision: task.revision ? { number: task.revision.number, feedback: task.revision.feedback } : undefined,
+    });
 
     // 3 and 4. Judge, then revise until the work passes or revisions run out --
     for (let revision = 0; ; revision++) {
       if (signal.aborted) return;
       if (!result.ok) {
         await guild.fail(result.summary, true);
+        return;
+      }
+      // The agent decided the job can't be done well: say why, rather than deliver weak work.
+      const decline = await declineReason(workdir);
+      if (decline) {
+        await guild.fail(decline, false);
         return;
       }
       await guild.progress(revision === 0 ? "Checking the work" : `Checking the revision (${revision})`, 80);
@@ -80,6 +95,7 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
  *
  *   brief.json          the buyer's brief
  *   input/              the buyer's files
+ *   previous/           for a buyer's revision: the delivery being revised
  *   references/         your reference library (specialist/references)
  *   .claude/skills/     your skills (specialist/skills), loaded by the Agent SDK
  *   out/                what the agent delivers
@@ -93,6 +109,19 @@ async function prepareWorkspace(workdir: string, task: StartTaskRequest, guild: 
   for (const file of task.files) {
     await writeFile(join(workdir, "input", file.name), await guild.readFile(file.name));
   }
+  // A buyer's revision: the delivery being revised goes in previous/.
+  if (task.revision) {
+    await mkdir(join(workdir, "previous"), { recursive: true });
+    for (const file of task.revision.files) {
+      await writeFile(join(workdir, "previous", file.name), await guild.readRevisionFile(file.name));
+    }
+  }
+}
+
+/** The agent's reason for declining, from out/_decline.md, if it wrote one. */
+async function declineReason(workdir: string): Promise<string | null> {
+  const text = await readFile(join(workdir, "out", "_decline.md"), "utf8").catch(() => "");
+  return text.trim() ? text.trim().slice(0, 1500) : null;
 }
 
 const CONTENT_TYPES: Record<string, string> = {

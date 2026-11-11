@@ -1,6 +1,11 @@
 node_modules
 .guild
 .git
+.env*
+.claude
+material
+guild-kit
 docs
 README.md
 CLAUDE.md
+SETUP.md

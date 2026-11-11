@@ -28,10 +28,17 @@
           "description": "Anything else: context, constraints, examples."
         }
       },
-      "required": ["question"]
+      "required": [
+        "question"
+      ]
     },
     "files": {
-      "accept": ["text/plain", "text/markdown", "text/csv", "application/pdf"],
+      "accept": [
+        "text/plain",
+        "text/markdown",
+        "text/csv",
+        "application/pdf"
+      ],
       "maxCount": 5,
       "maxTotalBytes": 10000000
     }
@@ -40,7 +47,9 @@
     {
       "name": "report",
       "description": "The finished work, ready to use.",
-      "contentTypes": ["text/markdown"]
+      "contentTypes": [
+        "text/markdown"
+      ]
     }
   ],
   "pricing": {
@@ -74,12 +83,12 @@
   "dataHandling": [
     {
       "id": "network-gateway-only",
-      "statement": "The agent can reach models only through Guild. All other network access is blocked.",
+      "statement": "The agent can reach models and tools only through Guild. All other network access is blocked.",
       "level": "enforced"
     },
     {
       "id": "fresh-environment-per-task",
-      "statement": "Each task runs in a new environment that is destroyed afterwards.",
+      "statement": "Each task runs in a new, empty environment that is destroyed afterwards. Nothing carries over between tasks.",
       "level": "enforced"
     }
   ],
