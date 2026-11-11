@@ -7,7 +7,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "start": "node src/main.ts",
-    "guild": "node ${GUILD_REPO:-../Guild}/packages/kit/src/cli.ts"
+    "guild": "node guild-kit/guild.mjs",
+    "guild:dev": "node ${GUILD_REPO:-../Guild}/packages/kit/src/cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.318",

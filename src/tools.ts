@@ -29,7 +29,7 @@ export function specialistTools(guild: GuildClient, waitForAnswer: () => Promise
       //   "network": { "hosts": [{
       //     "host": "api.company-information.service.gov.uk",
       //     "purpose": "UK company filings",
-      //     "key": { "secret": "COMPANIES_HOUSE_KEY", "in": "basic" }
+      //     "key": { "secret": "COMPANIES_HOUSE_KEY", "in": "basic", "maxCallsPerTask": 50 }
       //   }] }
       //
       // tool(

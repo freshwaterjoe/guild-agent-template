@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run guild -- validate:*)",
+      "Bash(npm run guild -- check)",
+      "Bash(npm run guild -- check .)",
+      "Bash(npm run guild -- check --json)",
+      "Bash(npm run guild -- version)",
+      "Bash(npm run typecheck)",
+      "Bash(node --version)",
+      "Bash(docker info:*)"
+    ]
+  }
+}

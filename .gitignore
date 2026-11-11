@@ -1,3 +1,6 @@
 node_modules
 .guild
 .DS_Store
+.env*
+material/*
+!material/README.md
