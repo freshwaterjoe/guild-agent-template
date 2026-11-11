@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-11 (bb901ff). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-11 (354e675). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -22181,7 +22181,7 @@ function startSetupServer(options) {
         response.writeHead(200, {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "no-store",
-          "Content-Security-Policy": "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+          "Content-Security-Policy": "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; font-src data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
           "Referrer-Policy": "no-referrer",
           "X-Frame-Options": "DENY"
         });
@@ -22586,7 +22586,7 @@ function isSafeFileName(name) {
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
 var GATEWAY_FILE = existsSync6(join6(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-11 (bb901ff)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-11 (354e675)" : "development (run from the Guild repository)";
 function fail2(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
