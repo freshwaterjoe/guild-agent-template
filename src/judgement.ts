@@ -9,8 +9,7 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { specialistFile } from "./agent.ts";
-import { MAX_OUTPUT_TOKENS, REQUIRED_OUTPUTS, REVIEW_MODEL } from "./config.ts";
+import { specialistFile, type Specialist } from "./specialist.ts";
 
 export interface Verdict {
   pass: boolean;
@@ -19,9 +18,9 @@ export interface Verdict {
 }
 
 /** Rules a program can check. Returns the problems found, if any. Add your own. */
-export async function checkOutputs(workdir: string): Promise<string[]> {
+export async function checkOutputs(specialist: Specialist, workdir: string): Promise<string[]> {
   const problems: string[] = [];
-  for (const name of REQUIRED_OUTPUTS) {
+  for (const name of specialist.settings.requiredOutputs) {
     const size = await stat(join(workdir, "out", name)).then((file) => file.size, () => -1);
     if (size < 0) problems.push(`out/${name} is missing.`);
     else if (size === 0) problems.push(`out/${name} is empty.`);
@@ -30,8 +29,8 @@ export async function checkOutputs(workdir: string): Promise<string[]> {
 }
 
 /** A separate session that reads the work and judges it against the rubric. It can read files but not change them. */
-export async function review(workdir: string, brief: Record<string, unknown>, signal: AbortSignal): Promise<Verdict> {
-  const rubric = await specialistFile("rubric.md");
+export async function review(specialist: Specialist, workdir: string, brief: Record<string, unknown>, signal: AbortSignal): Promise<Verdict> {
+  const rubric = await specialistFile(specialist, "rubric.md");
   const abort = new AbortController();
   signal.addEventListener("abort", () => abort.abort());
 
@@ -46,7 +45,7 @@ export async function review(workdir: string, brief: Record<string, unknown>, si
     ].join("\n"),
     options: {
       cwd: workdir,
-      model: REVIEW_MODEL,
+      model: specialist.settings.reviewModel,
       maxTurns: 20,
       abortController: abort,
       systemPrompt: `You are a strict, fair reviewer. You never do the work yourself; you decide whether it is good enough to deliver to a paying buyer.\n\n${rubric}`,
@@ -67,7 +66,7 @@ export async function review(workdir: string, brief: Record<string, unknown>, si
       },
       env: {
         ...process.env,
-        CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(MAX_OUTPUT_TOKENS),
+        CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(specialist.settings.maxOutputTokens),
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       },
     },

@@ -465,7 +465,7 @@ function renderDeliverables() {
   draw();
   const body = h("div", {}, needManifest(), issuesFor(["deliverables"]), h("div", { class: "card" }, list,
     h("button", { type: "button", onclick: () => { m.deliverables.push({ name: "", description: "", contentTypes: ["text/markdown"] }); draw(); } }, "Add a deliverable")),
-    S.config.requiredOutputs ? h("div", { class: "card" }, field("Files that must be written", text(outputs, (v) => (outputs = v)), "Comma-separated file names in out/, such as lease-review.md. The work only counts as done when each exists and isn't empty (REQUIRED_OUTPUTS in src/config.ts). Use the same names in your method and rubric.")) : null,
+    S.config.requiredOutputs ? h("div", { class: "card" }, field("Files that must be written", text(outputs, (v) => (outputs = v)), "Comma-separated file names in out/, such as lease-review.md. The work only counts as done when each exists and isn't empty (requiredOutputs in specialist/settings.json). Use the same names in your method and rubric.")) : null,
     h("div", { class: "actions" }, saveButton("Save", async () => {
       if (S.config.requiredOutputs) await api("/api/models", { requiredOutputs: outputs.split(",").map((s) => s.trim()).filter(Boolean) });
       await saveManifest(m);
@@ -610,7 +610,7 @@ function renderModels() {
     S.config.model ? h("div", { class: "row" },
       field("Does the work", select(model, models, (v) => (model = v)), "Opus 5.5 suits most expert work; Sonnet 5.5 is cheaper for simpler jobs; Fable 5.2 for the hardest reasoning, at twice Opus's price."),
       field("Reviews the work", select(reviewModel, models, (v) => (reviewModel = v)), "The same model is safest; a cheaper one if the rubric is mechanical.")) :
-      h("p", { class: "note" }, "src/config.ts doesn't use the template's MODEL lines, so change models there by hand, and list each one in the manifest."),
+      h("p", { class: "note" }, "This agent sets its models in its own code, so change them there by hand, and list each one in the manifest."),
     h("div", { class: "row" },
       field("Budget per task ($)", number(m.limits.budgetMicros ? m.limits.budgetMicros / 1e6 : undefined, (v) => (m.limits.budgetMicros = Math.round((v || 0) * 1e6)), { min: 0, max: 50, step: 0.5 }), "Model spend cap, up to $50. Start at about three times a typical run's cost."),
       field("Deadline (minutes)", number(m.limits.deadlineSeconds ? Math.round(m.limits.deadlineSeconds / 60) : undefined, (v) => (m.limits.deadlineSeconds = Math.round((v || 0) * 60)), { min: 1, max: 240 }), "1 to 240.")),

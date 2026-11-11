@@ -41,6 +41,8 @@ export function guildClient(taskId: string) {
     ask: (question: string) => call("POST", `${base}/events`, JSON.stringify({ state: "input-required", question })),
     readFile: async (name: string) =>
       new Uint8Array(await (await call("GET", `${base}/files/${encodeURIComponent(name)}`)).arrayBuffer()),
+    /** This agent's own files, when this image is Guild's shared runner (decision 032). */
+    content: async () => (await call("GET", `${base}/content`)).json() as Promise<unknown>,
     readRevisionFile: async (name: string) =>
       new Uint8Array(await (await call("GET", `${base}/revision/files/${encodeURIComponent(name)}`)).arrayBuffer()),
     deliver: (name: string, content: Uint8Array | string, contentType: string) =>

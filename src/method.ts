@@ -11,11 +11,9 @@
 import { cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { work } from "./agent.ts";
-import { MAX_REVISIONS } from "./config.ts";
 import { guildClient, type GuildClient, type StartTaskRequest } from "./guild.ts";
 import { checkOutputs, review } from "./judgement.ts";
-
-const SPECIALIST_DIR = join(process.cwd(), "specialist");
+import { loadSpecialist, type Specialist } from "./specialist.ts";
 
 export interface TaskControl {
   abort: AbortController;
@@ -30,11 +28,13 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
   try {
     // 1. Prepare -------------------------------------------------------------
     await guild.progress("Reading the brief", 5);
-    await prepareWorkspace(workdir, task, guild);
+    const specialist = await loadSpecialist(task.taskId, guild);
+    await prepareWorkspace(specialist, workdir, task, guild);
 
     // 2. Work ----------------------------------------------------------------
     await guild.progress("Starting work", 10);
     let result = await work({
+      specialist,
       workdir,
       brief: task.brief,
       guild,
@@ -57,15 +57,16 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
         return;
       }
       await guild.progress(revision === 0 ? "Checking the work" : `Checking the revision (${revision})`, 80);
-      const problems = await checkOutputs(workdir);
-      const verdict = problems.length > 0 ? { pass: false, issues: problems, summary: "" } : await review(workdir, task.brief, signal);
+      const problems = await checkOutputs(specialist, workdir);
+      const verdict = problems.length > 0 ? { pass: false, issues: problems, summary: "" } : await review(specialist, workdir, task.brief, signal);
       if (verdict.pass) break;
-      if (revision >= MAX_REVISIONS) {
+      if (revision >= specialist.settings.maxRevisions) {
         await guild.fail(`The work didn't pass its checks: ${verdict.issues.join("; ").slice(0, 1500)}`, true);
         return;
       }
       await guild.progress(`Revising: ${verdict.issues.length} thing${verdict.issues.length === 1 ? "" : "s"} to fix`, 85);
       result = await work({
+        specialist,
         workdir,
         brief: task.brief,
         guild,
@@ -100,12 +101,12 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
  *   .claude/skills/     your skills (specialist/skills), loaded by the Agent SDK
  *   out/                what the agent delivers
  */
-async function prepareWorkspace(workdir: string, task: StartTaskRequest, guild: GuildClient): Promise<void> {
+async function prepareWorkspace(specialist: Specialist, workdir: string, task: StartTaskRequest, guild: GuildClient): Promise<void> {
   await mkdir(join(workdir, "input"), { recursive: true });
   await mkdir(join(workdir, "out"), { recursive: true });
   await writeFile(join(workdir, "brief.json"), JSON.stringify(task.brief, null, 2));
-  await cp(join(SPECIALIST_DIR, "skills"), join(workdir, ".claude", "skills"), { recursive: true });
-  await cp(join(SPECIALIST_DIR, "references"), join(workdir, "references"), { recursive: true });
+  await cp(join(specialist.dir, "skills"), join(workdir, ".claude", "skills"), { recursive: true });
+  await cp(join(specialist.dir, "references"), join(workdir, "references"), { recursive: true });
   for (const file of task.files) {
     await writeFile(join(workdir, "input", file.name), await guild.readFile(file.name));
   }

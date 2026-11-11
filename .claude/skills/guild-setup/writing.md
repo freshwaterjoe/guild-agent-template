@@ -29,7 +29,7 @@ What to find out, in what order, and what a good answer looks like. Never how th
 - Numbered steps, in order, written as instructions: "Read every clause before you comment on any of them."
 - Each step says what to do, what to check before moving on, and which files it reads or writes.
 - Decision points are explicit: "If the lease has a break clause, …; otherwise …".
-- It names the deliverable files in `out/` exactly as `REQUIRED_OUTPUTS` and the manifest's deliverables do.
+- It names the deliverable files in `out/` exactly as `requiredOutputs` in `specialist/settings.json` and the manifest's deliverables do.
 - It says when to use the `ask_buyer` tool (only if the manifest allows questions), and to state assumptions otherwise.
 - It says when to decline: what makes the job impossible to do well, in which case the agent writes `out/_decline.md` with a short reason for the buyer and stops.
 - It ends with the agent checking its own work against the rubric (the agent sees the rubric too), then a two- or three-sentence summary for the buyer.

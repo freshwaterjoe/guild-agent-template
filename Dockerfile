@@ -8,6 +8,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && rm -rf /root/.npm
 COPY src ./src
 COPY specialist ./specialist
+COPY guild.manifest.json ./
 
 RUN mkdir -p /work && chown node /work
 USER node
