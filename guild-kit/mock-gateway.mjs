@@ -1,4 +1,4 @@
-// Guild agent kit 2026-11-11 (354e675). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-11 (5fbb0a3). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -17,6 +17,8 @@ var guildPaths = {
   /** A deliverable from the attempt being revised (decision 025). */
   revisionFile: (taskId, name) => `/v1/tasks/${taskId}/revision/files/${encodeURIComponent(name)}`,
   deliverable: (taskId, name) => `/v1/tasks/${taskId}/deliverables/${encodeURIComponent(name)}`,
+  /** The agent's own files, for Guild's shared runner (decision 032): a content bundle as JSON. */
+  content: (taskId) => `/v1/tasks/${taskId}/content`,
   complete: (taskId) => `/v1/tasks/${taskId}/complete`,
   fail: (taskId) => `/v1/tasks/${taskId}/fail`,
   anthropicMessages: "/v1/anthropic/v1/messages"
@@ -308,6 +310,13 @@ var server = createServer(async (request, response) => {
         });
       }
       return;
+    }
+    if (request.method === "GET" && path === guildPaths.content(id)) {
+      const contentPath = join(RUN_DIR, "content.json");
+      if (!existsSync(contentPath)) return refuse(response, 404, "not_found", "This run has no content bundle. Pass --content to guild run.");
+      log("content", { bytes: statSync(contentPath).size });
+      response.writeHead(200, { "Content-Type": "application/json", "Content-Length": statSync(contentPath).size });
+      return await pipeline(createReadStream(contentPath), response);
     }
     const fileMatch = path.match(/^\/v1\/tasks\/[^/]+\/(files|deliverables)\/([^/]+)$/);
     if (fileMatch) {

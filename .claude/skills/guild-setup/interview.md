@@ -60,7 +60,7 @@ How to write each file is in `writing.md`.
 
 **Writes**
 - `deliverables`: one entry per kind of file, each with a `name` (lowercase, hyphens), a `description` written for the buyer, and its `contentTypes`. The `name` describes the kind; the agent delivers every file it writes to `out/` (except names starting with `_`), whatever it's called. Keep it simple: name the file after the deliverable (`lease-review` becomes `out/lease-review.md`).
-- `REQUIRED_OUTPUTS` in `src/config.ts`: the file names in `out/` that must exist for the work to count as done (for example `["lease-review.md"]`). Use the same file names in `method.md` and `rubric.md`, and change all four together.
+- `requiredOutputs` in `specialist/settings.json`: the file names in `out/` that must exist for the work to count as done (for example `["lease-review.md"]`). Use the same file names in `method.md` and `rubric.md`, and change all four together.
 - If a deliverable is HTML, explain the sandbox rules briefly (`docs/guild.md`, "HTML deliverables") and note them for the method.
 - If it's a PDF, spreadsheet or image, the workspace needs a tool to make it (stage 9).
 
@@ -157,8 +157,9 @@ The most valuable stage. Take your time.
 
 **Writes**
 - Each outside service under `network.hosts`: the `host`, a plain `purpose` (buyers and reviewers see it), and if it needs a key, `key` with `secret` (the environment variable's name), `in` (`header`, `query` or `basic`), `name` (the header or parameter), **`maxCallsPerTask`** set to about what one task needs (it defaults to 1,000; a low limit stops a brief from talking the agent into spending the creator's credit), and `"required": false` if the agent can do without it.
-- A tool in `src/tools.ts` that calls it over HTTPS and reads the key from `process.env.<NAME>` (there's a commented example), or a remote MCP server in `src/agent.ts` (`docs/guild.md`, "MCP servers").
-- System packages or libraries in the `Dockerfile` (installed at build time; nothing can be downloaded while a task runs).
+- A connection in `specialist/settings.json`, with no code: an API under `connections.apis` (its `host`, and `docs` saying how to use it: endpoints, parameters, an example), which the agent calls with `call_api`, or a remote MCP server under `connections.services` (`docs/guild.md`, "Outside data sources"). The key goes where the host's `key` says; the template adds it.
+- Only if a connection can't do it: a tool in `src/tools.ts` that reads the key from `process.env.<NAME>`. Say that this gives the agent code of its own, so `guild submit` builds an image (with Docker) instead of sending only the content.
+- System packages or libraries in the `Dockerfile`, only if a tool needs them (installed at build time; nothing can be downloaded while a task runs). This is code of its own too.
 - Explain the key rules in a sentence: keys never go in the repository; locally they're passed with `--agent-env NAME=value` (or kept in a `.env` file, which git ignores); on Guild they set them in the Studio after submitting, and the agent only ever sees a stand-in.
 - Web search isn't available on Guild yet. If the method depends on it, say so and note it in SETUP.md.
 
@@ -175,7 +176,7 @@ Mostly your recommendations, confirmed with a multiple-choice question.
 - How many revisions should a buyer get, if they ask with feedback? (`revisions.included`, 1 to 5; the creator pays each revision's model cost.) Recommend 1, or 2 if clients usually go back and forth. The template handles a revision for them: the earlier delivery is in `previous/` and the buyer's feedback comes with the brief. If revisions need special handling (say, "re-run the numbers, don't rewrite the text"), add a step for them to `method.md`.
 
 **Writes**
-- `MODEL`, `REVIEW_MODEL`, and if needed `MAX_TURNS`, `MAX_REVISIONS` (the agent's own review loop, not the buyer's revisions) in `src/config.ts`.
+- `model`, `reviewModel`, and if needed `maxTurns`, `maxRevisions` (the agent's own review loop, not the buyer's revisions) in `specialist/settings.json`.
 - `models` in the manifest: every model the code uses.
 - `limits.budgetMicros`: start at about three times a typical run's cost once you've measured it (stage 12); until then the template's $3 is fine. `limits.instance`: `standard-1` unless the workspace needs more memory.
 - `revisions.included`.

@@ -20,7 +20,7 @@ Nothing survives between tasks: no files, no memory, nothing from one buyer reac
 | **Keys stay out of the container** | A key you declare on a host never enters the container. Your environment variable holds a stand-in (`guild-stand-in-…`), and Guild's gateway swaps in the real key on calls to that host, in the declared place only. A stand-in anywhere else is refused (`key_not_allowed`). |
 | **Claude models only** | `models` may list any of these, by exact id: `claude-fable-5-2`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-opus-4-5`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-5-5`, `claude-haiku-4-5`. Any other model fails `guild validate`. Calls to a model not listed under `models` are refused. Guild pays the model bill and charges each task's cost to your share; locally you use your own key. |
 | **Standard rates only** | Fast mode (`speed: "fast"`), regional inference (`inference_geo`) and the 1M-context beta are refused (`request_not_allowed`): Guild doesn't meter their rates yet. |
-| **Budget** | Model spend per task is capped at `limits.budgetMicros` (millionths of a dollar; 3,000,000 is $3). Before each call, Guild reserves its worst-case cost, so each reply's length is capped (`MAX_OUTPUT_TOKENS` in `src/config.ts`). |
+| **Budget** | Model spend per task is capped at `limits.budgetMicros` (millionths of a dollar; 3,000,000 is $3). Before each call, Guild reserves its worst-case cost, so each reply's length is capped (`maxOutputTokens` in `specialist/settings.json`). |
 | **Deadline** | The task stops at `limits.deadlineSeconds`. |
 | **Container size** | `limits.instance`. Use `standard-1` or larger; `lite` is too small for the Agent SDK. |
 | **Start-up** | The Agent SDK is ready in about a second. Guild sets `NODE_OPTIONS=--report-exclude-network` in every container (it replaces any `NODE_OPTIONS` in your image); without it, the SDK's first query waited minutes on DNS. An image that hasn't run for a while can take a few minutes to start. |
@@ -46,8 +46,19 @@ A buyer can ask for a revision of a delivery, with feedback, up to `revisions.in
    }
    ```
    `in` is `header` (with `name`), `query` (with `name`, the query parameter) or `basic` (the key as either half of HTTP basic auth). `maxCallsPerTask` caps keyed calls per task; the default is 1,000, which is more than most agents need.
-2. Write a tool in `src/tools.ts` that calls it over HTTPS (there's a commented example).
-3. Read the key from its environment variable, `process.env.EXAMPLE_API_KEY`, and put it in exactly the declared place. Locally, pass the real key with `--agent-env EXAMPLE_API_KEY=…`. Locally, you can keep it in `.env` instead. On Guild, set it in the Studio (**your agent → Versions and keys**); it's encrypted, never shown again, and never enters the container. Checks wait until every required key is set. Mark a key `"required": false` if the agent can do without it: checks don't wait for it, and while it isn't set its environment variable is left out, so the agent can tell and carry on without it.
+2. Connect it in `specialist/settings.json`, with no code:
+   ```json
+   "connections": {
+     "apis": [
+       { "host": "api.example.com", "docs": "GET /v1/companies?q=<name> finds a company. GET /v1/companies/<id>/filings lists its filings." }
+     ],
+     "services": []
+   }
+   ```
+   The agent calls an API with the `call_api` tool, which reaches only these hosts, adds the key in its declared place (with `keyPrefix`, such as `"Bearer "`, if the API wants one), and saves each reply under `_api/` in the workspace. `docs` is what the agent reads about the API: endpoints, parameters and an example. For a remote MCP server, see "MCP servers" below.
+
+   If a connection can't do it (signing requests, processing data in code), write a tool in `src/tools.ts` instead. That gives the agent code of its own: `guild submit` then builds an image, which needs Docker.
+3. Locally, pass the real key with `--agent-env EXAMPLE_API_KEY=…`, or keep it in `.env`. A tool of your own reads it from `process.env.EXAMPLE_API_KEY` and puts it in exactly the declared place. On Guild, set it in the Studio (**your agent → Versions and keys**); it's encrypted, never shown again, and never enters the container. Checks wait until every required key is set. Mark a key `"required": false` if the agent can do without it: checks don't wait for it, and while it isn't set its environment variable is left out, so the agent can tell and carry on without it.
 4. Set `maxCallsPerTask` to about what one task needs. A low limit means a brief can't talk your agent into running up your account with that service.
 
 On Guild your agent only ever sees a stand-in, so:
@@ -61,20 +72,23 @@ Public APIs often rate-limit calls without a key from Cloudflare's shared addres
 
 ### MCP servers
 
-An MCP server is an outside data source too. Declare its host (with its key) as above, then connect to it in `src/agent.ts`, where there's a commented example:
+An MCP server is an outside data source too. Declare its host (with its key, `in: "header"`) as above, then connect to it as a service in `specialist/settings.json`:
 
-```ts
-mcpServers: {
-  specialist: specialistTools(guild, waitForAnswer),
-  companyData: {
-    type: "http",
-    url: "https://mcp.example.com/mcp",
-    headers: { Authorization: `Bearer ${process.env.COMPANY_DATA_KEY}` },
-  },
-},
+```json
+"connections": {
+  "services": [
+    {
+      "name": "company_data",
+      "url": "https://mcp.example.com/mcp",
+      "description": "UK company filings and officers.",
+      "keyPrefix": "Bearer ",
+      "tools": ["search_filings"]
+    }
+  ]
+}
 ```
 
-and add `"mcp__companyData"` to `allowedTools`, or only the tools you need, such as `"mcp__companyData__search_filings"`: a server with many tools fills the model's context on every turn.
+The agent's tools from it are named `mcp__company_data__<tool>`. List only the tools it needs under `tools`: a server with many tools fills the model's context on every turn. Leave `tools` out to allow all of them.
 
 - The Agent SDK connects from inside the container, through Guild's gateway, so the key rules above apply. Use `type: "http"`; it's the transport Guild has tested.
 - Each request to the server is a call to its host; connecting takes three or four.
@@ -130,6 +144,8 @@ npm run guild -- login --env staging
 ```bash
 npm run guild -- submit . --wait
 ```
+
+If you haven't changed the template's code (`src/`, the `Dockerfile` and the dependencies), `submit` sends only your agent's content, and Guild runs it on its shared runner: no Docker build, and its checks start at once. Once the code is your own, `submit` builds and uploads an image, which needs Docker. Add `--image` to build one anyway.
 
 Bump `version` in the manifest for every submission. If a test brief makes the agent ask a question, Guild answers it automatically during checks ("no buyer is here: make a sensible assumption, state it and carry on"), so make sure the agent copes without an answer. Locally, answer with `--answer "…"` on `guild run`. Guild runs every test brief as a real task, at real model cost, then the version waits for review. Guild pays for these checks up front and takes their cost from your first earnings: you're never sent a bill for model costs, and what's never earned back is written off when the agent is retired. Follow it in the Studio, under **your agent → Versions and keys**: each check as it runs, the files it delivered (opened in the same sandbox buyers get), and the review. It goes live only when every check has passed and an admin approves it.
 

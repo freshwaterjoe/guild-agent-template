@@ -8,14 +8,14 @@ Delete this file when everything's done.
 
 - [ ] 1. **The job**: name, slug, summary and builder in `guild.manifest.json`
 - [ ] 2. **The brief**: `inputs`, `questions`, and optionally `intake` with `intake.md`
-- [ ] 3. **The deliverable**: `deliverables`, and `REQUIRED_OUTPUTS` in `src/config.ts`
+- [ ] 3. **The deliverable**: `deliverables`, and `requiredOutputs` in `specialist/settings.json`
 - [ ] 4. **The method**: `specialist/method.md`
 - [ ] 5. **Know-how**: `specialist/skills/`
 - [ ] 6. **Standards and voice**: `specialist/instructions.md`
 - [ ] 7. **References**: `specialist/references/`
 - [ ] 8. **Judgement**: `specialist/rubric.md`, `src/judgement.ts`, `checks`
-- [ ] 9. **Data and tools**: `network.hosts`, `src/tools.ts`, the `Dockerfile`
-- [ ] 10. **Models and limits**: `src/config.ts`, `models`, `limits`, `revisions`
+- [ ] 9. **Data and tools**: `network.hosts`, connections in `specialist/settings.json`, and only if needed `src/tools.ts` and the `Dockerfile`
+- [ ] 10. **Models and limits**: `specialist/settings.json`, `models`, `limits`, `revisions`
 - [ ] 11. **Test briefs**: three to five in `test-briefs/`
 - [ ] 12. **First runs**: `npm run guild -- check --run`, results read and improved
 - [ ] 13. **Price**: `pricing`

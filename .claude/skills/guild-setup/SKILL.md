@@ -44,14 +44,14 @@ Each stage has its questions, and where the answers go, in `interview.md`.
 | --- | --- | --- |
 | 1 | **The job** | `name`, `slug`, `summary`, `builder` in the manifest |
 | 2 | **The brief** | `inputs` (fields, hints, files), `questions`, and optionally `intake` with `intake.md` |
-| 3 | **The deliverable** | `deliverables`, `REQUIRED_OUTPUTS` in `src/config.ts`, the method's last steps |
+| 3 | **The deliverable** | `deliverables`, `requiredOutputs` in `specialist/settings.json`, the method's last steps |
 | 4 | **The method** | `specialist/method.md` |
 | 5 | **Know-how** | `specialist/skills/<name>/SKILL.md`, one per topic |
 | 6 | **Standards and voice** | `specialist/instructions.md` |
 | 7 | **References** | `specialist/references/`, each with a note on what makes it excellent |
 | 8 | **Judgement** | `specialist/rubric.md`, code checks in `src/judgement.ts`, `checks` in the manifest |
-| 9 | **Data and tools** | `network.hosts` with keys, tools in `src/tools.ts` or MCP servers in `src/agent.ts`, the `Dockerfile` |
-| 10 | **Models and limits** | `src/config.ts`, `models`, `limits`, `revisions` |
+| 9 | **Data and tools** | `network.hosts` with keys, connections (services and APIs) in `specialist/settings.json`, and only if needed tools in `src/tools.ts` and the `Dockerfile` |
+| 10 | **Models and limits** | `specialist/settings.json`, `models`, `limits`, `revisions` |
 | 11 | **Test briefs** | three to five realistic briefs in `test-briefs/` |
 | 12 | **First runs** | `guild check --run`, reading the results together, improving the method and rubric |
 | 13 | **Price** | `pricing.tiers`, from the value of the work and the cost per task |
