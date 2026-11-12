@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-11 (5fbb0a3). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-12 (604ca41). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -10,12 +10,12 @@ var __export = (target, all) => {
 };
 
 // src/cli.ts
-import { spawn as spawn3, spawnSync as spawnSync2 } from "node:child_process";
-import { randomBytes as randomBytes2, randomUUID } from "node:crypto";
-import { copyFileSync, existsSync as existsSync7, mkdirSync as mkdirSync3, readdirSync as readdirSync5, readFileSync as readFileSync7, statSync as statSync4, writeFileSync as writeFileSync3 } from "node:fs";
-import { basename, dirname as dirname2, join as join7, resolve as resolve2 } from "node:path";
+import { spawn as spawn2, spawnSync as spawnSync2 } from "node:child_process";
+import { randomBytes, randomUUID } from "node:crypto";
+import { copyFileSync, existsSync as existsSync6, mkdirSync as mkdirSync2, readdirSync as readdirSync4, readFileSync as readFileSync6, statSync as statSync3, writeFileSync as writeFileSync2 } from "node:fs";
+import { basename, dirname as dirname2, join as join6, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, parseEnv as parseEnv2 } from "node:util";
+import { parseArgs, parseEnv } from "node:util";
 
 // ../../node_modules/@cfworker/json-schema/dist/esm/deep-compare-strict.js
 function deepCompareStrict(a, b) {
@@ -245,8 +245,8 @@ var format = {
 function isLeapYear(year) {
   return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 }
-function date(str2) {
-  const matches = str2.match(DATE);
+function date(str) {
+  const matches = str.match(DATE);
   if (!matches)
     return false;
   const yearPart = matches[1];
@@ -260,8 +260,8 @@ function date(str2) {
   const maxDay = month == 2 && isLeapYear(year) ? 29 : DAYS[month];
   return month >= 1 && month <= 12 && day >= 1 && maxDay !== void 0 && day <= maxDay;
 }
-function time(full, str2) {
-  const matches = str2.match(TIME);
+function time(full, str) {
+  const matches = str.match(TIME);
   if (!matches)
     return false;
   const hourPart = matches[1];
@@ -276,21 +276,21 @@ function time(full, str2) {
   return (hour <= 23 && minute <= 59 && second <= 59 || hour == 23 && minute == 59 && second == 60) && (!full || timeZone);
 }
 var DATE_TIME_SEPARATOR = /t|\s/i;
-function date_time(str2) {
-  const [datePart, timePart, extra] = str2.split(DATE_TIME_SEPARATOR);
+function date_time(str) {
+  const [datePart, timePart, extra] = str.split(DATE_TIME_SEPARATOR);
   return datePart !== void 0 && timePart !== void 0 && extra === void 0 && date(datePart) && time(true, timePart);
 }
 var NOT_URI_FRAGMENT = /\/|:/;
 var URI_PATTERN = /^(?:[a-z][a-z0-9+\-.]*:)(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i;
-function uri(str2) {
-  return NOT_URI_FRAGMENT.test(str2) && URI_PATTERN.test(str2);
+function uri(str) {
+  return NOT_URI_FRAGMENT.test(str) && URI_PATTERN.test(str);
 }
 var Z_ANCHOR = /[^\\]\\Z/;
-function regex(str2) {
-  if (Z_ANCHOR.test(str2))
+function regex(str) {
+  if (Z_ANCHOR.test(str))
     return false;
   try {
-    new RegExp(str2, "u");
+    new RegExp(str, "u");
     return true;
   } catch (e) {
     return false;
@@ -1969,14 +1969,14 @@ function promiseAllObject(promisesObj) {
 }
 function randomString(length = 10) {
   const chars = "abcdefghijklmnopqrstuvwxyz";
-  let str2 = "";
+  let str = "";
   for (let i = 0; i < length; i++) {
-    str2 += chars[Math.floor(Math.random() * chars.length)];
+    str += chars[Math.floor(Math.random() * chars.length)];
   }
-  return str2;
+  return str;
 }
-function esc(str2) {
-  return JSON.stringify(str2);
+function esc(str) {
+  return JSON.stringify(str);
 }
 function slugify(input2) {
   return input2.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -2090,8 +2090,8 @@ var primitiveTypes = /* @__PURE__ */ new Set([
   "symbol",
   "undefined"
 ]);
-function escapeRegex(str2) {
-  return str2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function clone(inst, def, params) {
   const cl = new inst._zod.constr(def ?? inst._zod.def);
@@ -2357,13 +2357,13 @@ function getSizableOrigin(input2) {
   return "unknown";
 }
 var highSurrogate = /[\uD800-\uDBFF]/;
-function codePointLength(str2) {
-  const units = str2.length;
-  if (!highSurrogate.test(str2))
+function codePointLength(str) {
+  const units = str.length;
+  if (!highSurrogate.test(str))
     return units;
   let count = units;
   for (let i = 0; i < units - 1; i++) {
-    if ((str2.charCodeAt(i) & 64512) === 55296 && (str2.charCodeAt(i + 1) & 64512) === 56320) {
+    if ((str.charCodeAt(i) & 64512) === 55296 && (str.charCodeAt(i + 1) & 64512) === 56320) {
       count--;
       i++;
     }
@@ -6201,7 +6201,7 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve3) {
+function isRecursive(inst, stack, resolve2) {
   const cached2 = recursive.get(inst);
   if (cached2 !== void 0)
     return cached2 ? PROVEN : NONE;
@@ -6211,7 +6211,7 @@ function isRecursive(inst, stack, resolve3) {
   let result = NONE;
   const check2 = (child) => {
     if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve3);
+      const answer = isRecursive(child, stack, resolve2);
       if (answer > result)
         result = answer;
     }
@@ -6222,7 +6222,7 @@ function isRecursive(inst, stack, resolve3) {
       const desc = Object.getOwnPropertyDescriptor(sh, key);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve3) : NONE;
+      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve2) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -6286,7 +6286,7 @@ function isRecursive(inst, stack, resolve3) {
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
-      const inner = def._cachedInner ?? (resolve3 ? inst._zod.innerType : void 0);
+      const inner = def._cachedInner ?? (resolve2 ? inst._zod.innerType : void 0);
       merge2(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
@@ -15491,7 +15491,7 @@ function generateRecordCheck(doc, ctx, schema, accessor) {
   }, `return INVALID;`);
   return outputVar;
 }
-function emitOwnKeys(doc, ctx, accessor, kVar, body2, onSymbol) {
+function emitOwnKeys(doc, ctx, accessor, kVar, body, onSymbol) {
   const propIsEnumerableConst = addConstant(ctx, Object.prototype.propertyIsEnumerable);
   const symsVar = newVar(ctx);
   const keysVar = newVar(ctx);
@@ -15502,7 +15502,7 @@ function emitOwnKeys(doc, ctx, accessor, kVar, body2, onSymbol) {
   doc.indented((d) => {
     d.write(`const ${kVar} = ${keysVar}[${iVar}];`);
     d.write(`if (${kVar} === "__proto__" || !${propIsEnumerableConst}.call(${accessor}, ${kVar})) continue;`);
-    body2(d);
+    body(d);
   });
   doc.write(`}`);
   doc.write(`for (let ${iVar} = 0; ${iVar} < ${symsVar}.length; ${iVar}++) {`);
@@ -15512,7 +15512,7 @@ function emitOwnKeys(doc, ctx, accessor, kVar, body2, onSymbol) {
     if (onSymbol)
       d.write(onSymbol);
     else
-      body2(d);
+      body(d);
   });
   doc.write(`}`);
 }
@@ -21176,7 +21176,7 @@ var CONTENT_LIMITS = {
   totalBytes: 25 * 1024 * 1024,
   depth: 6
 };
-var REQUIRED_CONTENT = ["guild.manifest.json", "specialist/instructions.md", "specialist/method.md", "specialist/rubric.md"];
+var REQUIRED_CONTENT = ["guild.manifest.json", "specialist/method.md", "specialist/rubric.md"];
 var SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/;
 var TEST_BRIEF = /^test-briefs\/[a-z0-9][a-z0-9._-]{0,63}\.json$/;
 function isContentPath(path) {
@@ -21518,30 +21518,6 @@ function parseIntakeReply(manifest, reply) {
 }
 
 // src/prices.ts
-var PRICES = {
-  "claude-fable-5-2": { input: 8e6, output: 4e7, cacheRead: 2e5 },
-  "claude-fable-5-1": { input: 1e7, output: 5e7, cacheRead: 25e4 },
-  "claude-fable-5": { input: 1e7, output: 5e7, cacheRead: 1e6 },
-  "claude-opus-5-5": { input: 4e6, output: 2e7, cacheRead: 2e5 },
-  "claude-opus-5": { input: 5e6, output: 25e6, cacheRead: 5e5 },
-  "claude-opus-4-8": { input: 5e6, output: 25e6, cacheRead: 5e5 },
-  "claude-opus-4-7": { input: 5e6, output: 25e6, cacheRead: 5e5 },
-  "claude-opus-4-6": { input: 5e6, output: 25e6, cacheRead: 5e5 },
-  "claude-opus-4-5": { input: 5e6, output: 25e6, cacheRead: 5e5 },
-  "claude-sonnet-5-5": { input: 2e6, output: 1e7, cacheRead: 1e5 },
-  "claude-sonnet-5": { input: 2e6, output: 1e7, cacheRead: 2e5 },
-  "claude-sonnet-4-6": { input: 3e6, output: 15e6, cacheRead: 3e5 },
-  "claude-sonnet-4-5": { input: 3e6, output: 15e6, cacheRead: 3e5 },
-  "claude-haiku-5-5": {
-    input: 1e5,
-    output: 5e5,
-    cacheRead: 1e4,
-    longContextThreshold: 1e5,
-    longContextInput: 5e5,
-    longContextOutput: 25e5
-  },
-  "claude-haiku-4-5": { input: 1e6, output: 5e6, cacheRead: 1e5 }
-};
 var GUILD_COMMISSION_BPS = 2500;
 function formatMicros(micros) {
   const dollars = micros / 1e6;
@@ -21561,18 +21537,8 @@ var SECRET_PATTERNS = [
 ];
 
 // src/check.ts
-var AREAS = [
-  "Manifest",
-  "Listing",
-  "Brief and deliverables",
-  "Specialist",
-  "Models",
-  "Keys and outside hosts",
-  "Secrets",
-  "Test briefs",
-  "Runs and cost",
-  "Only you can check"
-];
+var PARTS = ["What it's hired for", "How it does the work", "What great looks like", "How the work is checked", "Test briefs"];
+var AREAS = [...PARTS, "Runs and cost", "Guild's rules", "When you submit", "Only you can check"];
 var TEMPLATE_PLACEHOLDERS = {
   slug: "my-specialist",
   name: "My specialist",
@@ -21582,10 +21548,11 @@ var TEMPLATE_PLACEHOLDERS = {
   briefDescription: "What you want answered or produced, in your own words.",
   deliverableDescription: "The finished work, ready to use.",
   files: {
-    "specialist/instructions.md": "You are a senior analyst hired through Guild to produce one piece of finished work",
     "specialist/method.md": "Draft out/report.md, following your skills.",
     "specialist/rubric.md": "out/report.md answers the question in the brief, in its first paragraph."
   },
+  /** Templates before decision 034 had a separate instructions.md; agents made from them may still. */
+  instructions: "You are a senior analyst hired through Guild to produce one piece of finished work",
   skill: "example-know-how",
   /** The template's test briefs, matched exactly so a real brief that shares a phrase isn't flagged. */
   testBriefs: [
@@ -21659,143 +21626,154 @@ function seconds(total) {
 function checkSettings(ctx) {
   const text = readText(join3(ctx.dir, SETTINGS_PATH));
   if (text === null) return;
-  const parsed = parseSettings(text);
-  if (!parsed.ok) {
-    for (const issue2 of parsed.issues) ctx.add("fail", "Manifest", `${SETTINGS_PATH}${issue2.path ? ` ${issue2.path}` : ""}: ${issue2.message}`);
+  const parsed2 = parseSettings(text);
+  if (!parsed2.ok) {
+    for (const issue2 of parsed2.issues) ctx.add("fail", "Guild's rules", `${SETTINGS_PATH}${issue2.path ? ` ${issue2.path}` : ""}: ${issue2.message}`);
     return;
   }
-  ctx.settings = parsed.settings;
+  ctx.settings = parsed2.settings;
   if (ctx.manifest) {
-    for (const issue2 of settingsIssues(parsed.settings, ctx.manifest)) {
-      if (!issue2.path.startsWith("connections")) ctx.add("fail", "Models", `${SETTINGS_PATH}: ${issue2.message}`);
+    for (const issue2 of settingsIssues(parsed2.settings, ctx.manifest)) {
+      if (!issue2.path.startsWith("connections")) ctx.add("fail", "Guild's rules", `${SETTINGS_PATH}: ${issue2.message}`);
     }
     const kinds = new Set(ctx.manifest.deliverables.flatMap((deliverable) => deliverable.contentTypes));
-    if (parsed.settings.requiredOutputs.length === 0 && kinds.size > 0) {
-      ctx.add("warn", "Brief and deliverables", `${SETTINGS_PATH} lists no requiredOutputs, so the agent's work counts as done even if it writes nothing. List the files it must deliver, such as report.md.`);
+    if (parsed2.settings.requiredOutputs.length === 0 && kinds.size > 0) {
+      ctx.add("warn", "What it's hired for", `${SETTINGS_PATH} lists no requiredOutputs, so the agent's work counts as done even if it writes nothing. List the files it must deliver, such as report.md.`);
     }
   }
 }
 function checkManifest(ctx) {
   const path = join3(ctx.dir, "guild.manifest.json");
   if (!existsSync3(path)) {
-    ctx.add("fail", "Manifest", "There's no guild.manifest.json. Start from the template's, or run the setup in Claude Code (/guild-setup).");
+    ctx.add("fail", "Guild's rules", "There's no guild.manifest.json. Start from the template's, or run the setup in Claude Code (/guild-setup).");
     return;
   }
   let json2;
   try {
     json2 = JSON.parse(readFileSync3(path, "utf8"));
   } catch (error62) {
-    ctx.add("fail", "Manifest", `guild.manifest.json isn't valid JSON: ${error62 instanceof Error ? error62.message : String(error62)}`);
+    ctx.add("fail", "Guild's rules", `guild.manifest.json isn't valid JSON: ${error62 instanceof Error ? error62.message : String(error62)}`);
     return;
   }
   ctx.raw = json2;
   try {
     json2 = resolveIntakeInstructions(ctx.dir, json2);
   } catch (error62) {
-    ctx.add("fail", "Manifest", error62 instanceof Error ? error62.message : String(error62));
+    ctx.add("fail", "Guild's rules", error62 instanceof Error ? error62.message : String(error62));
     return;
   }
   const result = validateManifest(json2);
   if (!result.ok) {
-    for (const issue2 of result.issues) ctx.add("fail", "Manifest", `${issue2.path || "(top level)"}: ${issue2.message}`);
+    for (const issue2 of result.issues) ctx.add("fail", "Guild's rules", `${issue2.path || "(top level)"}: ${issue2.message}`);
     return;
   }
   ctx.manifest = result.manifest;
-  ctx.add("pass", "Manifest", `guild.manifest.json is valid (${result.manifest.name} ${result.manifest.version}).`);
-  if (result.manifest.preview) ctx.add("warn", "Manifest", "`preview` is no longer used: buyers get the files when your agent delivers. Remove it.");
+  ctx.add("pass", "Guild's rules", `guild.manifest.json is valid (${result.manifest.name} ${result.manifest.version}).`);
+  if (result.manifest.preview) ctx.add("warn", "Guild's rules", "`preview` is no longer used: buyers get the files when your agent delivers. Remove it.");
 }
 function checkListing(ctx) {
   const m = ctx.manifest;
   if (!m) return;
   const P = TEMPLATE_PLACEHOLDERS;
-  if (m.slug === P.slug) ctx.add("fail", "Listing", `\`slug\` is still the template's "${P.slug}". It's your agent's permanent address on Guild, so choose it now.`);
-  if (m.name === P.name) ctx.add("fail", "Listing", `\`name\` is still the template's "${P.name}".`);
-  if (m.summary.startsWith(P.summaryStart)) ctx.add("fail", "Listing", "`summary` is still the template's. Write the one sentence a buyer reads first: the job, and why your agent does it better than a general model.");
-  if (m.builder.name === P.builderName) ctx.add("warn", "Listing", `\`builder.name\` is "${P.builderName}". Put your own name, unless Guild's studio built this agent.`);
+  const part = "What it's hired for";
+  if (m.slug === P.slug) ctx.add("open", part, `\`slug\` is still the template's "${P.slug}". It's your agent's permanent address on Guild, so choose it before you submit.`);
+  if (m.name === P.name) ctx.add("open", part, `\`name\` is still the template's "${P.name}".`);
+  if (m.summary.startsWith(P.summaryStart)) ctx.add("open", part, "`summary` is still the template's. Write the one sentence a buyer reads first: the job, and why your agent does it better than a general model.");
+  if (m.builder.name === P.builderName) ctx.add("warn", part, `\`builder.name\` is "${P.builderName}". Put your own name, unless Guild's studio built this agent.`);
   for (const tier of m.pricing.tiers) {
     if (tier.name.toLowerCase().includes(P.tierName)) {
-      ctx.add("fail", "Listing", `The price tier "${tier.name}" is the template's placeholder. Set a real price once you know what a task costs (see "Runs and cost").`);
+      ctx.add("open", "When you submit", `The price tier "${tier.name}" is the template's placeholder. Set a real price once your test briefs have run and you know what a task costs.`);
     }
   }
-  if (m.summary.length < 40) ctx.add("warn", "Listing", "`summary` is very short. Say what the agent delivers, for whom, and why it beats a general model.");
-  ctx.add("todo", "Listing", `\`version\` (${m.version}) is higher than any version you've submitted before.`);
+  if (m.summary.length < 40 && !m.summary.startsWith(P.summaryStart)) ctx.add("warn", part, "`summary` is very short. Say what the agent delivers, for whom, and why it beats a general model.");
+  ctx.add("todo", "When you submit", `\`version\` (${m.version}) is higher than any version you've submitted before.`);
 }
 function checkInterface(ctx) {
   const m = ctx.manifest;
   if (!m) return;
   const schema = m.inputs.schema;
   const properties = Object.entries(schema.properties ?? {}).filter(([name]) => !name.startsWith("_"));
-  if (properties.length === 0) ctx.add("fail", "Brief and deliverables", "The brief has no fields. Add what your agent needs to know under `inputs.schema.properties`.");
+  if (properties.length === 0) ctx.add("open", "What it's hired for", "The brief has no fields. Add what your agent needs to know under `inputs.schema.properties`.");
   if (properties.some(([, field]) => field.description === TEMPLATE_PLACEHOLDERS.briefDescription)) {
-    ctx.add("warn", "Brief and deliverables", "The brief's fields are still the template's (question, audience, notes). Ask for what you always need to know before you start a job like this.");
+    ctx.add("open", "What it's hired for", "The brief's fields are still the template's (question, audience, notes). Ask for what you always need to know before you start a job like this.");
   }
   const undescribed = properties.filter(([, field]) => !field.description).map(([name]) => name);
   if (undescribed.length > 0) {
-    ctx.add("warn", "Brief and deliverables", `Give ${undescribed.length === 1 ? "this field" : "these fields"} a \`description\`, which buyers see under the field as a hint: ${undescribed.join(", ")}.`);
+    ctx.add("warn", "What it's hired for", `Give ${undescribed.length === 1 ? "this field" : "these fields"} a \`description\`, which buyers see under the field as a hint: ${undescribed.join(", ")}.`);
   }
   if (m.deliverables.some((d) => d.description === TEMPLATE_PLACEHOLDERS.deliverableDescription)) {
-    ctx.add("warn", "Brief and deliverables", "A deliverable still has the template's description. Say exactly what the buyer gets.");
+    ctx.add("open", "What it's hired for", "A deliverable still has the template's description. Say exactly what the buyer gets.");
   }
   if (m.deliverables.some((d) => d.contentTypes.includes("text/html"))) {
-    ctx.add("todo", "Brief and deliverables", "Your HTML deliverable reads well with no scripts and no outside requests: inline CSS, embedded fonts and images, outside links opening in a new tab.");
+    ctx.add("todo", "What it's hired for", "Your HTML deliverable reads well with no scripts and no outside requests: inline CSS, embedded fonts and images, outside links opening in a new tab.");
   }
   if (!pasteIntakeOffered(m)) {
-    ctx.add("tip", "Brief and deliverables", "Buyers can paste their notes and have Guild fill in your brief, if you add `intake` with what to find out (see the Creator Kit's page on collecting the brief, on Guild).");
+    ctx.add("tip", "What it's hired for", "Buyers can paste their notes and have Guild fill in your brief, if you add `intake` with what to find out (see the Creator Kit's page on collecting the brief, on Guild).");
   } else {
     const secret = ctx.files.filter((file2) => file2.startsWith("specialist/") && /\.(md|txt)$/.test(file2) && !file2.endsWith("README.md")).map((file2) => readText(join3(ctx.dir, file2)) ?? "").join("\n");
     if (m.intake?.instructions && sharesLongRun(m.intake.instructions, secret)) {
-      ctx.add("warn", "Brief and deliverables", "Your intake instructions repeat wording from your specialist files (method, instructions, rubric, skills or references). Intake runs outside your agent: keep it to what to collect, never how the work is done.");
+      ctx.add("warn", "What it's hired for", "Your intake instructions repeat wording from your specialist files (method, rubric, skills or references). Intake runs outside your agent: keep it to what to collect, never how the work is done.");
     } else {
-      ctx.add("pass", "Brief and deliverables", "Paste your notes is on, and its instructions don't repeat your method.");
+      ctx.add("pass", "What it's hired for", "Paste your notes is on, and its instructions don't repeat your method.");
     }
   }
   if (m.questions.allowed) {
-    ctx.add("todo", "Brief and deliverables", "Each test brief still finishes well if the buyer never answers your agent's question.");
+    ctx.add("todo", "Test briefs", "Each test brief still finishes well if the buyer never answers your agent's question.");
   }
 }
+var FILE_PART = { "specialist/method.md": "How it does the work", "specialist/rubric.md": "How the work is checked" };
 function checkSpecialist(ctx) {
-  if (!existsSync3(join3(ctx.dir, "Dockerfile"))) ctx.add("fail", "Specialist", "There's no Dockerfile. Guild builds your agent's image from it.");
+  if (!existsSync3(join3(ctx.dir, "Dockerfile"))) ctx.add("fail", "Guild's rules", "There's no Dockerfile. Guild builds your agent's image from it.");
   const m = ctx.manifest;
   const pkg = readText(join3(ctx.dir, "package.json")) ?? "";
   if (m && ["lite", "basic"].includes(m.limits.instance) && pkg.includes("@anthropic-ai/claude-agent-sdk")) {
-    ctx.add("fail", "Specialist", `\`limits.instance\` is "${m.limits.instance}", too small for the Agent SDK. Use "standard-1" or larger.`);
+    ctx.add("fail", "Guild's rules", `\`limits.instance\` is "${m.limits.instance}", too small for the Agent SDK. Use "standard-1" or larger.`);
   }
   if (!existsSync3(join3(ctx.dir, "specialist"))) return;
   for (const [file2, signature] of Object.entries(TEMPLATE_PLACEHOLDERS.files)) {
+    const part = FILE_PART[file2];
     const text = readText(join3(ctx.dir, file2));
     if (text === null) {
-      ctx.add("warn", "Specialist", `There's no ${file2}.`);
+      ctx.add("fail", part, `There's no ${file2}. Guild needs it.`);
       continue;
     }
-    if (text.includes(signature)) ctx.add("fail", "Specialist", `${file2} is still the template's example. Replace it with your own.`);
-    else ctx.add("pass", "Specialist", `${file2} is your own.`);
+    if (text.includes(signature)) ctx.add("open", part, `${file2} is still the template's example. Replace it with your own.`);
+    else ctx.add("pass", part, `${file2} is your own.`);
+  }
+  const instructions = readText(join3(ctx.dir, "specialist", "instructions.md"));
+  if (instructions !== null) {
+    if (instructions.includes(TEMPLATE_PLACEHOLDERS.instructions)) {
+      ctx.add("open", "How it does the work", "specialist/instructions.md is still the template's example. Put your standards and voice in method.md, and delete instructions.md.");
+    } else {
+      ctx.add("pass", "How it does the work", "specialist/instructions.md is your own, and your agent reads it with your method.");
+    }
   }
   const skillsDir = join3(ctx.dir, "specialist", "skills");
   const skills = existsSync3(skillsDir) ? readdirSync2(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name) : [];
   if (skills.length === 0) {
-    ctx.add("tip", "Specialist", "No skills yet. A skill is know-how a general model gets wrong: techniques, rules of thumb, checklists (specialist/skills/<name>/SKILL.md).");
+    ctx.add("tip", "How it does the work", "No skills yet. A skill is know-how a general model gets wrong: techniques, rules of thumb, checklists (specialist/skills/<name>/SKILL.md).");
   }
   for (const skill of skills) {
     const text = readText(join3(skillsDir, skill, "SKILL.md"));
     if (text === null) {
-      ctx.add("fail", "Specialist", `specialist/skills/${skill}/ has no SKILL.md, so the agent won't load it.`);
+      ctx.add("fail", "How it does the work", `specialist/skills/${skill}/ has no SKILL.md, so the agent won't load it.`);
       continue;
     }
     const front = text.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
     const name = front.match(/^name:\s*(.+)$/m)?.[1]?.trim();
     const description = front.match(/^description:\s*(.+)$/m)?.[1]?.trim();
-    if (!name || !description) ctx.add("fail", "Specialist", `specialist/skills/${skill}/SKILL.md needs a \`name\` and a \`description\` between --- lines at the top, or the agent won't know when to use it.`);
-    if (skill === TEMPLATE_PLACEHOLDERS.skill) ctx.add("warn", "Specialist", `specialist/skills/${skill} is the template's example skill. Replace it with your own know-how, or delete it.`);
+    if (!name || !description) ctx.add("fail", "How it does the work", `specialist/skills/${skill}/SKILL.md needs a \`name\` and a \`description\` between --- lines at the top, or the agent won't know when to use it.`);
+    if (skill === TEMPLATE_PLACEHOLDERS.skill) ctx.add("open", "How it does the work", `specialist/skills/${skill} is the template's example skill. Replace it with your own know-how, or delete it.`);
   }
   const own2 = skills.filter((skill) => skill !== TEMPLATE_PLACEHOLDERS.skill);
-  if (own2.length > 0) ctx.add("pass", "Specialist", `${plural2(own2.length, "skill")}: ${own2.join(", ")}.`);
+  if (own2.length > 0) ctx.add("pass", "How it does the work", `${plural2(own2.length, "skill")}: ${own2.join(", ")}.`);
   const referencesDir = join3(ctx.dir, "specialist", "references");
   const references = existsSync3(referencesDir) ? walk2(referencesDir).filter((file2) => file2.toLowerCase() !== "readme.md") : [];
   if (references.length === 0) {
-    ctx.add("warn", "Specialist", "No references yet. Examples of excellent work, templates and house styles in specialist/references/ are often worth more than any instruction.");
+    ctx.add("open", "What great looks like", "No examples yet. Add at least one example of excellent work to specialist/references/, with a note on what makes it excellent: showing what great looks like often does more than any instruction.");
   } else {
-    ctx.add("pass", "Specialist", `${plural2(references.length, "reference file")} in specialist/references/.`);
-    ctx.add("todo", "Specialist", "You have the right to use every file in specialist/references/ in a paid service.");
+    ctx.add("pass", "What great looks like", `${plural2(references.length, "reference file")} in specialist/references/.`);
+    ctx.add("todo", "What great looks like", "You have the right to use every file in specialist/references/ in a paid service.");
   }
 }
 function checkModels(ctx) {
@@ -21812,15 +21790,15 @@ function checkModels(ctx) {
     for (const model of [ctx.settings.model, ctx.settings.reviewModel]) if (!used.has(model)) used.set(model, SETTINGS_PATH);
   }
   for (const [model, path] of used) {
-    if (!isAllowedModel(model)) ctx.add("fail", "Models", `${path} uses "${model}", which isn't a model Guild offers. See "What Guild enforces" in docs/guild.md for the list.`);
-    else if (!listed.has(model)) ctx.add("fail", "Models", `${path} uses ${model}, which the manifest doesn't list. Guild refuses calls to unlisted models: add it under \`models\`.`);
+    if (!isAllowedModel(model)) ctx.add("fail", "Guild's rules", `${path} uses "${model}", which isn't a model Guild offers. See "What Guild enforces" in docs/guild.md for the list.`);
+    else if (!listed.has(model)) ctx.add("fail", "Guild's rules", `${path} uses ${model}, which the manifest doesn't list. Guild refuses calls to unlisted models: add it under \`models\`.`);
   }
   const unused = [...listed].filter((model) => !used.has(model));
-  if (used.size > 0 && unused.length > 0) ctx.add("tip", "Models", `The manifest lists ${unused.join(", ")}, which the code doesn't seem to use. Remove ${unused.length === 1 ? "it" : "them"} if so.`);
-  if (used.size > 0 && [...used.keys()].every((model) => listed.has(model))) ctx.add("pass", "Models", `Every model the code uses is listed (${[...used.keys()].join(", ")}).`);
+  if (used.size > 0 && unused.length > 0) ctx.add("tip", "Guild's rules", `The manifest lists ${unused.join(", ")}, which the code doesn't seem to use. Remove ${unused.length === 1 ? "it" : "them"} if so.`);
+  if (used.size > 0 && [...used.keys()].every((model) => listed.has(model))) ctx.add("pass", "Guild's rules", `Every model the code uses is listed (${[...used.keys()].join(", ")}).`);
   for (const { path, text } of ctx.code) {
     if (/api\.anthropic\.com/.test(withoutComments(text))) {
-      ctx.add("fail", "Models", `${path} calls api.anthropic.com directly. Use ANTHROPIC_BASE_URL and ANTHROPIC_API_KEY as Guild sets them.`);
+      ctx.add("fail", "Guild's rules", `${path} calls api.anthropic.com directly. Use ANTHROPIC_BASE_URL and ANTHROPIC_API_KEY as Guild sets them.`);
     }
   }
 }
@@ -21836,32 +21814,32 @@ function checkKeysAndHosts(ctx) {
   ]);
   if (ctx.settings) {
     for (const issue2 of settingsIssues(ctx.settings, m)) {
-      if (issue2.path.startsWith("connections")) ctx.add("fail", "Keys and outside hosts", `${SETTINGS_PATH}: ${issue2.message}`);
+      if (issue2.path.startsWith("connections")) ctx.add("fail", "Guild's rules", `${SETTINGS_PATH}: ${issue2.message}`);
     }
   }
-  const read2 = /* @__PURE__ */ new Map();
+  const read = /* @__PURE__ */ new Map();
   for (const { path, text } of ctx.code) {
     const code = withoutComments(text);
     for (const match of code.matchAll(/process\.env(?:\.([A-Z][A-Z0-9_]*)|\[["'`]([A-Z][A-Z0-9_]*)["'`]\])|os\.environ(?:\.get\(|\[)\s*["']([A-Z][A-Z0-9_]*)["']/g)) {
       const name = match[1] ?? match[2] ?? match[3];
-      if (!read2.has(name)) read2.set(name, path);
+      if (!read.has(name)) read.set(name, path);
     }
   }
-  for (const [name, path] of read2) {
+  for (const [name, path] of read) {
     if (PLATFORM_VARIABLE.test(name) || declared.has(name) || !KEY_LIKE.test(name)) continue;
-    ctx.add("warn", "Keys and outside hosts", `${path} reads ${name}, which looks like a key but isn't declared. On Guild it won't be set: declare it on its host (\`network.hosts[].key\`), with \`"required": false\` if the agent can do without it.`);
+    ctx.add("warn", "Guild's rules", `${path} reads ${name}, which looks like a key but isn't declared. On Guild it won't be set: declare it on its host (\`network.hosts[].key\`), with \`"required": false\` if the agent can do without it.`);
   }
   const connectedKeys = new Set(declaredKeys(m).filter(({ host }) => connected.has(host)).map(({ key }) => key.secret));
   for (const name of declared) {
     if (connectedKeys.has(name)) continue;
-    if (!allCode.includes(name)) ctx.add("warn", "Keys and outside hosts", `The manifest declares the key ${name}, but the code never mentions it. Read it from the environment variable of that name.`);
+    if (!allCode.includes(name)) ctx.add("warn", "Guild's rules", `The manifest declares the key ${name}, but the code never mentions it. Read it from the environment variable of that name.`);
   }
   const rawHosts = ctx.raw?.network?.hosts ?? [];
   for (const entry of rawHosts) {
     if (entry.key && entry.key.maxCallsPerTask === void 0) {
       ctx.add(
         "warn",
-        "Keys and outside hosts",
+        "Guild's rules",
         `Set \`maxCallsPerTask\` on ${entry.key.secret ?? "the key"} for ${entry.host} to about what one task needs. It defaults to 1,000, and a brief could talk your agent into spending your account's credit on calls you didn't intend.`
       );
     }
@@ -21875,15 +21853,15 @@ function checkKeysAndHosts(ctx) {
   }
   for (const [host, path] of called) {
     if (IGNORED_HOSTS.test(host) || hosts.has(host) || host === "api.anthropic.com") continue;
-    ctx.add("warn", "Keys and outside hosts", `${path} mentions https://${host}, which isn't under \`network.hosts\`. If the agent calls it, Guild blocks the call: declare it with a plain \`purpose\`.`);
+    ctx.add("warn", "Guild's rules", `${path} mentions https://${host}, which isn't under \`network.hosts\`. If the agent calls it, Guild blocks the call: declare it with a plain \`purpose\`.`);
   }
   for (const entry of m.network.hosts) {
     if (!called.has(entry.host.toLowerCase()) && !allCode.includes(entry.host) && !connected.has(entry.host)) {
-      ctx.add("tip", "Keys and outside hosts", `${entry.host} is declared, but the code doesn't mention it. Remove it if the agent doesn't call it.`);
+      ctx.add("tip", "Guild's rules", `${entry.host} is declared, but the code doesn't mention it. Remove it if the agent doesn't call it.`);
     }
   }
   if (declared.size > 0) {
-    ctx.add("todo", "Keys and outside hosts", "After you submit, set each key in the Studio (your agent \u2192 Versions and keys). Checks wait for required keys.");
+    ctx.add("todo", "When you submit", "After you submit, set each key in the Studio (your agent \u2192 Versions and keys). Checks wait for required keys.");
   }
 }
 function checkSecrets(ctx) {
@@ -21897,7 +21875,7 @@ function checkSecrets(ctx) {
     for (let i = 0; i < lines.length; i++) {
       const hit = SECRET_PATTERNS.find(({ pattern }) => pattern.test(lines[i]));
       if (hit) {
-        ctx.add("fail", "Secrets", `${file2}, line ${i + 1}, looks like it contains ${hit.name}. Remove it, and revoke it if it was ever committed. Agents read keys from environment variables.`);
+        ctx.add("fail", "Guild's rules", `${file2}, line ${i + 1}, looks like it contains ${hit.name}. Remove it, and revoke it if it was ever committed. Agents read keys from environment variables.`);
         found++;
         break;
       }
@@ -21905,10 +21883,10 @@ function checkSecrets(ctx) {
   }
   const envFiles = ctx.files.filter((file2) => (file2.split("/").pop() ?? "").startsWith(".env"));
   if (envFiles.length > 0) {
-    if (!ignoreFileCovers(ctx.dir, ".gitignore", ".env")) ctx.add("fail", "Secrets", `${envFiles[0]} isn't covered by .gitignore. Add .env* to .gitignore so keys are never committed.`);
-    if (!ignoreFileCovers(ctx.dir, ".dockerignore", ".env")) ctx.add("fail", "Secrets", `${envFiles[0]} isn't covered by .dockerignore. Add .env* to .dockerignore so keys never reach the image.`);
+    if (!ignoreFileCovers(ctx.dir, ".gitignore", ".env")) ctx.add("fail", "Guild's rules", `${envFiles[0]} isn't covered by .gitignore. Add .env* to .gitignore so keys are never committed.`);
+    if (!ignoreFileCovers(ctx.dir, ".dockerignore", ".env")) ctx.add("fail", "Guild's rules", `${envFiles[0]} isn't covered by .dockerignore. Add .env* to .dockerignore so keys never reach the image.`);
   }
-  if (found === 0) ctx.add("pass", "Secrets", "No keys or tokens found in the repository's files.");
+  if (found === 0) ctx.add("pass", "Guild's rules", "No keys or tokens found in the repository's files.");
 }
 function readTestBriefs(ctx) {
   const dir2 = join3(ctx.dir, "test-briefs");
@@ -21933,7 +21911,7 @@ function readTestBriefs(ctx) {
     }
     briefs.push({ name, brief });
     if (TEMPLATE_PLACEHOLDERS.testBriefs.some((example) => canonical(example) === canonical(brief))) {
-      ctx.add("fail", "Test briefs", `test-briefs/${file2} is still the template's example. Replace it with a realistic brief for your agent.`);
+      ctx.add("open", "Test briefs", `test-briefs/${file2} is still the template's example. Replace it with a realistic brief for your agent.`);
       continue;
     }
     if (ctx.manifest) {
@@ -21948,7 +21926,7 @@ function readTestBriefs(ctx) {
 function latestRuns(agentDir2, briefs) {
   const runsDir = join3(agentDir2, ".guild", "runs");
   const runs = existsSync3(runsDir) ? readdirSync2(runsDir).sort().reverse() : [];
-  const parsed = runs.flatMap((id) => {
+  const parsed2 = runs.flatMap((id) => {
     try {
       const task = JSON.parse(readFileSync3(join3(runsDir, id, "task.json"), "utf8"));
       const resultPath = join3(runsDir, id, "result.json");
@@ -21967,7 +21945,7 @@ function latestRuns(agentDir2, briefs) {
     }
   });
   return briefs.map(({ name, brief }) => {
-    const run = parsed.find((candidate) => candidate.brief === canonical(brief));
+    const run = parsed2.find((candidate) => candidate.brief === canonical(brief));
     if (!run) return { brief: name, outcome: "not-run", mocked: false, seconds: null, costMicros: null, reason: null, runDir: null, delivered: [], empty: [] };
     const outcome = run.result?.outcome;
     return {
@@ -21987,7 +21965,7 @@ function checkRuns(ctx, runs) {
   const m = ctx.manifest;
   const notRun = runs.filter((run) => run.outcome === "not-run").map((run) => `${run.brief}.json`);
   if (runs.length > 0 && runs.every((run) => run.outcome === "not-run" || run.mocked)) {
-    ctx.add("fail", "Runs and cost", "No test brief has been run with real models yet, so nobody has seen the work or what it costs. Run `npm run guild -- check --run` (it uses your own Anthropic key).");
+    ctx.add("open", "Runs and cost", "No test brief has been run with real models yet, so nobody has seen the work or what it costs. Run them with /guild-try in Claude Code, or `npm run guild -- check --run` (it uses your own Anthropic key).");
   } else if (notRun.length > 0) {
     ctx.add("warn", "Runs and cost", `Not run on this machine yet: ${notRun.join(", ")}. Run \`npm run guild -- check --run\`.`);
   }
@@ -22035,9 +22013,9 @@ function checkRuns(ctx, runs) {
     const shareMicros = Math.floor(tier.priceCents * (1e4 - GUILD_COMMISSION_BPS) / 1e4) * 1e4;
     const margin = shareMicros - highest;
     const line = `"${tier.name}" at $${(tier.priceCents / 100).toFixed(2)}: your share after Guild's ${GUILD_COMMISSION_BPS / 100}% is ${formatMicros(shareMicros)}, so about ${formatMicros(margin)} a task after the costliest run.`;
-    if (margin <= 0) ctx.add("fail", "Runs and cost", `${line} That loses money: raise the price or cut the cost.`);
-    else if (highest > shareMicros / 2) ctx.add("warn", "Runs and cost", `${line} Model costs take more than half your share, before any revisions (you pay for those too).`);
-    else ctx.add("pass", "Runs and cost", line);
+    if (margin <= 0) ctx.add("warn", "When you submit", `${line} That loses money on every task: raise the price or cut the cost.`);
+    else if (highest > shareMicros / 2) ctx.add("warn", "When you submit", `${line} Model costs take more than half your share, before any revisions (you pay for those too).`);
+    else ctx.add("pass", "When you submit", line);
   }
 }
 function checkTodos(ctx) {
@@ -22046,19 +22024,26 @@ function checkTodos(ctx) {
   );
   for (const file2 of scanned) {
     const count = (readText(join3(ctx.dir, file2))?.match(/\bTODO:/g) ?? []).length;
-    if (count > 0) ctx.add("warn", file2.startsWith("specialist/") ? "Specialist" : "Manifest", `${file2} has ${plural2(count, "TODO")} left to fill in.`);
+    if (count > 0) ctx.add("open", partOf(file2), `${file2} has ${plural2(count, "TODO")} left to fill in.`);
   }
+}
+function partOf(file2) {
+  if (file2 === "guild.manifest.json" || file2 === "intake.md") return "What it's hired for";
+  if (file2.startsWith("specialist/references/")) return "What great looks like";
+  if (file2 === "specialist/rubric.md") return "How the work is checked";
+  if (file2.startsWith("test-briefs/")) return "Test briefs";
+  return "How it does the work";
 }
 function checkSetup(ctx) {
   const text = readText(join3(ctx.dir, "SETUP.md"));
   if (!text) return;
   const open2 = text.match(/^- \[ \] .+$/gm) ?? [];
-  if (open2.length > 0) ctx.add("tip", "Only you can check", `SETUP.md has ${plural2(open2.length, "stage")} not ticked yet. Run /guild-setup in Claude Code to carry on, or delete SETUP.md if you're done.`);
+  if (open2.length > 0) ctx.add("tip", "Only you can check", `SETUP.md has ${plural2(open2.length, "item")} not ticked yet. Run /guild-setup in Claude Code to carry on, or delete SETUP.md if you're done.`);
 }
 var MANUAL_CHECKS = [
-  "You've read every test brief's result as a buyer would, and you'd be happy to be paid for it.",
-  "When the work can't be done well, the agent fails with a clear reason rather than delivering something weak.",
-  "The Dockerfile installs everything at build time, and the image builds for linux/amd64 (Guild's machines)."
+  ["Only you can check", "You've read every test brief's result as a buyer would, and you'd be happy to be paid for it."],
+  ["Only you can check", "When the work can't be done well, the agent fails with a clear reason rather than delivering something weak."],
+  ["Guild's rules", "If you've changed the code or the Dockerfile: it installs everything at build time, and the image builds for linux/amd64 (Guild's machines)."]
 ];
 function checkAgent(agentDir2) {
   const findings = [];
@@ -22088,477 +22073,81 @@ function checkAgent(agentDir2) {
   const briefs = readTestBriefs(ctx);
   const runs = latestRuns(agentDir2, briefs);
   checkRuns(ctx, runs);
-  for (const message of MANUAL_CHECKS) ctx.add("todo", "Only you can check", message);
+  for (const [area, message] of MANUAL_CHECKS) ctx.add("todo", area, message);
   if (ctx.manifest?.dataHandling.some((statement) => statement.level === "declared")) {
     ctx.add("todo", "Only you can check", "Every `declared` data-handling statement is true of what the agent does, with the matching rule in its instructions if it depends on the model.");
   }
   checkSetup(ctx);
-  const counts = { fail: 0, warn: 0, tip: 0, todo: 0, pass: 0 };
+  const counts = { fail: 0, open: 0, warn: 0, tip: 0, todo: 0, pass: 0 };
   for (const finding of findings) counts[finding.level]++;
   const m = ctx.manifest;
+  const method = readText(join3(agentDir2, "specialist", "method.md")) ?? "";
+  const started = !(m?.slug === TEMPLATE_PLACEHOLDERS.slug && method.includes(TEMPLATE_PLACEHOLDERS.files["specialist/method.md"]));
   return {
     agent: m ? { slug: m.slug, name: m.name, version: m.version } : null,
-    ready: counts.fail === 0,
+    started,
+    parts: PARTS.map((name) => ({ name, done: !findings.some((finding) => finding.area === name && (finding.level === "fail" || finding.level === "open")) })),
+    ready: counts.fail === 0 && counts.open === 0,
     counts,
     findings,
     runs
   };
 }
-var MARKS = { fail: "\u2717", warn: "!", tip: "+", todo: "\u2610", pass: "\u2713" };
-var ORDER = ["fail", "warn", "tip", "todo", "pass"];
+var MARKS = { fail: "\u2717", open: "\u25CB", warn: "!", tip: "+", todo: "\u2610", pass: "\u2713" };
+var ORDER = ["fail", "open", "warn", "tip", "todo", "pass"];
+var SHORT_LIST = 3;
+var NOT_STARTED = [
+  "# Not set up yet",
+  "",
+  "This is a fresh copy of Guild's agent template. Open this folder in Claude Code and run /guild-setup: it asks about your work and writes your agent with you, one part at a time.",
+  "",
+  `The five parts: ${PARTS.join(" \xB7 ")}.`
+];
 function formatReadiness(readiness, options = {}) {
+  if (!readiness.started && options.short) return NOT_STARTED.join("\n") + "\n";
   const { counts } = readiness;
   const title = readiness.agent ? `${readiness.agent.name} ${readiness.agent.version}` : "This agent";
+  const done = readiness.parts.filter((part) => part.done).length;
+  const next = readiness.parts.find((part) => !part.done);
+  const blocking = [counts.fail > 0 ? `${plural2(counts.fail, "thing")} Guild would refuse` : "", counts.open > 0 ? `${counts.open} not done yet` : ""].filter(Boolean).join(", ");
   const lines = [
+    ...readiness.started ? [] : [...NOT_STARTED, "", "The full report is below.", ""],
     `# Readiness: ${title}`,
     "",
-    readiness.ready ? `**Ready to submit**, once you've gone through the ${plural2(counts.todo, "item")} only you can check.` : `**Not ready yet:** ${plural2(counts.fail, "thing")} to fix before submitting.`,
+    done === PARTS.length ? "**All five parts done.**" : `**${done} of ${PARTS.length} parts done.** Next: ${next.name}.`,
     "",
-    `${MARKS.fail} ${counts.fail} to fix \xB7 ${MARKS.warn} ${counts.warn} worth fixing \xB7 ${MARKS.tip} ${counts.tip} ${counts.tip === 1 ? "idea" : "ideas"} \xB7 ${MARKS.todo} ${counts.todo} for you to check \xB7 ${MARKS.pass} ${counts.pass} done`
+    readiness.ready ? `**Ready to submit**, once you've gone through the ${plural2(counts.todo, "item")} only you can check.` : `**Not ready to submit yet:** ${blocking}.`,
+    "",
+    `${MARKS.fail} ${counts.fail} Guild would refuse \xB7 ${MARKS.open} ${counts.open} not done yet \xB7 ${MARKS.warn} ${counts.warn} worth fixing \xB7 ${MARKS.tip} ${counts.tip} ${counts.tip === 1 ? "idea" : "ideas"} \xB7 ${MARKS.todo} ${counts.todo} for you to check \xB7 ${MARKS.pass} ${counts.pass} done`
   ];
   for (const area of AREAS) {
-    const items = readiness.findings.filter((finding) => finding.area === area && (options.showPassed !== false || finding.level !== "pass")).sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level));
-    if (items.length === 0) continue;
-    lines.push("", `## ${area}`, "");
-    for (const item of items) lines.push(`- ${MARKS[item.level]} ${item.message}`);
+    const partIndex = PARTS.indexOf(area);
+    const partDone = partIndex >= 0 && readiness.parts[partIndex].done;
+    const heading = partIndex >= 0 ? `## ${partIndex + 1}. ${area}${partDone ? " \u2713" : ""}` : `## ${area}`;
+    const items = readiness.findings.filter((finding) => finding.area === area && (!options.short || finding.level !== "pass")).sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level));
+    if (items.length === 0) {
+      if (partIndex >= 0) lines.push("", heading);
+      continue;
+    }
+    lines.push("", heading, "");
+    const shown = options.short ? items.filter((item, index) => item.level === "fail" || index < SHORT_LIST) : items;
+    for (const item of shown) lines.push(`- ${MARKS[item.level]} ${item.message}`);
+    if (shown.length < items.length) lines.push(`- \u2026 and ${items.length - shown.length} more in .guild/readiness.md`);
   }
-  lines.push("", `${MARKS.fail} fix before submitting \xB7 ${MARKS.warn} worth fixing \xB7 ${MARKS.tip} would make it better \xB7 ${MARKS.todo} only you can check \xB7 ${MARKS.pass} done`);
+  lines.push("", `${MARKS.fail} Guild would refuse \xB7 ${MARKS.open} not done yet \xB7 ${MARKS.warn} worth fixing \xB7 ${MARKS.tip} would make it better \xB7 ${MARKS.todo} only you can check \xB7 ${MARKS.pass} done`);
   return lines.join("\n") + "\n";
 }
 
-// src/setup-server.ts
-import { spawn } from "node:child_process";
-import { randomBytes, timingSafeEqual } from "node:crypto";
-import { existsSync as existsSync4, mkdirSync, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync4, rmSync, statSync as statSync3, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
-import { tmpdir } from "node:os";
-import { join as join4, resolve, sep } from "node:path";
-import { parseEnv } from "node:util";
-var DEFAULT_SETUP_PORT = 4747;
-var MAX_BODY_BYTES = 15 * 1024 * 1024;
-var MAX_REFERENCE_BYTES = 10 * 1024 * 1024;
-var TEXT_FILES = {
-  instructions: "specialist/instructions.md",
-  method: "specialist/method.md",
-  rubric: "specialist/rubric.md",
-  intake: "intake.md"
-};
-var SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
-var REFERENCE_NAME = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/;
-var ENV_NAME = /^[A-Z][A-Z0-9_]{0,63}$/;
-var SetupError = class extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-  status;
-};
-function inside(agentDir2, path) {
-  const full = resolve(agentDir2, path);
-  const root = resolve(agentDir2);
-  if (full !== root && !full.startsWith(root + sep)) throw new SetupError(400, "That path is outside the agent's folder.");
-  return full;
-}
-function read(agentDir2, path) {
-  const full = inside(agentDir2, path);
-  return existsSync4(full) ? readFileSync4(full, "utf8") : null;
-}
-function write(agentDir2, path, content) {
-  const full = inside(agentDir2, path);
-  mkdirSync(resolve(full, ".."), { recursive: true });
-  writeFileSync(full, content);
-}
-function frontMatter(text) {
-  const match = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!match) return { name: "", description: "", body: text };
-  const field = (key) => match[1].match(new RegExp(`^${key}:\\s*(.*)$`, "m"))?.[1]?.trim() ?? "";
-  return { name: field("name"), description: field("description"), body: match[2].replace(/^\n/, "") };
-}
-function readStages(text) {
-  if (!text) return [];
-  return [...text.matchAll(/^- \[( |x|X)\] (\d+)\. \*\*(.+?)\*\*/gm)].map((match) => ({
-    number: Number(match[2]),
-    title: match[3],
-    done: match[1] !== " "
-  }));
-}
-function setStage(text, number4, done) {
-  return text.replace(new RegExp(`^- \\[( |x|X)\\] ${number4}\\. `, "m"), `- [${done ? "x" : " "}] ${number4}. `);
-}
-function setEnv(text, name, value) {
-  if (!ENV_NAME.test(name)) throw new SetupError(400, "That isn't a valid variable name.");
-  if (/[\r\n]/.test(value)) throw new SetupError(400, "A key can't contain a line break.");
-  const line = `${name}=${/[\s#"'\\$`]/.test(value) ? JSON.stringify(value) : value}`;
-  const lines = text.split("\n").filter((existing, index, all) => !(index === all.length - 1 && existing === ""));
-  const at = lines.findIndex((existing) => existing.replace(/^export\s+/, "").startsWith(`${name}=`));
-  if (value === "") {
-    if (at >= 0) lines.splice(at, 1);
-  } else if (at >= 0) {
-    lines[at] = line;
-  } else {
-    lines.push(line);
-  }
-  return lines.length ? `${lines.join("\n")}
-` : "";
-}
-function readConfig(text) {
-  const pick2 = (name) => text?.match(new RegExp(`^export const ${name} = "([^"]+)";`, "m"))?.[1] ?? null;
-  const outputs = text?.match(/^export const REQUIRED_OUTPUTS = (\[[^\]\n]*\]);/m)?.[1];
-  let requiredOutputs = null;
-  try {
-    const parsed = outputs ? JSON.parse(outputs) : null;
-    if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) requiredOutputs = parsed;
-  } catch {
-  }
-  return { model: pick2("MODEL"), reviewModel: pick2("REVIEW_MODEL"), requiredOutputs };
-}
-function setRequiredOutputs(text, outputs) {
-  const pattern = /^export const REQUIRED_OUTPUTS = \[[^\]\n]*\];/m;
-  if (!pattern.test(text)) throw new SetupError(409, "src/config.ts has no one-line `export const REQUIRED_OUTPUTS = [...]` to change. Edit it by hand.");
-  return text.replace(pattern, `export const REQUIRED_OUTPUTS = ${JSON.stringify(outputs).replace(/","/g, '", "')};`);
-}
-function setConfigModel(text, name, model) {
-  const pattern = new RegExp(`^export const ${name} = "[^"]+";`, "m");
-  if (!pattern.test(text)) throw new SetupError(409, `src/config.ts has no \`export const ${name} = "\u2026";\` line to change. Edit it by hand.`);
-  return text.replace(pattern, `export const ${name} = "${model}";`);
-}
-function rawManifest(agentDir2) {
-  const text = read(agentDir2, "guild.manifest.json");
-  if (text === null) return { raw: null, error: "There's no guild.manifest.json." };
-  try {
-    return { raw: JSON.parse(text), error: null };
-  } catch (error62) {
-    return { raw: null, error: `guild.manifest.json isn't valid JSON: ${error62 instanceof Error ? error62.message : String(error62)}` };
-  }
-}
-function validated(agentDir2, raw) {
-  let resolved;
-  try {
-    resolved = resolveIntakeInstructions(agentDir2, raw);
-  } catch (error62) {
-    return { manifest: null, issues: [{ path: "intake.instructionsFile", message: error62 instanceof Error ? error62.message : String(error62) }] };
-  }
-  const result = validateManifest(resolved);
-  return result.ok ? { manifest: result.manifest, issues: [] } : { manifest: null, issues: result.issues };
-}
-function setupState(agentDir2) {
-  const { raw, error: error62 } = rawManifest(agentDir2);
-  const { manifest, issues } = raw ? validated(agentDir2, raw) : { manifest: null, issues: [] };
-  const skillsDir = join4(agentDir2, "specialist", "skills");
-  const skills = existsSync4(skillsDir) ? readdirSync3(skillsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => ({ folder: entry.name, ...frontMatter(read(agentDir2, `specialist/skills/${entry.name}/SKILL.md`) ?? "") })) : [];
-  const referencesDir = join4(agentDir2, "specialist", "references");
-  const references = existsSync4(referencesDir) ? readdirSync3(referencesDir, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => ({ name: entry.name, bytes: statSync3(join4(referencesDir, entry.name)).size })) : [];
-  const briefsDir = join4(agentDir2, "test-briefs");
-  const testBriefs = existsSync4(briefsDir) ? readdirSync3(briefsDir).filter((name) => name.endsWith(".json")).sort().map((file2) => {
-    const text = read(agentDir2, `test-briefs/${file2}`) ?? "";
-    try {
-      const brief = JSON.parse(text);
-      const result = manifest ? validateBrief(manifest, brief) : null;
-      return { name: file2.replace(/\.json$/, ""), brief, issues: result && !result.ok ? result.issues : [] };
-    } catch {
-      return { name: file2.replace(/\.json$/, ""), brief: null, issues: ["This file isn't valid JSON."] };
-    }
-  }) : [];
-  const env = (() => {
-    try {
-      return parseEnv(read(agentDir2, ".env") ?? "");
-    } catch {
-      return {};
-    }
-  })();
-  const keyNames = manifest ? [...new Set(declaredKeys(manifest).map(({ key }) => key.secret))] : [];
-  return {
-    agentDir: agentDir2,
-    manifest: raw,
-    manifestError: error62,
-    issues,
-    files: Object.fromEntries(Object.entries(TEXT_FILES).map(([name, path]) => [name, read(agentDir2, path)])),
-    skills,
-    references,
-    testBriefs,
-    stages: readStages(read(agentDir2, "SETUP.md")),
-    config: readAgentConfig(agentDir2),
-    keys: ["ANTHROPIC_API_KEY", ...keyNames].map((name) => ({ name, set: Boolean(process.env[name] || env[name]) })),
-    readiness: checkAgent(agentDir2),
-    options: {
-      models: ALLOWED_MODELS.map((model) => ({ id: model, input: PRICES[model]?.input ?? null, output: PRICES[model]?.output ?? null })),
-      instances: INSTANCE_SIZES,
-      revisions: { min: MIN_REVISIONS, max: MAX_REVISIONS },
-      commissionBps: GUILD_COMMISSION_BPS
-    }
-  };
-}
-function saveManifest(agentDir2, manifest) {
-  if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) throw new SetupError(400, "The manifest must be a JSON object.");
-  write(agentDir2, "guild.manifest.json", `${JSON.stringify(manifest, null, 2)}
-`);
-  return validated(agentDir2, manifest).issues;
-}
-function saveTextFile(agentDir2, name, content) {
-  const path = TEXT_FILES[name];
-  if (!path) throw new SetupError(400, "That file can't be edited here.");
-  write(agentDir2, path, content);
-}
-function saveSkill(agentDir2, input2) {
-  if (!SLUG.test(input2.folder)) throw new SetupError(400, "A skill's name must be lowercase letters, numbers and hyphens, such as rent-reviews.");
-  const description = input2.description.replace(/[\r\n]+/g, " ").trim();
-  if (!description) throw new SetupError(400, "Say when the agent should use this skill: that's how it picks skills.");
-  write(agentDir2, `specialist/skills/${input2.folder}/SKILL.md`, `---
-name: ${input2.folder}
-description: ${description}
----
-
-${input2.body.trim()}
-`);
-  if (input2.previous && input2.previous !== input2.folder && SLUG.test(input2.previous)) {
-    rmSync(inside(agentDir2, `specialist/skills/${input2.previous}`), { recursive: true, force: true });
-  }
-}
-function deleteSkill(agentDir2, folder) {
-  if (!SLUG.test(folder)) throw new SetupError(400, "That isn't a skill.");
-  rmSync(inside(agentDir2, `specialist/skills/${folder}`), { recursive: true, force: true });
-}
-function saveReference(agentDir2, name, base643) {
-  if (!REFERENCE_NAME.test(name) || name.includes("..")) throw new SetupError(400, "Use a plain file name: letters, numbers, spaces, dots, hyphens and underscores.");
-  const bytes = Buffer.from(base643, "base64");
-  if (bytes.length > MAX_REFERENCE_BYTES) throw new SetupError(413, "Keep each reference under 10 MB: everything in references goes into the agent's image.");
-  write(agentDir2, `specialist/references/${name}`, bytes);
-}
-function deleteReference(agentDir2, name) {
-  if (!REFERENCE_NAME.test(name) || name.includes("..")) throw new SetupError(400, "That isn't a reference.");
-  rmSync(inside(agentDir2, `specialist/references/${name}`), { force: true });
-}
-function saveTestBrief(agentDir2, name, brief, previous) {
-  if (!SLUG.test(name)) throw new SetupError(400, "Name the test brief in lowercase letters, numbers and hyphens, such as typical or messy-notes.");
-  if (typeof brief !== "object" || brief === null || Array.isArray(brief)) throw new SetupError(400, "A test brief is a set of answers to the brief's fields.");
-  write(agentDir2, `test-briefs/${name}.json`, `${JSON.stringify(brief, null, 2)}
-`);
-  if (previous && previous !== name && SLUG.test(previous)) rmSync(inside(agentDir2, `test-briefs/${previous}.json`), { force: true });
-}
-function deleteTestBrief(agentDir2, name) {
-  if (!SLUG.test(name)) throw new SetupError(400, "That isn't a test brief.");
-  rmSync(inside(agentDir2, `test-briefs/${name}.json`), { force: true });
-}
-function saveConfig(agentDir2, models) {
-  const names = models.requiredOutputs?.map((name) => name.trim()).filter(Boolean);
-  if (names?.some((name) => !REFERENCE_NAME.test(name) || name.includes("..") || name.startsWith("_"))) {
-    throw new SetupError(400, "Use plain file names for the files that must be written, such as report.md (names starting with _ aren't delivered).");
-  }
-  for (const model of [models.model, models.reviewModel]) {
-    if (model !== void 0 && !ALLOWED_MODELS.includes(model)) throw new SetupError(400, `${model} isn't a model Guild offers.`);
-  }
-  const settingsText = read(agentDir2, SETTINGS_PATH);
-  if (settingsText !== null) {
-    let settings;
-    try {
-      settings = JSON.parse(settingsText);
-    } catch {
-      throw new SetupError(409, `${SETTINGS_PATH} isn't valid JSON. Fix it by hand first.`);
-    }
-    if (models.model !== void 0) settings.model = models.model;
-    if (models.reviewModel !== void 0) settings.reviewModel = models.reviewModel;
-    if (names) settings.requiredOutputs = names;
-    write(agentDir2, SETTINGS_PATH, `${JSON.stringify(settings, null, 2)}
-`);
-    return;
-  }
-  let text = read(agentDir2, "src/config.ts");
-  if (text === null) throw new SetupError(409, `There's no ${SETTINGS_PATH} to change.`);
-  if (names) text = setRequiredOutputs(text, names);
-  for (const [name, model] of [["MODEL", models.model], ["REVIEW_MODEL", models.reviewModel]]) {
-    if (model !== void 0) text = setConfigModel(text, name, model);
-  }
-  write(agentDir2, "src/config.ts", text);
-}
-function readAgentConfig(agentDir2) {
-  const settingsText = read(agentDir2, SETTINGS_PATH);
-  if (settingsText === null) return readConfig(read(agentDir2, "src/config.ts"));
-  const parsed = parseSettings(settingsText);
-  if (!parsed.ok) return { model: null, reviewModel: null, requiredOutputs: null };
-  return { model: parsed.settings.model, reviewModel: parsed.settings.reviewModel, requiredOutputs: parsed.settings.requiredOutputs };
-}
-function saveStage(agentDir2, number4, done) {
-  const text = read(agentDir2, "SETUP.md");
-  if (text === null) throw new SetupError(409, "There's no SETUP.md.");
-  write(agentDir2, "SETUP.md", setStage(text, number4, done));
-}
-function saveKey(agentDir2, name, value) {
-  const { raw } = rawManifest(agentDir2);
-  const { manifest } = raw ? validated(agentDir2, raw) : { manifest: null };
-  const allowed = /* @__PURE__ */ new Set(["ANTHROPIC_API_KEY", ...manifest ? declaredKeys(manifest).map(({ key }) => key.secret) : []]);
-  if (!allowed.has(name)) throw new SetupError(400, "Only your Anthropic key and the keys your manifest declares can be set here.");
-  write(agentDir2, ".env", setEnv(read(agentDir2, ".env") ?? "", name, value.trim()));
-}
-function runFile(agentDir2, runDir, name) {
-  if (!/^\.guild\/runs\/[A-Za-z0-9-]+$/.test(runDir) || !REFERENCE_NAME.test(name) || name.includes("..")) throw new SetupError(400, "That isn't a run's file.");
-  const text = read(agentDir2, `${runDir}/deliverables/${name}`);
-  if (text === null) throw new SetupError(404, "That file isn't there any more.");
-  return text;
-}
-async function body(request) {
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of request) {
-    size += chunk.length;
-    if (size > MAX_BODY_BYTES) throw new SetupError(413, "That's too big to send.");
-    chunks.push(chunk);
-  }
-  try {
-    const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error();
-    return parsed;
-  } catch {
-    throw new SetupError(400, "The request wasn't valid JSON.");
-  }
-}
-var str = (value, field) => {
-  if (typeof value !== "string") throw new SetupError(400, `${field} is missing.`);
-  return value;
-};
-function startSetupServer(options) {
-  const token = options.token ?? randomBytes(24).toString("base64url");
-  const agentDir2 = resolve(options.agentDir);
-  let running = false;
-  const tokenOk = (given) => {
-    if (!given) return false;
-    const a = Buffer.from(given);
-    const b = Buffer.from(token);
-    return a.length === b.length && timingSafeEqual(a, b);
-  };
-  const send = (response, status, value) => {
-    response.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-    response.end(JSON.stringify(value));
-  };
-  const stream = (response, args, cleanup) => {
-    if (running) throw new SetupError(409, "Something's already running. Wait for it to finish.");
-    running = true;
-    response.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
-    const child = spawn(process.execPath, [options.cliPath, ...args], { cwd: agentDir2, env: process.env });
-    child.stdout.on("data", (chunk) => response.write(chunk));
-    child.stderr.on("data", (chunk) => response.write(chunk));
-    child.on("close", (code) => {
-      running = false;
-      cleanup?.();
-      response.end(`
-[finished with exit code ${code ?? 1}]
-`);
-    });
-    response.on("close", () => {
-      if (child.exitCode === null) child.kill("SIGINT");
-    });
-  };
-  const server = createServer(async (request, response) => {
-    try {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : options.port;
-      const hosts = /* @__PURE__ */ new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
-      if (!hosts.has(request.headers.host ?? "")) throw new SetupError(403, "Open the wizard at the address `guild setup` printed.");
-      const origin = request.headers.origin;
-      if (origin && !hosts.has(origin.replace(/^http:\/\//, ""))) throw new SetupError(403, "Requests from other sites aren't allowed.");
-      const url2 = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
-      if (request.method === "GET" && url2.pathname === "/") {
-        if (!tokenOk(url2.searchParams.get("t"))) throw new SetupError(403, "Open the wizard at the address `guild setup` printed (it includes a code).");
-        response.writeHead(200, {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "no-store",
-          "Content-Security-Policy": "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; font-src data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
-          "Referrer-Policy": "no-referrer",
-          "X-Frame-Options": "DENY"
-        });
-        response.end(options.page);
-        return;
-      }
-      if (!url2.pathname.startsWith("/api/")) throw new SetupError(404, "Not found.");
-      if (!tokenOk(request.headers["x-guild-setup"])) throw new SetupError(403, "This page's code is wrong or missing. Reopen the address `guild setup` printed.");
-      const route = `${request.method} ${url2.pathname}`;
-      if (route === "GET /api/state") return send(response, 200, setupState(agentDir2));
-      if (route === "GET /api/run-file") {
-        response.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
-        response.end(runFile(agentDir2, url2.searchParams.get("run") ?? "", url2.searchParams.get("name") ?? ""));
-        return;
-      }
-      if (request.method !== "POST") throw new SetupError(405, "Not allowed.");
-      const input2 = await body(request);
-      switch (url2.pathname) {
-        case "/api/manifest":
-          return send(response, 200, { issues: saveManifest(agentDir2, input2.manifest), state: setupState(agentDir2) });
-        case "/api/file":
-          saveTextFile(agentDir2, str(input2.name, "name"), str(input2.content, "content"));
-          break;
-        case "/api/skill":
-          saveSkill(agentDir2, { folder: str(input2.folder, "folder"), description: str(input2.description, "description"), body: str(input2.body, "body"), previous: typeof input2.previous === "string" ? input2.previous : void 0 });
-          break;
-        case "/api/skill/delete":
-          deleteSkill(agentDir2, str(input2.folder, "folder"));
-          break;
-        case "/api/reference":
-          saveReference(agentDir2, str(input2.name, "name"), str(input2.base64, "base64"));
-          break;
-        case "/api/reference/delete":
-          deleteReference(agentDir2, str(input2.name, "name"));
-          break;
-        case "/api/test-brief":
-          saveTestBrief(agentDir2, str(input2.name, "name"), input2.brief, typeof input2.previous === "string" ? input2.previous : void 0);
-          break;
-        case "/api/test-brief/delete":
-          deleteTestBrief(agentDir2, str(input2.name, "name"));
-          break;
-        case "/api/models":
-          saveConfig(agentDir2, {
-            model: typeof input2.model === "string" ? input2.model : void 0,
-            reviewModel: typeof input2.reviewModel === "string" ? input2.reviewModel : void 0,
-            requiredOutputs: Array.isArray(input2.requiredOutputs) ? input2.requiredOutputs.map(String) : void 0
-          });
-          break;
-        case "/api/stage":
-          saveStage(agentDir2, Number(input2.number), input2.done === true);
-          break;
-        case "/api/key":
-          saveKey(agentDir2, str(input2.name, "name"), str(input2.value, "value"));
-          break;
-        case "/api/run":
-          return stream(response, ["check", ".", "--run", ...input2.mock === true ? ["--mock-models"] : []]);
-        case "/api/check":
-          return send(response, 200, { state: setupState(agentDir2) });
-        case "/api/intake": {
-          const notes = str(input2.notes, "notes");
-          const dir2 = mkdtempSync(join4(tmpdir(), "guild-intake-"));
-          writeFileSync(join4(dir2, "notes.txt"), notes);
-          return stream(response, ["intake", ".", "--paste", join4(dir2, "notes.txt")], () => rmSync(dir2, { recursive: true, force: true }));
-        }
-        default:
-          throw new SetupError(404, "Not found.");
-      }
-      send(response, 200, { state: setupState(agentDir2) });
-    } catch (error62) {
-      if (response.headersSent) {
-        response.end();
-        return;
-      }
-      const status = error62 instanceof SetupError ? error62.status : 500;
-      send(response, status, { error: error62 instanceof Error ? error62.message : String(error62) });
-    }
-  });
-  return new Promise((resolveStart, reject) => {
-    server.once("error", reject);
-    server.listen(options.port, "127.0.0.1", () => {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : options.port;
-      resolveStart({ url: `http://127.0.0.1:${port}/?t=${token}`, close: () => server.close() });
-    });
-  });
-}
-
 // src/creator-commands.ts
-import { spawn as spawn2, spawnSync } from "node:child_process";
-import { existsSync as existsSync6, mkdtempSync as mkdtempSync2, readdirSync as readdirSync4, readFileSync as readFileSync6, rmSync as rmSync2 } from "node:fs";
-import { hostname as hostname3, tmpdir as tmpdir2, userInfo } from "node:os";
-import { join as join6 } from "node:path";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync as existsSync5, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync5, rmSync } from "node:fs";
+import { hostname as hostname3, tmpdir, userInfo } from "node:os";
+import { join as join5 } from "node:path";
 
 // src/platform.ts
-import { chmodSync, existsSync as existsSync5, mkdirSync as mkdirSync2, readFileSync as readFileSync5, writeFileSync as writeFileSync2 } from "node:fs";
+import { chmodSync, existsSync as existsSync4, mkdirSync, readFileSync as readFileSync4, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join as join5 } from "node:path";
+import { dirname, join as join4 } from "node:path";
 var PLATFORMS = {
   local: "http://localhost:5173",
   staging: "https://guild-web-staging.jp-e26.workers.dev"
@@ -22567,25 +22156,25 @@ var PLATFORM_ACCOUNTS = {
   staging: "e2650407019aa28a435fae6110f3e7ce"
 };
 function credentialsPath() {
-  const base = process.env.XDG_CONFIG_HOME ?? join5(homedir(), ".config");
-  return join5(base, "guild", "credentials.json");
+  const base = process.env.XDG_CONFIG_HOME ?? join4(homedir(), ".config");
+  return join4(base, "guild", "credentials.json");
 }
 function readAll() {
   const path = credentialsPath();
-  if (!existsSync5(path)) return {};
-  return JSON.parse(readFileSync5(path, "utf8"));
+  if (!existsSync4(path)) return {};
+  return JSON.parse(readFileSync4(path, "utf8"));
 }
 function saveLogin(env, login) {
   const path = credentialsPath();
-  mkdirSync2(dirname(path), { recursive: true, mode: 448 });
-  writeFileSync2(path, JSON.stringify({ ...readAll(), [env]: login }, null, 2) + "\n", { mode: 384 });
+  mkdirSync(dirname(path), { recursive: true, mode: 448 });
+  writeFileSync(path, JSON.stringify({ ...readAll(), [env]: login }, null, 2) + "\n", { mode: 384 });
   chmodSync(path, 384);
   return path;
 }
 function forgetLogin(env) {
   const all = readAll();
   delete all[env];
-  writeFileSync2(credentialsPath(), JSON.stringify(all, null, 2) + "\n", { mode: 384 });
+  writeFileSync(credentialsPath(), JSON.stringify(all, null, 2) + "\n", { mode: 384 });
 }
 function loadLogin(env) {
   return readAll()[env] ?? null;
@@ -22598,15 +22187,15 @@ function platformUrl(env) {
 function accessHeaders() {
   return process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET ? { "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID, "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET } : {};
 }
-async function platformRequest(login, method, path, body2) {
+async function platformRequest(login, method, path, body) {
   const response = await fetch(`${login.platformUrl}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${login.token}`,
-      ...body2 === void 0 ? {} : { "Content-Type": "application/json" },
+      ...body === void 0 ? {} : { "Content-Type": "application/json" },
       ...accessHeaders()
     },
-    body: body2 === void 0 ? void 0 : JSON.stringify(body2)
+    body: body === void 0 ? void 0 : JSON.stringify(body)
   });
   return { status: response.status, body: await response.json().catch(() => ({})) };
 }
@@ -22637,9 +22226,9 @@ async function loginCommand(env) {
 `);
   console.log(`  Approve it in your browser: ${verificationUrl}
 `);
-  if (process.platform === "darwin") spawn2("open", [verificationUrl], { stdio: "ignore", detached: true }).unref();
+  if (process.platform === "darwin") spawn("open", [verificationUrl], { stdio: "ignore", detached: true }).unref();
   while (Date.now() < Date.parse(expiresAt)) {
-    await new Promise((resolve3) => setTimeout(resolve3, intervalSeconds * 1e3));
+    await new Promise((resolve2) => setTimeout(resolve2, intervalSeconds * 1e3));
     const polled = await fetch(`${base}/api/cli/login/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...accessHeaders() },
@@ -22662,13 +22251,13 @@ async function loginCommand(env) {
 }
 async function whoamiCommand(env) {
   const login = requireLogin(env);
-  const { status, body: body2 } = await platformRequest(
+  const { status, body } = await platformRequest(
     login,
     "GET",
     "/api/cli/whoami"
   );
-  if (status !== 200) fail(body2.error ?? `whoami failed (${status}).`);
-  console.log(`${body2.email} publishing as ${body2.creator.name} on ${env} (token ${login.prefix}, expires ${login.expiresAt.slice(0, 10)})`);
+  if (status !== 200) fail(body.error ?? `whoami failed (${status}).`);
+  console.log(`${body.email} publishing as ${body.creator.name} on ${env} (token ${login.prefix}, expires ${login.expiresAt.slice(0, 10)})`);
 }
 async function logoutCommand(env) {
   const login = loadLogin(env);
@@ -22687,11 +22276,11 @@ function keysNote(missing) {
   return `Checks wait until ${missing.length === 1 ? `the key ${list} is` : `the keys ${list} are`} set on Guild. Give ${missing.length === 1 ? "it" : "them"} to the Guild team; ${missing.length === 1 ? "it's" : "they're"} encrypted and never enter your agent's container.`;
 }
 function readTestBriefs2(agentDir2) {
-  const dir2 = join6(agentDir2, "test-briefs");
-  const files = existsSync6(dir2) ? readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort() : [];
+  const dir2 = join5(agentDir2, "test-briefs");
+  const files = existsSync5(dir2) ? readdirSync3(dir2).filter((name) => name.endsWith(".json")).sort() : [];
   if (files.length === 0) fail("Add at least one test brief in test-briefs/*.json. Guild runs each one as a check.");
   if (files.length > MAX_TEST_BRIEFS2) fail(`Guild runs at most ${MAX_TEST_BRIEFS2} test briefs; test-briefs/ has ${files.length}.`);
-  return files.map((file2) => ({ name: file2.replace(/\.json$/, ""), brief: JSON.parse(readFileSync6(join6(dir2, file2), "utf8")) }));
+  return files.map((file2) => ({ name: file2.replace(/\.json$/, ""), brief: JSON.parse(readFileSync5(join5(dir2, file2), "utf8")) }));
 }
 function docker(args, options = {}) {
   const result = spawnSync("docker", args, {
@@ -22729,9 +22318,9 @@ var STATUS_TEXT = {
   retired: "Retired."
 };
 async function fetchStatus(env, versionId) {
-  const { status, body: body2 } = await platformRequest(requireLogin(env), "GET", `/api/cli/submissions/${versionId}`);
-  if (status !== 200) fail(body2.error ?? `Couldn't read the submission (${status}).`);
-  return body2;
+  const { status, body } = await platformRequest(requireLogin(env), "GET", `/api/cli/submissions/${versionId}`);
+  if (status !== 200) fail(body.error ?? `Couldn't read the submission (${status}).`);
+  return body;
 }
 async function waitForChecks(env, versionId) {
   let last = "";
@@ -22747,7 +22336,7 @@ ${STATUS_TEXT[current.status] ?? current.status}`);
       last = summary + (note ?? "");
     }
     if (!["submitted", "checking"].includes(current.status)) return current;
-    await new Promise((resolve3) => setTimeout(resolve3, 1e4));
+    await new Promise((resolve2) => setTimeout(resolve2, 1e4));
   }
 }
 function currentDockerHost() {
@@ -22765,7 +22354,7 @@ async function uploadWithGuildCredentials(login, agentDir2, env, slug2, version2
   console.log(`\xB7 Building ${slug2} ${version2} for linux/amd64`);
   docker(["build", "-q", "--platform", "linux/amd64", "-t", tag, agentDir2], { cwd: agentDir2 });
   const host = currentDockerHost();
-  const dockerConfig = mkdtempSync2(join6(tmpdir2(), "guild-push-"));
+  const dockerConfig = mkdtempSync(join5(tmpdir(), "guild-push-"));
   let digest;
   try {
     const { DOCKER_CONTEXT: _context, ...inherited } = process.env;
@@ -22775,7 +22364,7 @@ async function uploadWithGuildCredentials(login, agentDir2, env, slug2, version2
     const pushed = docker(["push", tag], { env: dockerEnv });
     digest = pushed.match(/digest: (sha256:[0-9a-f]{64})/)?.[1];
   } finally {
-    rmSync2(dockerConfig, { recursive: true, force: true });
+    rmSync(dockerConfig, { recursive: true, force: true });
   }
   if (!digest) fail("The upload finished but Docker didn't report the image's digest.");
   return { repository, digest };
@@ -22813,7 +22402,7 @@ async function submitCommand(agentDir2, env, options) {
   const login = requireLogin(env);
   let raw;
   try {
-    raw = resolveIntakeInstructions(agentDir2, JSON.parse(readFileSync6(join6(agentDir2, "guild.manifest.json"), "utf8")));
+    raw = resolveIntakeInstructions(agentDir2, JSON.parse(readFileSync5(join5(agentDir2, "guild.manifest.json"), "utf8")));
   } catch (error62) {
     fail(error62 instanceof Error ? error62.message : String(error62));
   }
@@ -22826,19 +22415,19 @@ async function submitCommand(agentDir2, env, options) {
     if (!result.ok) fail(`test-briefs/${test.name}.json doesn't match the manifest's inputs: ${result.issues.join("; ")}`);
   }
   const runner = options.image ? null : await matchingRunner(login, agentDir2);
-  let body2;
+  let body;
   if (runner) {
     const bundle = validateBundle(bundleFromDir(agentDir2));
     if (!bundle.ok) fail(`This agent's files aren't ready to submit:
   ${bundle.issues.join("\n  ")}`);
     console.log(`\xB7 Your code is Guild's runner ${runner}, unchanged: submitting your agent's own files only (${bundle.bundle.files.length} files, no image to build)`);
-    body2 = { content: bundle.bundle, runner };
+    body = { content: bundle.bundle, runner };
   } else {
     const { repository, digest } = options.uploadWithWrangler ? uploadWithWrangler(agentDir2, env, manifest.slug, manifest.version) : await uploadWithGuildCredentials(login, agentDir2, env, manifest.slug, manifest.version);
-    body2 = { manifest: raw, imageRef: `${repository}@${digest}`, testBriefs };
+    body = { manifest: raw, imageRef: `${repository}@${digest}`, testBriefs };
   }
   console.log("\xB7 Submitting");
-  const submitted = await platformRequest(login, "POST", "/api/cli/submissions", body2);
+  const submitted = await platformRequest(login, "POST", "/api/cli/submissions", body);
   if (submitted.status !== 201 || !submitted.body.versionId) {
     fail(submitted.body.error ?? `Submitting failed (${submitted.status}).`);
   }
@@ -22878,19 +22467,19 @@ function isSafeFileName(name) {
 
 // src/cli.ts
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
-var GATEWAY_FILE = existsSync7(join7(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
+var GATEWAY_FILE = existsSync6(join6(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-11 (5fbb0a3)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-12 (604ca41)" : "development (run from the Guild repository)";
 function fail2(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
 }
 function loadManifest(agentDir2) {
-  const path = join7(agentDir2, "guild.manifest.json");
-  if (!existsSync7(path)) fail2(`No guild.manifest.json in ${agentDir2}.`);
+  const path = join6(agentDir2, "guild.manifest.json");
+  if (!existsSync6(path)) fail2(`No guild.manifest.json in ${agentDir2}.`);
   let json2;
   try {
-    json2 = JSON.parse(readFileSync7(path, "utf8"));
+    json2 = JSON.parse(readFileSync6(path, "utf8"));
   } catch (error62) {
     fail2(`guild.manifest.json is not valid JSON: ${String(error62)}`);
   }
@@ -22908,10 +22497,10 @@ function loadManifest(agentDir2) {
   return result.manifest;
 }
 function dotEnv(agentDir2) {
-  const path = join7(agentDir2, ".env");
-  if (!existsSync7(path)) return {};
+  const path = join6(agentDir2, ".env");
+  if (!existsSync6(path)) return {};
   try {
-    return Object.fromEntries(Object.entries(parseEnv2(readFileSync7(path, "utf8"))).filter((entry) => typeof entry[1] === "string" && entry[1] !== ""));
+    return Object.fromEntries(Object.entries(parseEnv(readFileSync6(path, "utf8"))).filter((entry) => typeof entry[1] === "string" && entry[1] !== ""));
   } catch (error62) {
     fail2(`This agent's .env file couldn't be read: ${error62 instanceof Error ? error62.message : String(error62)}`);
   }
@@ -22930,13 +22519,13 @@ function docker2(args, options = {}) {
 function validateCommand(agentDir2) {
   const manifest = loadManifest(agentDir2);
   console.log(`\u2713 ${manifest.name} ${manifest.version} is valid.`);
-  const dir2 = join7(agentDir2, "test-briefs");
-  const briefs = existsSync7(dir2) ? readdirSync5(dir2).filter((name) => name.endsWith(".json")).sort() : [];
+  const dir2 = join6(agentDir2, "test-briefs");
+  const briefs = existsSync6(dir2) ? readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort() : [];
   let invalid = 0;
   for (const name of briefs) {
     let brief;
     try {
-      brief = JSON.parse(readFileSync7(join7(dir2, name), "utf8"));
+      brief = JSON.parse(readFileSync6(join6(dir2, name), "utf8"));
     } catch {
       console.error(`\u2717 test-briefs/${name} isn't valid JSON.`);
       invalid++;
@@ -22986,8 +22575,8 @@ function describe3(line) {
 }
 async function runCommand(agentDir2, options) {
   const manifest = loadManifest(agentDir2);
-  if (!existsSync7(options.brief)) fail2(`Brief file ${options.brief} not found.`);
-  const brief = JSON.parse(readFileSync7(options.brief, "utf8"));
+  if (!existsSync6(options.brief)) fail2(`Brief file ${options.brief} not found.`);
+  const brief = JSON.parse(readFileSync6(options.brief, "utf8"));
   const fromFile = dotEnv(agentDir2);
   const anthropicKey = modelKey(fromFile);
   if (!options.mockModels && !anthropicKey) {
@@ -23003,14 +22592,14 @@ async function runCommand(agentDir2, options) {
     const label = (name) => optional2.has(name) ? `${name} (optional)` : name;
     console.log(`\xB7 Not in .env or passed with --agent-env: ${unpassed.map(label).join(", ")}. Calls that need ${unpassed.length === 1 ? "it" : "them"} won't have a key locally.`);
   }
-  const runId = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}-${randomBytes2(3).toString("hex")}`;
-  const runDir = resolve2(agentDir2, ".guild", "runs", runId);
-  mkdirSync3(join7(runDir, "inputs"), { recursive: true });
+  const runId = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
+  const runDir = resolve(agentDir2, ".guild", "runs", runId);
+  mkdirSync2(join6(runDir, "inputs"), { recursive: true });
   const files = options.files.map((path) => {
     const name = basename(path);
     if (!isSafeFileName(name)) fail2(`Input file name ${name} is not allowed.`);
-    copyFileSync(path, join7(runDir, "inputs", name));
-    return { name, contentType: "application/octet-stream", sizeBytes: statSync4(path).size };
+    copyFileSync(path, join6(runDir, "inputs", name));
+    return { name, contentType: "application/octet-stream", sizeBytes: statSync3(path).size };
   });
   const task = {
     taskId: randomUUID(),
@@ -23020,15 +22609,15 @@ async function runCommand(agentDir2, options) {
     budgetMicros: manifest.limits.budgetMicros,
     deadline: new Date(Date.now() + manifest.limits.deadlineSeconds * 1e3).toISOString()
   };
-  writeFileSync3(join7(runDir, "task.json"), JSON.stringify(task, null, 2));
+  writeFileSync2(join6(runDir, "task.json"), JSON.stringify(task, null, 2));
   if (options.content) {
     const checked = validateBundle(bundleFromDir(agentDir2));
     if (!checked.ok) fail2(`This agent's content isn't a valid bundle:
   ${checked.issues.join("\n  ")}`);
-    writeFileSync3(join7(runDir, "content.json"), serializeBundle(checked.bundle));
+    writeFileSync2(join6(runDir, "content.json"), serializeBundle(checked.bundle));
     console.log(`\xB7 Content mode: the agent fetches its ${checked.bundle.files.length} content files from the gateway, as Guild's shared runner does`);
   }
-  const token = randomBytes2(24).toString("base64url");
+  const token = randomBytes(24).toString("base64url");
   const image = `guild-agent-${manifest.slug}:dev`;
   const network = `guild-run-${runId.slice(-6)}`;
   const agentName = `guild-agent-${runId.slice(-6)}`;
@@ -23047,11 +22636,11 @@ async function runCommand(agentDir2, options) {
     process.exit(130);
   });
   try {
-    const subnet = `10.${200 + randomBytes2(1)[0] % 50}.${randomBytes2(1)[0]}`;
+    const subnet = `10.${200 + randomBytes(1)[0] % 50}.${randomBytes(1)[0]}`;
     const ip = { gateway: `${subnet}.10`, agent: `${subnet}.20`, dns: `${subnet}.53` };
     docker2(["network", "create", "--internal", "--subnet", `${subnet}.0/24`, network]);
     docker2(["run", "-d", "--name", dnsName, "--network", network, "--ip", ip.dns, "busybox:1.37", "nc", "-lku", "-p", "53"]);
-    writeFileSync3(join7(runDir, "resolv.conf"), `nameserver ${ip.dns}
+    writeFileSync2(join6(runDir, "resolv.conf"), `nameserver ${ip.dns}
 options timeout:5 attempts:2
 `);
     docker2([
@@ -23066,7 +22655,7 @@ options timeout:5 attempts:2
       "--ip",
       ip.agent,
       "-v",
-      `${join7(runDir, "resolv.conf")}:/etc/resolv.conf:ro`,
+      `${join6(runDir, "resolv.conf")}:/etc/resolv.conf:ro`,
       "--add-host",
       `${GUILD_HOST}:${ip.gateway}`,
       "-e",
@@ -23119,7 +22708,7 @@ options timeout:5 attempts:2
     console.log(`\u25B6 Running ${manifest.name} with ${options.brief}${options.mockModels ? " (mock models)" : ""}
 `);
     const exitCode = await new Promise((resolveExit) => {
-      const gateway = spawn3("docker", ["start", "-a", gatewayName], { stdio: ["ignore", "pipe", "inherit"] });
+      const gateway = spawn2("docker", ["start", "-a", gatewayName], { stdio: ["ignore", "pipe", "inherit"] });
       let buffer = "";
       gateway.stdout.on("data", (chunk) => {
         buffer += chunk.toString("utf8");
@@ -23151,8 +22740,8 @@ Run files: ${runDir}`);
 }
 async function checkCommand(agentDir2, options) {
   if (options.run) {
-    const dir2 = join7(agentDir2, "test-briefs");
-    const briefs = existsSync7(dir2) ? readdirSync5(dir2).filter((name) => name.endsWith(".json")).sort() : [];
+    const dir2 = join6(agentDir2, "test-briefs");
+    const briefs = existsSync6(dir2) ? readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort() : [];
     if (briefs.length === 0) fail2("There are no test briefs in test-briefs/ to run.");
     if (!options.mockModels && !modelKey(dotEnv(agentDir2))) {
       fail2("Set ANTHROPIC_API_KEY to your own development key (in your shell, or in this agent's .env file) to run the test briefs, or pass --mock-models.");
@@ -23163,7 +22752,7 @@ async function checkCommand(agentDir2, options) {
 \u2501\u2501 Test brief ${index + 1} of ${briefs.length}: ${name}
 `);
       await runCommand(agentDir2, {
-        brief: join7(dir2, name),
+        brief: join6(dir2, name),
         files: [],
         answers,
         mockModels: options.mockModels,
@@ -23175,11 +22764,11 @@ async function checkCommand(agentDir2, options) {
   }
   const readiness = checkAgent(agentDir2);
   const report = formatReadiness(readiness);
-  mkdirSync3(join7(agentDir2, ".guild"), { recursive: true });
-  writeFileSync3(join7(agentDir2, ".guild", "readiness.md"), report);
-  writeFileSync3(join7(agentDir2, ".guild", "readiness.json"), JSON.stringify(readiness, null, 2) + "\n");
+  mkdirSync2(join6(agentDir2, ".guild"), { recursive: true });
+  writeFileSync2(join6(agentDir2, ".guild", "readiness.md"), report);
+  writeFileSync2(join6(agentDir2, ".guild", "readiness.json"), JSON.stringify(readiness, null, 2) + "\n");
   if (options.json) console.log(JSON.stringify(readiness, null, 2));
-  else console.log(`${formatReadiness(readiness, { showPassed: false })}
+  else console.log(`${formatReadiness(readiness, { short: true })}
 The full report, with what's done, is in .guild/readiness.md.`);
   process.exitCode = readiness.ready ? 0 : 1;
 }
@@ -23189,16 +22778,16 @@ async function intakeCommand(agentDir2, notesPath) {
   if (!notesPath) fail2("Pass --paste <file> with some notes a buyer might paste.");
   const apiKey = modelKey(dotEnv(agentDir2));
   if (!apiKey) fail2("Set ANTHROPIC_API_KEY to your own Anthropic key (in your shell, or in this agent's .env file). Guild pays for intake on Guild; locally, you do.");
-  const notes = readFileSync7(resolve2(notesPath), "utf8");
+  const notes = readFileSync6(resolve(notesPath), "utf8");
   console.log(`\xB7 Asking ${INTAKE_MODEL} to fill in ${manifest.name}'s brief`);
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify(pasteIntakeRequest(manifest, notes))
   });
-  const body2 = await response.json();
-  if (!response.ok) fail2(`Anthropic answered ${response.status}: ${body2.error?.message ?? "no detail"}`);
-  const draft = parseIntakeReply(manifest, body2);
+  const body = await response.json();
+  if (!response.ok) fail2(`Anthropic answered ${response.status}: ${body.error?.message ?? "no detail"}`);
+  const draft = parseIntakeReply(manifest, body);
   console.log("\nFilled in:");
   for (const [name, value] of Object.entries(draft.fields)) console.log(`  ${name}: ${JSON.stringify(value)}`);
   if (Object.keys(draft.fields).length === 0) console.log("  (nothing)");
@@ -23213,58 +22802,57 @@ Required and still empty: ${required2.join(", ")}`);
 ! ${draft.withheld} item(s) withheld because they repeated your intake instructions. Buyers never see your instructions; reword them, or check they say what to collect, not how the work is done.`);
   }
   console.log(`
-${body2.usage?.input_tokens ?? 0} input and ${body2.usage?.output_tokens ?? 0} output tokens.`);
+${body.usage?.input_tokens ?? 0} input and ${body.usage?.output_tokens ?? 0} output tokens.`);
 }
-async function setupCommand(agentDir2, options) {
-  if (!existsSync7(join7(agentDir2, "guild.manifest.json"))) fail2(`No guild.manifest.json in ${agentDir2}. Run this in your agent's folder.`);
-  const pagePath = join7(KIT_SRC, "setup-page.html");
-  if (!existsSync7(pagePath)) fail2("The setup page is missing from guild-kit/. Copy guild-kit/ from the latest template.");
-  let server;
-  for (let port = options.port; port < options.port + 20 && !server; port++) {
-    try {
-      server = await startSetupServer({ agentDir: agentDir2, port, cliPath: fileURLToPath(import.meta.url), page: readFileSync7(pagePath, "utf8") });
-    } catch (error62) {
-      if (error62.code !== "EADDRINUSE") throw error62;
+var USAGE = "Usage:\n  guild validate [agent-dir]\n  guild check [agent-dir] [--run [--mock-models] [--answer <text>]... [--agent-env NAME=value]...] [--json]\n  guild run [agent-dir] --brief <file> [--file <path>]... [--answer <text>]... [--mock-models [--mock-tool-call <json>]] [--content]\n  guild intake [agent-dir] --paste <notes-file>\n  guild login | whoami | logout [--env staging]\n  guild submit [agent-dir] [--env staging] [--wait] [--image] [--upload-with-wrangler]\n  guild status <version-id> [--env staging] [--wait]\n  guild version\n  guild help";
+function argumentProblem(error62) {
+  const code = error62?.code;
+  if (typeof code !== "string" || !code.startsWith("ERR_PARSE_ARGS_")) return null;
+  const message = error62.message;
+  if (code === "ERR_PARSE_ARGS_UNKNOWN_OPTION") {
+    const option = message.match(/'([^']+)'/)?.[1];
+    return `guild doesn't have the option ${option ?? "you gave"}.`;
+  }
+  if (code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE") {
+    const option = message.match(/'(--[a-z-]+)/)?.[1];
+    return option ? `${option} needs a value after it.` : message;
+  }
+  return message;
+}
+var parsed;
+try {
+  parsed = parseCommandLine();
+} catch (error62) {
+  const problem = argumentProblem(error62);
+  if (!problem) throw error62;
+  console.error(`${problem} Run \`npm run guild -- help\` to see the commands.`);
+  process.exit(1);
+}
+var { values, positionals } = parsed;
+function parseCommandLine() {
+  return parseArgs({
+    allowPositionals: true,
+    options: {
+      help: { type: "boolean", short: "h", default: false },
+      paste: { type: "string" },
+      brief: { type: "string" },
+      file: { type: "string", multiple: true, default: [] },
+      answer: { type: "string", multiple: true, default: [] },
+      "mock-models": { type: "boolean", default: false },
+      "mock-tool-call": { type: "string" },
+      content: { type: "boolean", default: false },
+      image: { type: "boolean", default: false },
+      "agent-env": { type: "string", multiple: true, default: [] },
+      env: { type: "string" },
+      wait: { type: "boolean", default: false },
+      "upload-with-wrangler": { type: "boolean", default: false },
+      run: { type: "boolean", default: false },
+      json: { type: "boolean", default: false }
     }
-  }
-  if (!server) fail2(`Ports ${options.port} to ${options.port + 19} are all in use. Pass --port <number>.`);
-  console.log(`
-  Set up your specialist in your browser:
-
-  ${server.url}
-`);
-  console.log("  It edits the files in this folder, and only runs on this machine. Keep this window open; press Ctrl+C to stop.\n");
-  if (options.open) {
-    const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
-    spawn3(opener, [server.url], { stdio: "ignore", detached: true }).on("error", () => {
-    }).unref();
-  }
-  await new Promise(() => {
   });
 }
-var { values, positionals } = parseArgs({
-  allowPositionals: true,
-  options: {
-    paste: { type: "string" },
-    brief: { type: "string" },
-    file: { type: "string", multiple: true, default: [] },
-    answer: { type: "string", multiple: true, default: [] },
-    "mock-models": { type: "boolean", default: false },
-    "mock-tool-call": { type: "string" },
-    content: { type: "boolean", default: false },
-    image: { type: "boolean", default: false },
-    "agent-env": { type: "string", multiple: true, default: [] },
-    env: { type: "string" },
-    wait: { type: "boolean", default: false },
-    "upload-with-wrangler": { type: "boolean", default: false },
-    run: { type: "boolean", default: false },
-    json: { type: "boolean", default: false },
-    port: { type: "string" },
-    "no-open": { type: "boolean", default: false }
-  }
-});
-var [command, dir = "."] = positionals;
-var agentDir = resolve2(dir);
+var [command, dir = "."] = values.help ? ["help"] : positionals;
+var agentDir = resolve(dir);
 switch (command) {
   case "validate":
     validateCommand(agentDir);
@@ -23272,8 +22860,8 @@ switch (command) {
   case "run":
     if (!values.brief) fail2("Pass --brief <file>.");
     await runCommand(agentDir, {
-      brief: resolve2(values.brief),
-      files: values.file.map((path) => resolve2(path)),
+      brief: resolve(values.brief),
+      files: values.file.map((path) => resolve(path)),
       answers: values.answer,
       mockModels: values["mock-models"],
       mockToolCall: values["mock-tool-call"],
@@ -23315,15 +22903,17 @@ switch (command) {
     });
     break;
   case "setup":
-    await setupCommand(agentDir, { port: values.port ? Number(values.port) : DEFAULT_SETUP_PORT, open: !values["no-open"] });
-    break;
+    fail2("`guild setup` has been replaced by the setup in Claude Code: open this folder in Claude Code and run /guild-setup.");
   case "version":
   case "--version":
     console.log(`guild ${KIT_VERSION}`);
     break;
+  case "help":
+    console.log(USAGE);
+    break;
   default:
-    console.log(
-      "Usage:\n  guild validate [agent-dir]\n  guild check [agent-dir] [--run [--mock-models] [--answer <text>]... [--agent-env NAME=value]...] [--json]\n  guild run [agent-dir] --brief <file> [--file <path>]... [--answer <text>]... [--mock-models [--mock-tool-call <json>]] [--content]\n  guild intake [agent-dir] --paste <notes-file>\n  guild login | whoami | logout [--env staging]\n  guild submit [agent-dir] [--env staging] [--wait] [--image] [--upload-with-wrangler]\n  guild status <version-id> [--env staging] [--wait]\n  guild setup [agent-dir] [--port <number>] [--no-open]\n  guild version"
-    );
+    if (command) console.error(`guild doesn't have a command called "${command}".
+`);
+    console.log(USAGE);
     process.exitCode = command ? 1 : 0;
 }

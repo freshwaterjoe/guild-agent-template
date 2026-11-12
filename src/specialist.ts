@@ -1,6 +1,6 @@
 // Where this agent's own files come from (Guild decision 032). Built into the image, they're in
 // specialist/ beside this code. Run as Guild's shared runner (GUILD_CONTENT=1), they're fetched
-// from Guild when the task starts, so one image runs every agent built in the browser.
+// from Guild when the task starts, so one image runs every agent whose code is the template's.
 //
 // You shouldn't need to change this file: your agent's settings are in specialist/settings.json.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -15,7 +15,7 @@ export interface DeclaredHost {
 }
 
 export interface Specialist {
-  /** The folder holding instructions.md, method.md, rubric.md, skills/ and references/. */
+  /** The folder holding method.md, rubric.md, skills/ and references/ (and instructions.md, in older agents). */
   dir: string;
   settings: Settings;
   /** The outside hosts the manifest declares, with where each one's key goes. */

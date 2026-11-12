@@ -7,7 +7,6 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "start": "node src/main.ts",
-    "setup": "node guild-kit/guild.mjs setup",
     "guild": "node guild-kit/guild.mjs",
     "guild:dev": "node ${GUILD_REPO:-../Guild}/packages/kit/src/cli.ts"
   },
