@@ -104,7 +104,7 @@ The `guild` command is in `guild-kit/`, bundled from Guild: `npm run guild -- <c
 npm run guild -- check
 ```
 
-The readiness report: what Guild would refuse, what's still the template's placeholder, what's worth improving, and what only you can check. It also writes `.guild/readiness.md`. It calls no models and costs nothing.
+The readiness report, part by part: how many of the five parts are done, then what Guild would refuse (✗), what's not done yet (○, such as the template's examples still in place), what's worth improving (!), and what only you can check (☐). The terminal shows each section's first few items; `.guild/readiness.md` has everything. On an untouched copy of the template, it just says to run `/guild-setup` in Claude Code. It calls no models and costs nothing.
 
 ```bash
 npm run guild -- check --run

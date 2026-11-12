@@ -4,6 +4,8 @@ What creators bundle together to make a specialist, and which parts make it genu
 
 These are building blocks to consider, not rules. Not every specialist needs every layer. Use them to decide where your effort pays off, and to check you haven't left anything important unsaid.
 
+**Start with the five parts**, not with this page: what it's hired for (the interface and identity), how it does the work (method, instructions and rules), what great looks like (references), how the work is checked (judgement), and test briefs. `/guild-setup` goes through them. Come here when you want to go deeper.
+
 ## Where the value lives
 
 The bottom layers are available to anyone: a model, a prompt, some tools. The top layers are what a creator has spent years developing, and they are exactly what Guild's hosting protects: buyers receive only the finished work, never the method, references or rubric behind it.
@@ -15,16 +17,16 @@ Examples use an icon pack specialist. "In this template" says where each layer l
 | Layer | What it contains | Example | How defensible | In this template |
 | --- | --- | --- | --- | --- |
 | **Brain** | The model or models, which handles which step, and their settings | A strong model for design reasoning, a cheaper one for file checks | Low | `specialist/settings.json` (`model`, `reviewModel`); list them under `models` in the manifest |
-| **Instructions** | The system prompt: role, standards, voice | "You are a senior icon designer. Every icon sits on a 24px grid…" | Low to medium | `specialist/instructions.md` |
+| **Instructions** | The system prompt: role, standards, voice | "You are a senior icon designer. Every icon sits on a 24px grid…" | Low to medium | "Who you are", "Your standards" and "How you write" in `specialist/method.md` |
 | **Know-how** | Skills files: techniques, rules of thumb, domain knowledge | Grid rules, stroke and radius conventions, optical balance | Medium | `specialist/skills/<name>/SKILL.md`, one folder per skill |
-| **Method** | The workflow: steps, sub-agents, loops and decision points | Sketch concepts, pick a style, draw the set, check consistency, fix outliers, export | **High** | `specialist/method.md` (the steps the agent follows) and `src/method.ts` (the stages around it) |
+| **Method** | The workflow: steps, sub-agents, loops and decision points | Sketch concepts, pick a style, draw the set, check consistency, fix outliers, export | **High** | "How you work" in `specialist/method.md` (the steps the agent follows) and `src/method.ts` (the stages around it) |
 | **References** | Exemplars, templates, style references and asset libraries | A library of gold-standard icon sets and grid templates | **High** | `specialist/references/` |
 | **Data sources** | External or proprietary information | The buyer's brand palette; for research, registries and filings | Medium to high | Tools in `src/tools.ts`, hosts under `network.hosts` in the manifest; proprietary data in `specialist/references/` |
 | **Tools** | External services and APIs | Vector generation, a font library | Low to medium | `src/tools.ts` |
 | **Workspace** | The code and runtime environment | A renderer, an SVG validator, Python libraries | Low | `Dockerfile` (installed at build time) |
 | **Judgement** | Checks, rubrics, critique loops and acceptance criteria | Render every icon, measure stroke weights, reject anything off-grid | **High** | `specialist/rubric.md` and `src/judgement.ts`; declare them under `checks` in the manifest |
 | **Interface** | The brief it asks for and the work it returns | Inputs: icon list, style, colours. Output: SVG files and a preview sheet | Medium | `inputs` and `deliverables` in the manifest; `requiredOutputs` in `specialist/settings.json` |
-| **Rules** | Guardrails, limits and policies | What it won't do, cost and time budgets, disclaimers | Low | "What you never do" in `specialist/instructions.md`; `limits` and `questions` in the manifest |
+| **Rules** | Guardrails, limits and policies | What it won't do, cost and time budgets, disclaimers | Low | "What you never do" in `specialist/method.md`; `limits` and `questions` in the manifest |
 | **Identity** | Name, portrait, description, price, version and changelog | "Icon Pack v1.4, trained by [Creator]" | Medium | `name`, `summary`, `version` and `pricing` in the manifest |
 
 ## The layers that matter most

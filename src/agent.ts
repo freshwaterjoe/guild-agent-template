@@ -55,16 +55,17 @@ function connectionsPrompt(specialist: Specialist): string {
   return lines.join("\n");
 }
 
-/** The system prompt: your instructions, method and rubric, plus how the workspace is laid out. */
+/**
+ * The system prompt: your method and rubric, plus how the workspace is laid out. An agent made
+ * before Guild's decision 034 may also have instructions.md, its standards and voice, read first.
+ */
 async function systemPrompt(specialist: Specialist): Promise<string> {
   const [instructions, method, rubric] = await Promise.all([
-    specialistFile(specialist, "instructions.md"),
+    specialistFile(specialist, "instructions.md").catch(() => ""),
     specialistFile(specialist, "method.md"),
     specialistFile(specialist, "rubric.md"),
   ]);
-  return `${instructions}
-
-${method}
+  return `${instructions ? `${instructions}\n\n` : ""}${method}
 
 ## The rubric your work is judged on
 
