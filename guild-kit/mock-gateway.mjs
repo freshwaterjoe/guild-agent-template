@@ -1,4 +1,4 @@
-// Guild agent kit 2026-11-12 (604ca41). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-16 (a58e241). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);

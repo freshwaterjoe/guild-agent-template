@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-12 (604ca41). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-16 (a58e241). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -22150,7 +22150,7 @@ import { homedir } from "node:os";
 import { dirname, join as join4 } from "node:path";
 var PLATFORMS = {
   local: "http://localhost:5173",
-  staging: "https://guild-web-staging.jp-e26.workers.dev"
+  staging: "https://staging.onguild.co"
 };
 var PLATFORM_ACCOUNTS = {
   staging: "e2650407019aa28a435fae6110f3e7ce"
@@ -22469,7 +22469,7 @@ function isSafeFileName(name) {
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
 var GATEWAY_FILE = existsSync6(join6(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-12 (604ca41)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-16 (a58e241)" : "development (run from the Guild repository)";
 function fail2(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
