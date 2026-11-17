@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-16 (a58e241). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-17 (70a6692). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -12,8 +12,8 @@ var __export = (target, all) => {
 // src/cli.ts
 import { spawn as spawn2, spawnSync as spawnSync2 } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
-import { copyFileSync, existsSync as existsSync6, mkdirSync as mkdirSync2, readdirSync as readdirSync4, readFileSync as readFileSync6, statSync as statSync3, writeFileSync as writeFileSync2 } from "node:fs";
-import { basename, dirname as dirname2, join as join6, resolve } from "node:path";
+import { copyFileSync, existsSync as existsSync7, mkdirSync as mkdirSync3, readdirSync as readdirSync4, readFileSync as readFileSync7, statSync as statSync3, writeFileSync as writeFileSync3 } from "node:fs";
+import { basename, dirname as dirname2, join as join7, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs, parseEnv } from "node:util";
 
@@ -3960,9 +3960,9 @@ var asciiTabOrNewline = /[\t\n\r]/g;
 function stripTabAndNewline(value) {
   return value.replace(asciiTabOrNewline, "");
 }
-function urlHostnameOk(url2, hostname4) {
-  hostname4.lastIndex = 0;
-  return hostname4.test(url2.hostname);
+function urlHostnameOk(url2, hostname5) {
+  hostname5.lastIndex = 0;
+  return hostname5.test(url2.hostname);
 }
 function urlProtocolOk(url2, protocol) {
   protocol.lastIndex = 0;
@@ -22138,10 +22138,9 @@ function formatReadiness(readiness, options = {}) {
   return lines.join("\n") + "\n";
 }
 
-// src/creator-commands.ts
-import { spawn, spawnSync } from "node:child_process";
-import { existsSync as existsSync5, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync5, rmSync } from "node:fs";
-import { hostname as hostname3, tmpdir, userInfo } from "node:os";
+// src/connect.ts
+import { existsSync as existsSync5, mkdirSync as mkdirSync2, readFileSync as readFileSync5, writeFileSync as writeFileSync2 } from "node:fs";
+import { hostname as hostname3, userInfo } from "node:os";
 import { join as join5 } from "node:path";
 
 // src/platform.ts
@@ -22200,7 +22199,83 @@ async function platformRequest(login, method, path, body) {
   return { status: response.status, body: await response.json().catch(() => ({})) };
 }
 
+// src/connect.ts
+var CONNECTION_FILE = join5(".guild", "connection.json");
+var TEMPLATE_SLUG = "my-specialist";
+function clientName() {
+  return `${userInfo().username} on ${hostname3()}`.slice(0, 120);
+}
+function loadConnection(agentDir2) {
+  try {
+    return JSON.parse(readFileSync5(join5(agentDir2, CONNECTION_FILE), "utf8"));
+  } catch {
+    return null;
+  }
+}
+function saveConnection(agentDir2, connection) {
+  mkdirSync2(join5(agentDir2, ".guild"), { recursive: true });
+  writeFileSync2(join5(agentDir2, CONNECTION_FILE), JSON.stringify(connection, null, 2) + "\n");
+}
+async function redeemCode(env, code, fresh) {
+  const base = platformUrl(env);
+  let response;
+  try {
+    response = await fetch(`${base}/api/cli/connect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...accessHeaders() },
+      body: JSON.stringify({ code: code.trim(), clientName: clientName(), fresh })
+    });
+  } catch {
+    throw new Error(`Couldn't reach Guild at ${base}. Check your internet connection and try again.`);
+  }
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.token || !body.agent || !body.creator) {
+    throw new Error(body.error ?? `Guild couldn't connect this copy (${response.status}).`);
+  }
+  saveLogin(env, { platformUrl: base, token: body.token, prefix: body.prefix, expiresAt: body.expiresAt, creator: body.creator });
+  return { ...body, platformUrl: base };
+}
+function applyAgentToManifest(agentDir2, agent) {
+  const path = join5(agentDir2, "guild.manifest.json");
+  if (!existsSync5(path)) return { changed: false, otherSlug: null };
+  const text = readFileSync5(path, "utf8");
+  let manifest;
+  try {
+    manifest = JSON.parse(text);
+  } catch {
+    return { changed: false, otherSlug: null };
+  }
+  if (manifest.slug === agent.slug) return { changed: false, otherSlug: null };
+  if (manifest.slug !== TEMPLATE_SLUG) return { changed: false, otherSlug: typeof manifest.slug === "string" ? manifest.slug : null };
+  manifest.slug = agent.slug;
+  manifest.name = agent.name;
+  writeFileSync2(path, JSON.stringify(manifest, null, 2) + "\n");
+  return { changed: true, otherSlug: null };
+}
+async function report(agentDir2, kind, data) {
+  if (process.env.GUILD_NO_REPORTS === "1") return false;
+  const connection = loadConnection(agentDir2);
+  if (!connection) return false;
+  const login = loadLogin(connection.env);
+  if (!login || Date.parse(login.expiresAt) < Date.now()) return false;
+  try {
+    const response = await fetch(`${login.platformUrl}/api/cli/agents/${encodeURIComponent(connection.agent.slug)}/reports`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${login.token}`, "Content-Type": "application/json", ...accessHeaders() },
+      body: JSON.stringify({ kind, data }),
+      signal: AbortSignal.timeout(4e3)
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 // src/creator-commands.ts
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync as existsSync6, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync6, rmSync } from "node:fs";
+import { hostname as hostname4, tmpdir, userInfo as userInfo2 } from "node:os";
+import { join as join6 } from "node:path";
 function fail(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
@@ -22213,11 +22288,11 @@ function requireLogin(env) {
 }
 async function loginCommand(env) {
   const base = platformUrl(env);
-  const clientName = `${userInfo().username} on ${hostname3()}`;
+  const clientName2 = `${userInfo2().username} on ${hostname4()}`;
   const started = await fetch(`${base}/api/cli/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...accessHeaders() },
-    body: JSON.stringify({ clientName })
+    body: JSON.stringify({ clientName: clientName2 })
   });
   if (!started.ok) fail(`Could not start signing in (${started.status}): ${await started.text()}`);
   const { deviceCode, userCode, verificationUrl, expiresAt, intervalSeconds } = await started.json();
@@ -22276,11 +22351,11 @@ function keysNote(missing) {
   return `Checks wait until ${missing.length === 1 ? `the key ${list} is` : `the keys ${list} are`} set on Guild. Give ${missing.length === 1 ? "it" : "them"} to the Guild team; ${missing.length === 1 ? "it's" : "they're"} encrypted and never enter your agent's container.`;
 }
 function readTestBriefs2(agentDir2) {
-  const dir2 = join5(agentDir2, "test-briefs");
-  const files = existsSync5(dir2) ? readdirSync3(dir2).filter((name) => name.endsWith(".json")).sort() : [];
+  const dir2 = join6(agentDir2, "test-briefs");
+  const files = existsSync6(dir2) ? readdirSync3(dir2).filter((name) => name.endsWith(".json")).sort() : [];
   if (files.length === 0) fail("Add at least one test brief in test-briefs/*.json. Guild runs each one as a check.");
   if (files.length > MAX_TEST_BRIEFS2) fail(`Guild runs at most ${MAX_TEST_BRIEFS2} test briefs; test-briefs/ has ${files.length}.`);
-  return files.map((file2) => ({ name: file2.replace(/\.json$/, ""), brief: JSON.parse(readFileSync5(join5(dir2, file2), "utf8")) }));
+  return files.map((file2) => ({ name: file2.replace(/\.json$/, ""), brief: JSON.parse(readFileSync6(join6(dir2, file2), "utf8")) }));
 }
 function docker(args, options = {}) {
   const result = spawnSync("docker", args, {
@@ -22309,9 +22384,10 @@ function printChecks(status) {
   }
 }
 var STATUS_TEXT = {
-  submitted: "Submitted. Waiting for the runtime to be redeployed with the image.",
+  submitted: "Submitted. Its checks start within a couple of minutes.",
   checking: "Checks are running.",
-  checked: "Checks finished. Waiting for review.",
+  checked: "Every check passed. Waiting for review by the Guild team.",
+  checks_failed: "Not every check passed, so this version can't go live. Fix what failed, raise the version in guild.manifest.json and submit again.",
   live: "Live: buyers can hire this version.",
   superseded: "Replaced by a newer live version.",
   rejected: "Rejected in review.",
@@ -22354,7 +22430,7 @@ async function uploadWithGuildCredentials(login, agentDir2, env, slug2, version2
   console.log(`\xB7 Building ${slug2} ${version2} for linux/amd64`);
   docker(["build", "-q", "--platform", "linux/amd64", "-t", tag, agentDir2], { cwd: agentDir2 });
   const host = currentDockerHost();
-  const dockerConfig = mkdtempSync(join5(tmpdir(), "guild-push-"));
+  const dockerConfig = mkdtempSync(join6(tmpdir(), "guild-push-"));
   let digest;
   try {
     const { DOCKER_CONTEXT: _context, ...inherited } = process.env;
@@ -22402,7 +22478,7 @@ async function submitCommand(agentDir2, env, options) {
   const login = requireLogin(env);
   let raw;
   try {
-    raw = resolveIntakeInstructions(agentDir2, JSON.parse(readFileSync5(join5(agentDir2, "guild.manifest.json"), "utf8")));
+    raw = resolveIntakeInstructions(agentDir2, JSON.parse(readFileSync6(join6(agentDir2, "guild.manifest.json"), "utf8")));
   } catch (error62) {
     fail(error62 instanceof Error ? error62.message : String(error62));
   }
@@ -22467,19 +22543,19 @@ function isSafeFileName(name) {
 
 // src/cli.ts
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
-var GATEWAY_FILE = existsSync6(join6(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
+var GATEWAY_FILE = existsSync7(join7(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-16 (a58e241)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-17 (70a6692)" : "development (run from the Guild repository)";
 function fail2(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
 }
 function loadManifest(agentDir2) {
-  const path = join6(agentDir2, "guild.manifest.json");
-  if (!existsSync6(path)) fail2(`No guild.manifest.json in ${agentDir2}.`);
+  const path = join7(agentDir2, "guild.manifest.json");
+  if (!existsSync7(path)) fail2(`No guild.manifest.json in ${agentDir2}.`);
   let json2;
   try {
-    json2 = JSON.parse(readFileSync6(path, "utf8"));
+    json2 = JSON.parse(readFileSync7(path, "utf8"));
   } catch (error62) {
     fail2(`guild.manifest.json is not valid JSON: ${String(error62)}`);
   }
@@ -22497,10 +22573,10 @@ function loadManifest(agentDir2) {
   return result.manifest;
 }
 function dotEnv(agentDir2) {
-  const path = join6(agentDir2, ".env");
-  if (!existsSync6(path)) return {};
+  const path = join7(agentDir2, ".env");
+  if (!existsSync7(path)) return {};
   try {
-    return Object.fromEntries(Object.entries(parseEnv(readFileSync6(path, "utf8"))).filter((entry) => typeof entry[1] === "string" && entry[1] !== ""));
+    return Object.fromEntries(Object.entries(parseEnv(readFileSync7(path, "utf8"))).filter((entry) => typeof entry[1] === "string" && entry[1] !== ""));
   } catch (error62) {
     fail2(`This agent's .env file couldn't be read: ${error62 instanceof Error ? error62.message : String(error62)}`);
   }
@@ -22519,13 +22595,13 @@ function docker2(args, options = {}) {
 function validateCommand(agentDir2) {
   const manifest = loadManifest(agentDir2);
   console.log(`\u2713 ${manifest.name} ${manifest.version} is valid.`);
-  const dir2 = join6(agentDir2, "test-briefs");
-  const briefs = existsSync6(dir2) ? readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort() : [];
+  const dir2 = join7(agentDir2, "test-briefs");
+  const briefs = existsSync7(dir2) ? readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort() : [];
   let invalid = 0;
   for (const name of briefs) {
     let brief;
     try {
-      brief = JSON.parse(readFileSync6(join6(dir2, name), "utf8"));
+      brief = JSON.parse(readFileSync7(join7(dir2, name), "utf8"));
     } catch {
       console.error(`\u2717 test-briefs/${name} isn't valid JSON.`);
       invalid++;
@@ -22575,8 +22651,8 @@ function describe3(line) {
 }
 async function runCommand(agentDir2, options) {
   const manifest = loadManifest(agentDir2);
-  if (!existsSync6(options.brief)) fail2(`Brief file ${options.brief} not found.`);
-  const brief = JSON.parse(readFileSync6(options.brief, "utf8"));
+  if (!existsSync7(options.brief)) fail2(`Brief file ${options.brief} not found.`);
+  const brief = JSON.parse(readFileSync7(options.brief, "utf8"));
   const fromFile = dotEnv(agentDir2);
   const anthropicKey = modelKey(fromFile);
   if (!options.mockModels && !anthropicKey) {
@@ -22594,11 +22670,11 @@ async function runCommand(agentDir2, options) {
   }
   const runId = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
   const runDir = resolve(agentDir2, ".guild", "runs", runId);
-  mkdirSync2(join6(runDir, "inputs"), { recursive: true });
+  mkdirSync3(join7(runDir, "inputs"), { recursive: true });
   const files = options.files.map((path) => {
     const name = basename(path);
     if (!isSafeFileName(name)) fail2(`Input file name ${name} is not allowed.`);
-    copyFileSync(path, join6(runDir, "inputs", name));
+    copyFileSync(path, join7(runDir, "inputs", name));
     return { name, contentType: "application/octet-stream", sizeBytes: statSync3(path).size };
   });
   const task = {
@@ -22609,12 +22685,12 @@ async function runCommand(agentDir2, options) {
     budgetMicros: manifest.limits.budgetMicros,
     deadline: new Date(Date.now() + manifest.limits.deadlineSeconds * 1e3).toISOString()
   };
-  writeFileSync2(join6(runDir, "task.json"), JSON.stringify(task, null, 2));
+  writeFileSync3(join7(runDir, "task.json"), JSON.stringify(task, null, 2));
   if (options.content) {
     const checked = validateBundle(bundleFromDir(agentDir2));
     if (!checked.ok) fail2(`This agent's content isn't a valid bundle:
   ${checked.issues.join("\n  ")}`);
-    writeFileSync2(join6(runDir, "content.json"), serializeBundle(checked.bundle));
+    writeFileSync3(join7(runDir, "content.json"), serializeBundle(checked.bundle));
     console.log(`\xB7 Content mode: the agent fetches its ${checked.bundle.files.length} content files from the gateway, as Guild's shared runner does`);
   }
   const token = randomBytes(24).toString("base64url");
@@ -22623,6 +22699,8 @@ async function runCommand(agentDir2, options) {
   const agentName = `guild-agent-${runId.slice(-6)}`;
   const gatewayName = `guild-gateway-${runId.slice(-6)}`;
   const dnsName = `guild-dns-${runId.slice(-6)}`;
+  const briefName = basename(options.brief).replace(/\.json$/, "");
+  await report(agentDir2, "run_started", { brief: briefName });
   console.log(`\xB7 Building ${image}`);
   const build = spawnSync2("docker", ["build", "-q", "-t", image, agentDir2], { stdio: ["ignore", "ignore", "inherit"] });
   if (build.status !== 0) fail2("docker build failed.");
@@ -22640,7 +22718,7 @@ async function runCommand(agentDir2, options) {
     const ip = { gateway: `${subnet}.10`, agent: `${subnet}.20`, dns: `${subnet}.53` };
     docker2(["network", "create", "--internal", "--subnet", `${subnet}.0/24`, network]);
     docker2(["run", "-d", "--name", dnsName, "--network", network, "--ip", ip.dns, "busybox:1.37", "nc", "-lku", "-p", "53"]);
-    writeFileSync2(join6(runDir, "resolv.conf"), `nameserver ${ip.dns}
+    writeFileSync3(join7(runDir, "resolv.conf"), `nameserver ${ip.dns}
 options timeout:5 attempts:2
 `);
     docker2([
@@ -22655,7 +22733,7 @@ options timeout:5 attempts:2
       "--ip",
       ip.agent,
       "-v",
-      `${join6(runDir, "resolv.conf")}:/etc/resolv.conf:ro`,
+      `${join7(runDir, "resolv.conf")}:/etc/resolv.conf:ro`,
       "--add-host",
       `${GUILD_HOST}:${ip.gateway}`,
       "-e",
@@ -22732,6 +22810,7 @@ options timeout:5 attempts:2
     }
     console.log(`
 Run files: ${runDir}`);
+    await report(agentDir2, "run", runReport(briefName, runDir));
     process.exitCode = exitCode;
     return exitCode;
   } finally {
@@ -22740,8 +22819,8 @@ Run files: ${runDir}`);
 }
 async function checkCommand(agentDir2, options) {
   if (options.run) {
-    const dir2 = join6(agentDir2, "test-briefs");
-    const briefs = existsSync6(dir2) ? readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort() : [];
+    const dir2 = join7(agentDir2, "test-briefs");
+    const briefs = existsSync7(dir2) ? readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort() : [];
     if (briefs.length === 0) fail2("There are no test briefs in test-briefs/ to run.");
     if (!options.mockModels && !modelKey(dotEnv(agentDir2))) {
       fail2("Set ANTHROPIC_API_KEY to your own development key (in your shell, or in this agent's .env file) to run the test briefs, or pass --mock-models.");
@@ -22752,7 +22831,7 @@ async function checkCommand(agentDir2, options) {
 \u2501\u2501 Test brief ${index + 1} of ${briefs.length}: ${name}
 `);
       await runCommand(agentDir2, {
-        brief: join6(dir2, name),
+        brief: join7(dir2, name),
         files: [],
         answers,
         mockModels: options.mockModels,
@@ -22763,14 +22842,61 @@ async function checkCommand(agentDir2, options) {
     console.log("");
   }
   const readiness = checkAgent(agentDir2);
-  const report = formatReadiness(readiness);
-  mkdirSync2(join6(agentDir2, ".guild"), { recursive: true });
-  writeFileSync2(join6(agentDir2, ".guild", "readiness.md"), report);
-  writeFileSync2(join6(agentDir2, ".guild", "readiness.json"), JSON.stringify(readiness, null, 2) + "\n");
+  const markdown = formatReadiness(readiness);
+  mkdirSync3(join7(agentDir2, ".guild"), { recursive: true });
+  writeFileSync3(join7(agentDir2, ".guild", "readiness.md"), markdown);
+  writeFileSync3(join7(agentDir2, ".guild", "readiness.json"), JSON.stringify(readiness, null, 2) + "\n");
   if (options.json) console.log(JSON.stringify(readiness, null, 2));
   else console.log(`${formatReadiness(readiness, { short: true })}
 The full report, with what's done, is in .guild/readiness.md.`);
+  await report(agentDir2, "check", checkReport(readiness));
   process.exitCode = readiness.ready ? 0 : 1;
+}
+function checkReport(readiness) {
+  return {
+    version: readiness.agent?.version ?? "",
+    parts: readiness.parts,
+    counts: { fail: readiness.counts.fail, open: readiness.counts.open, warn: readiness.counts.warn, todo: readiness.counts.todo },
+    ready: readiness.ready,
+    runs: readiness.runs.map(({ brief, outcome, mocked, seconds: seconds2, costMicros }) => ({ brief, outcome, mocked, seconds: seconds2, costMicros }))
+  };
+}
+function runReport(brief, runDir) {
+  try {
+    const result = JSON.parse(readFileSync7(join7(runDir, "result.json"), "utf8"));
+    const outcome = result.outcome === "completed" || result.outcome === "cancelled" ? result.outcome : "failed";
+    return {
+      brief,
+      outcome,
+      mocked: result.cost?.mocked ?? false,
+      seconds: result.seconds ?? null,
+      costMicros: result.cost?.costMicros ?? null,
+      reason: outcome === "completed" ? null : result.reason ?? result.message ?? null
+    };
+  } catch {
+    return { brief, outcome: "failed", mocked: false, seconds: null, costMicros: null, reason: "The run stopped before it finished." };
+  }
+}
+async function connectCommand(agentDir2, code, env) {
+  if (!code) fail2("Pass the code from your agent's page in the Studio: `npm run guild -- connect <code>`.");
+  let connected;
+  try {
+    connected = await redeemCode(env, code, false);
+  } catch (error62) {
+    fail2(error62.message);
+  }
+  saveConnection(agentDir2, { env, platformUrl: connected.platformUrl, agent: connected.agent, connectedAt: (/* @__PURE__ */ new Date()).toISOString() });
+  const manifest = applyAgentToManifest(agentDir2, connected.agent);
+  console.log(`\u2713 Connected to ${connected.agent.name} on Guild (${env}), as ${connected.creator.name}.`);
+  if (manifest.changed) console.log(`\xB7 Set the manifest's slug and name to ${connected.agent.slug} and ${connected.agent.name}.`);
+  if (manifest.otherSlug) {
+    console.log(`! This copy's manifest is for ${manifest.otherSlug}. To submit it as ${connected.agent.name}, change "slug" in guild.manifest.json to "${connected.agent.slug}".`);
+  }
+  if (existsSync7(join7(agentDir2, "guild.manifest.json"))) {
+    const readiness = checkAgent(agentDir2);
+    await report(agentDir2, "check", checkReport(readiness));
+  }
+  console.log(`\xB7 Its progress shows in the Studio: ${connected.platformUrl}/studio/agents/${connected.agent.slug}`);
 }
 async function intakeCommand(agentDir2, notesPath) {
   const manifest = loadManifest(agentDir2);
@@ -22778,7 +22904,7 @@ async function intakeCommand(agentDir2, notesPath) {
   if (!notesPath) fail2("Pass --paste <file> with some notes a buyer might paste.");
   const apiKey = modelKey(dotEnv(agentDir2));
   if (!apiKey) fail2("Set ANTHROPIC_API_KEY to your own Anthropic key (in your shell, or in this agent's .env file). Guild pays for intake on Guild; locally, you do.");
-  const notes = readFileSync6(resolve(notesPath), "utf8");
+  const notes = readFileSync7(resolve(notesPath), "utf8");
   console.log(`\xB7 Asking ${INTAKE_MODEL} to fill in ${manifest.name}'s brief`);
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -22804,7 +22930,7 @@ Required and still empty: ${required2.join(", ")}`);
   console.log(`
 ${body.usage?.input_tokens ?? 0} input and ${body.usage?.output_tokens ?? 0} output tokens.`);
 }
-var USAGE = "Usage:\n  guild validate [agent-dir]\n  guild check [agent-dir] [--run [--mock-models] [--answer <text>]... [--agent-env NAME=value]...] [--json]\n  guild run [agent-dir] --brief <file> [--file <path>]... [--answer <text>]... [--mock-models [--mock-tool-call <json>]] [--content]\n  guild intake [agent-dir] --paste <notes-file>\n  guild login | whoami | logout [--env staging]\n  guild submit [agent-dir] [--env staging] [--wait] [--image] [--upload-with-wrangler]\n  guild status <version-id> [--env staging] [--wait]\n  guild version\n  guild help";
+var USAGE = "Usage:\n  guild validate [agent-dir]\n  guild check [agent-dir] [--run [--mock-models] [--answer <text>]... [--agent-env NAME=value]...] [--json]\n  guild run [agent-dir] --brief <file> [--file <path>]... [--answer <text>]... [--mock-models [--mock-tool-call <json>]] [--content]\n  guild intake [agent-dir] --paste <notes-file>\n  guild connect <code> [agent-dir] [--env staging]\n  guild login | whoami | logout [--env staging]\n  guild submit [agent-dir] [--env staging] [--wait] [--image] [--upload-with-wrangler]\n  guild status <version-id> [--env staging] [--wait]\n  guild version\n  guild help";
 function argumentProblem(error62) {
   const code = error62?.code;
   if (typeof code !== "string" || !code.startsWith("ERR_PARSE_ARGS_")) return null;
@@ -22871,6 +22997,9 @@ switch (command) {
     break;
   case "deploy":
     fail2("`guild deploy` has been replaced by `guild submit`. Run `guild login` once, then `guild submit`.");
+  case "connect":
+    await connectCommand(resolve(positionals[2] ?? "."), positionals[1], values.env ?? "staging");
+    break;
   case "login":
     await loginCommand(values.env ?? "staging");
     break;

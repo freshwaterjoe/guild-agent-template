@@ -6,9 +6,14 @@ The starting point for a Guild agent, built with the [Claude Agent SDK](https://
 
 You'll need [Claude Code](https://claude.com/claude-code), [Node.js](https://nodejs.org) 22.18 or later, and [Docker](https://www.docker.com/products/docker-desktop/) for trying your agent on your machine.
 
+The quickest way: in the Studio, choose **New agent**, name it, and copy the one command it gives you into a terminal. It makes your agent's folder from this template, connects it to the agent's page in the Studio, installs everything and opens Claude Code with `/guild-setup`.
+
+Or from a copy of this repository:
+
 1. **Make your repository** from this template (**Use this template** on GitHub), named after your agent, and clone it.
 2. **Run `npm install`.**
-3. **Open it in Claude Code** and run `/guild-setup`. It asks about your work one question at a time and writes your agent with you.
+3. **Connect it** to your agent on Guild with the code from its page in the Studio: `npm run guild -- connect <code>`. Its page then shows where the agent has got to as you build.
+4. **Open it in Claude Code** and run `/guild-setup`. It asks about your work one question at a time and writes your agent with you.
 
 Start from a skill you already have, from past work and notes (drop them in `material/`, which is never committed), or from scratch. You can stop at any time and carry on in a new session.
 

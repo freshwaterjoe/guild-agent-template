@@ -81,6 +81,7 @@ An older agent may also have `specialist/instructions.md`, its standards and voi
 - Check the manifest and test briefs: `npm run guild -- validate .`
 - Run one test brief in a sealed container: `npm run guild -- run . --brief test-briefs/<name>.json`. It prints each model call's cost. Every brief, with the report updated: `npm run guild -- check --run`. Both use the creator's `ANTHROPIC_API_KEY`, so ask first (`/guild-try` does); `--mock-models` tests the plumbing for free.
 - Try intake, if the agent has it: `npm run guild -- intake . --paste <notes-file>`.
+- Connect this copy to its agent on Guild, with the code from the agent's page in the Studio: `npm run guild -- connect <code>`. It signs in and remembers the agent in `.guild/connection.json`. From then on `check` and `run` report how the agent is getting on to its Studio page (which parts are done, runs, time and cost; never the method's text), so the creator can follow along there. Set `GUILD_NO_REPORTS=1` to stop that.
 - Sign in, submit and follow the checks: `npm run guild -- login`, `npm run guild -- submit . --wait`, `npm run guild -- status <version-id>` (`/guild-submit` walks through them).
 - All the commands: `npm run guild -- help`.
 - Typecheck: `npm run typecheck`.
