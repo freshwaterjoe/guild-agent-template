@@ -54,7 +54,7 @@ Then **try it** (`/guild-try`), and when they're ready, **submit** (`/guild-subm
 4. Ask (multiple choice) how they'd like to go:
    - **Quick start (about 20 minutes)**: the five parts, using the questions marked **(quick)** in `interview.md`, then a first try.
    - **Thorough (an hour or more, across sessions if they like)**: every question, then the deeper layers.
-5. Check the basics quietly and mention only what's missing: Node.js 22.18 or later (`node --version`), `npm install` done (`node_modules/` exists), Docker running (`docker info`), and whether `ANTHROPIC_API_KEY` is set (in the shell or `.env`). None of these blocks the interview; they're needed for the first try.
+5. Check the basics quietly and mention only what's missing: Node.js 22.18 or later (`node --version`), `npm install` done (`node_modules/` exists), and whether `ANTHROPIC_API_KEY` is set (in the shell or `.env`). None of these blocks the interview; they're needed for the first try, which runs on Guild with `guild try`. Docker is needed only if the agent ends up with code of its own.
 
 ## Starting from a skill
 

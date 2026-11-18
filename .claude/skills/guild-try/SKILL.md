@@ -1,29 +1,45 @@
 ---
 name: guild-try
-description: Runs this Guild agent's test briefs with real models, reads the work with the creator as a buyer would, against the rubric, and turns what they'd change into changes to the method, rubric, references or skills. Use when the creator says "try it", "run it", "test it", "see what it does", or runs /guild-try, and after the setup's five parts are done.
+description: Runs this Guild agent's test briefs with real models, on Guild with `guild try` (or on this machine with `guild run`), reads the work with the creator as a buyer would, against the rubric, and turns what they'd change into changes to the method, rubric, references or skills. Use when the creator says "try it", "run it", "test it", "see what it does", or runs /guild-try, and after the setup's five parts are done.
 ---
 
 # Try the agent, and make it better
 
 The point of a try is to see the work as a buyer would, and to improve the agent from what the creator thinks of it. Running is the easy part; reading the result together is the work.
 
+## Two ways to run
+
+- **On Guild, with `guild try` (the usual way).** While the agent's code is the template's, unchanged (nothing in `src/`, the `Dockerfile` or the dependencies changed), the agent's own files go to Guild and each brief runs there, on Guild's real runtime, the way a hire runs. No Docker. Declared outside hosts are reachable, and keys set in the Studio are added. It needs the creator signed in (`npm run guild -- connect <code>` or `npm run guild -- login`) and their Anthropic key saved on Guild once.
+- **On this machine, with `guild run`.** For an agent with code of its own, or to test the plumbing for free with `--mock-models`. It needs Docker, and declared outside hosts aren't reachable locally.
+
+`guild try` says so if the agent has code of its own; then use `guild run`.
+
 ## Before running
 
 1. **Check the basics**, and say only what's missing:
-   - Docker is running (`docker info`). Runs happen in a sealed container on this machine, the way Guild runs them.
-   - `ANTHROPIC_API_KEY` is set, in the shell or in `.env` (ignored by git and never in the agent). It's the creator's own key: they pay for these runs.
-   - Any key the agent's connections need is in `.env` too, under the name its host declares (`network.hosts[].key.secret`). Never write a key into a file yourself: ask the creator to add it.
+   - `ANTHROPIC_API_KEY` is set, in the shell or in `.env` (ignored by git and never in the agent). It's the creator's own key: they pay for these runs, on Guild or here.
+   - For `guild try`: the creator is signed in (`npm run guild -- whoami`), and their key is saved on Guild. If `guild try` says Guild doesn't have it, ask before sending it: "Trying on Guild uses your own Anthropic key. Shall I send the one in your .env to Guild? It's sealed there, used only for your own trial runs, and never shown again." If they agree, run `npm run guild -- try --save-key`. Never send it without asking.
+   - For `guild run`: Docker is running (`docker info`).
+   - Any key the agent's connections need: on Guild, set in the Studio (**Versions and keys**); locally, in `.env` under the name its host declares (`network.hosts[].key.secret`). Never write a key into a file yourself: ask the creator to add it.
    - `npm run guild -- check` has nothing marked ✗ in the five parts or Guild's rules. Fix those first.
-2. **Ask before spending.** Say which briefs you'll run and roughly what it costs: at most the manifest's `limits.budgetMicros` per brief (the template's is $3), usually much less, and what earlier runs cost if there are any (`.guild/readiness.md`, "Runs and cost"). Offer one brief first if they'd rather. Use AskUserQuestion: run one, run all, or check the plumbing for free (`--mock-models`, which tests that the agent starts and delivers, not the work).
+2. **Ask before spending.** Say which briefs you'll run and roughly what it costs: at most the manifest's `limits.budgetMicros` per brief (the template's is $3), usually much less, and what earlier runs cost if there are any (`.guild/readiness.md`, "Runs and cost"). Offer one brief first if they'd rather. Use AskUserQuestion: run one, run all, or check the plumbing for free (`guild run` with `--mock-models`, which tests that the agent starts and delivers, not the work, and needs Docker).
 
 ## Running
 
-- One brief: `npm run guild -- run . --brief test-briefs/<name>.json`. Add `--file <path>` to attach a sample buyer file.
+On Guild:
+
+- One brief: `npm run guild -- try --brief test-briefs/<name>.json`. Add `--file <path>` to attach a sample buyer file, and `--answer "<text>"` to answer the agent's questions in order.
+- Every brief, one after another: `npm run guild -- try --all`.
+- Guild allows two tries at once and 20 a day per creator. Tries cost only what the models cost on the creator's key, and never reach buyers.
+
+On this machine:
+
+- One brief: `npm run guild -- run . --brief test-briefs/<name>.json`.
 - Every brief, with the readiness report updated after: `npm run guild -- check --run`.
 
-Runs take minutes. Run them in the background where you can, and tell the creator what's happening. The output shows each step, every model call's cost, and the reviewer's verdicts. Each run's files are in `.guild/runs/<run>/`: `task.json` (the brief), `result.json` (outcome, time, cost) and `deliverables/` (what the buyer would get).
+Runs take minutes. Run them in the background where you can, and tell the creator what's happening. The output shows each step and what it cost. Each run's files are in `.guild/runs/<run>/`, whichever way it ran: `task.json` (the brief), `result.json` (outcome, time, cost) and `deliverables/` (what the buyer would get). A run on Guild also has `events.jsonl` (each step), and `result.json` says where it ran (`onGuild`, with its page) and lists any calls Guild refused (`refused`).
 
-If a run fails, read why (the output and `result.json`), explain it in a sentence, and fix the cause: a missing file in `out/`, a key not passed, a host not declared, a brief that doesn't match the fields. Then offer to run it again.
+If a run fails, read why (the output and `result.json`), explain it in a sentence, and fix the cause: a missing file in `out/`, a key not set, a host not declared (a refused call shows in `refused`), a brief that doesn't match the fields. Then offer to run it again.
 
 ## Reading the work together
 

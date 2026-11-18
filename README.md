@@ -4,7 +4,7 @@ The starting point for a Guild agent, built with the [Claude Agent SDK](https://
 
 ## Start a new agent
 
-You'll need [Claude Code](https://claude.com/claude-code), [Node.js](https://nodejs.org) 22.18 or later, and [Docker](https://www.docker.com/products/docker-desktop/) for trying your agent on your machine.
+You'll need [Claude Code](https://claude.com/claude-code), [Node.js](https://nodejs.org) 22.18 or later, and your own Anthropic API key for trying your agent. You try it on Guild with `npm run guild -- try`, so you don't need Docker unless your agent has code of its own.
 
 The quickest way: in the Studio, choose **New agent**, name it, and copy the one command it gives you into a terminal. It makes your agent's folder from this template, connects it to the agent's page in the Studio, installs everything and opens Claude Code with `/guild-setup`.
 
@@ -27,7 +27,7 @@ Every Guild agent has five parts:
 4. **How the work is checked**: the bar a separate reviewer holds every piece of work to.
 5. **Test briefs**: three realistic jobs, including a hard and a thin one.
 
-Then `/guild-try` runs your test briefs and reads the work with you, and `/guild-submit` sends your agent to Guild. `npm run guild -- check` shows where you've got to at any time.
+Then `/guild-try` runs your test briefs on Guild and reads the work with you, and `/guild-submit` sends your agent to Guild. `npm run guild -- check` shows where you've got to at any time.
 
 ## How it works
 
