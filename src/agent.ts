@@ -19,6 +19,8 @@ export interface WorkResult {
    * than maxOutputTokens. What's in out/ may still be good.
    */
   stopped?: "steps" | "reply" | "time" | "budget";
+  /** A temporary error from the model provider or the network: worth carrying on after a pause. */
+  temporary?: boolean;
 }
 
 /** The task's limits, for the agent's instructions, for progress and for wrapping up in time. */
@@ -45,11 +47,29 @@ export function wrapUpReason(limits: WorkLimits, now = Date.now()): "time" | "bu
   return null;
 }
 
+/** Errors that pass: the provider overloaded or down for a moment, or the connection dropped. */
+export const TEMPORARY_ERROR = /API Error: (429|5\d\d)\b|overloaded|rate.?limit|ECONNRESET|ETIMEDOUT|socket hang up|fetch failed|Connection error|network error/i;
+
 /** Where this session's progress runs on the task's bar, from and to (percent). */
 export type ProgressSpan = readonly [number, number];
 
 function minutes(ms: number): number {
   return Math.max(0, Math.round(ms / 60_000));
+}
+
+/**
+ * The files the buyer was promised, by name. Guild checks for each one exactly as named, so the
+ * agent must use these names (Guild decision 059).
+ */
+export function deliverablesPrompt(requiredOutputs: string[]): string {
+  return [
+    "## What to deliver",
+    "",
+    ...(requiredOutputs.length
+      ? ["Put these files in out/, named exactly like this (they're checked by name):", "", ...requiredOutputs.map((name) => `- out/${name}`), "", "You can add other files the buyer would find useful."]
+      : []),
+    "Keep out/ flat: put every file directly in out/, not in folders inside it. Names starting with \"_\" are scratch and aren't delivered.",
+  ].join("\n");
 }
 
 /** What the agent is told about its steps and time, so it delivers something before either runs out. */
@@ -145,6 +165,8 @@ export async function work(options: {
   resume?: string;
   /** What review found, for the agent to fix. */
   revision?: string[];
+  /** Carry on after a temporary error interrupted the session (method.ts resumes it). */
+  carryOn?: boolean;
   /** A revision the buyer asked for, with their feedback. The earlier delivery is in previous/. */
   buyerRevision?: { number: number; feedback: string };
   limits: WorkLimits;
@@ -153,11 +175,13 @@ export async function work(options: {
   /** Reports progress (method.ts keeps it from going backwards). */
   progress: (message: string, percent: number) => Promise<void>;
 }): Promise<WorkResult> {
-  const { specialist, workdir, brief, guild, signal, waitForAnswer, resume, revision, buyerRevision, limits, span, progress } = options;
+  const { specialist, workdir, brief, guild, signal, waitForAnswer, resume, revision, carryOn, buyerRevision, limits, span, progress } = options;
   const { settings } = specialist;
   const skills = await readdir(join(workdir, ".claude", "skills")).catch(() => []);
 
-  const prompt = revision
+  const prompt = carryOn
+    ? "A temporary error interrupted your work. Carry on from where you were: your files in out/ are as you left them."
+    : revision
     ? ["Review found these problems. Fix them in out/, check your work again, then summarise what changed.", "", ...revision.map((issue) => `- ${issue}`)].join("\n")
     : buyerRevision
       ? [
@@ -174,7 +198,7 @@ export async function work(options: {
           "```",
         ].join("\n")
       : ["Here is the brief. Do the work.", "", "```json", JSON.stringify(brief, null, 2), "```"].join("\n");
-  const limitedPrompt = `${prompt}\n\n${limitsPrompt(settings.maxTurns, settings.maxOutputTokens, limits)}`;
+  const limitedPrompt = [prompt, deliverablesPrompt(settings.requiredOutputs), limitsPrompt(settings.maxTurns, settings.maxOutputTokens, limits)].filter(Boolean).join("\n\n");
 
   const abort = new AbortController();
   signal.addEventListener("abort", () => abort.abort());
@@ -249,7 +273,10 @@ export async function work(options: {
           return { ok: false, stopped: "steps", summary: `The agent used all ${settings.maxTurns} of its steps before it finished.`, sessionId, turns };
         }
         const detail = message.subtype === "success" ? message.result : message.subtype;
-        if (/budget_exceeded/.test(String(detail))) {
+        if (TEMPORARY_ERROR.test(String(detail))) {
+        return { ok: false, temporary: true, summary: `The work stopped early: ${String(detail).slice(0, 300)}`, sessionId, turns };
+      }
+      if (/budget_exceeded/.test(String(detail))) {
           return { ok: false, stopped: "budget", summary: "The agent reached its budget.", sessionId, turns };
         }
         if (/exceeded the \d+ output token maximum/.test(String(detail))) {
@@ -259,7 +286,12 @@ export async function work(options: {
       }
     }
   } catch (error) {
-    if (!wrapUp) throw error;
+    if (!wrapUp) {
+      if (TEMPORARY_ERROR.test(String((error as Error)?.message ?? error))) {
+        return { ok: false, temporary: true, summary: `The work stopped early: ${String((error as Error)?.message ?? error).slice(0, 300)}`, sessionId, turns };
+      }
+      throw error;
+    }
   } finally {
     clearInterval(watch);
   }

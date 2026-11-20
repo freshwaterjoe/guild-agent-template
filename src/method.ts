@@ -14,9 +14,9 @@
 // A session that stops at a limit (all its steps, a reply longer than maxOutputTokens, or three
 // quarters of the time or four fifths of the budget) doesn't lose its work: whatever is in out/ is
 // judged as usual, and the task fails only if there's nothing there (Guild GLD-272, decision 059).
-import { cp, mkdir, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
-import { extname, join } from "node:path";
-import { work, wrapUpReason, type WorkLimits } from "./agent.ts";
+import { cp, mkdir, readdir, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { basename, extname, join } from "node:path";
+import { work, wrapUpReason, type WorkLimits, type WorkResult } from "./agent.ts";
 import { guildClient, type Budget, type GuildClient, type StartTaskRequest } from "./guild.ts";
 import { checkOutputs, review } from "./judgement.ts";
 import { loadSpecialist, type Specialist } from "./specialist.ts";
@@ -49,7 +49,21 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
 
     // 2. Work ----------------------------------------------------------------
     await progress("Starting work", 10);
-    let result = await work({
+    // A temporary error from the provider or the network doesn't end the job: pause, then carry on
+    // in the same session, up to twice in a task (decision 059).
+    let carryOns = 0;
+    const steady = async (options: Parameters<typeof work>[0]): Promise<WorkResult> => {
+      let result = await work(options);
+      while (!result.ok && result.temporary && carryOns < 2 && !signal.aborted && !wrapUpReason(limits)) {
+        carryOns += 1;
+        await progress("A temporary error: carrying on in a moment", 0).catch(() => {});
+        await new Promise((resolve) => setTimeout(resolve, 20_000));
+        result = await steady({ ...options, ...(result.sessionId ? { resume: result.sessionId, carryOn: true, revision: undefined, buyerRevision: undefined } : {}) });
+      }
+      return result;
+    };
+
+    let result = await steady({
       specialist,
       workdir,
       brief: task.brief,
@@ -65,6 +79,8 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
     // 3 and 4. Judge, then revise until the work passes or revisions run out --
     for (let revision = 0; ; revision++) {
       if (signal.aborted) return;
+      // Files the agent put in folders inside out/ come up to out/ itself, so they're checked and delivered.
+      await flattenOut(workdir);
       // Stopped at a limit: judge what's in out/, if anything, rather than throw it away.
       const stopped = !result.ok && result.stopped && (await hasDeliverables(workdir)) ? result.stopped : undefined;
       if (!result.ok && !stopped) {
@@ -150,6 +166,37 @@ async function prepareWorkspace(specialist: Specialist, workdir: string, task: S
     await mkdir(join(workdir, "previous"), { recursive: true });
     for (const file of task.revision.files) {
       await writeFile(join(workdir, "previous", file.name), await guild.readRevisionFile(file.name));
+    }
+  }
+}
+
+/**
+ * Moves every file in folders inside out/ up to out/ itself (Guild delivers only out/'s own files).
+ * A file keeps its name unless another has it, then it's named after its folders
+ * (out/screenshots/hover.png becomes hover.png, or screenshots-hover.png). Folders whose names
+ * start with "_" are scratch and stay where they are, like node_modules.
+ */
+export async function flattenOut(workdir: string): Promise<void> {
+  const out = join(workdir, "out");
+  const taken = new Set((await readdir(out, { withFileTypes: true }).catch(() => [])).filter((entry) => entry.isFile()).map((entry) => entry.name));
+  const walk = async (dir: string, trail: string[]): Promise<void> => {
+    for (const entry of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!entry.name.startsWith("_") && !entry.name.startsWith(".") && entry.name !== "node_modules") await walk(path, [...trail, entry.name]);
+      } else if (entry.isFile() && trail.length > 0 && !entry.name.startsWith("_")) {
+        let name = basename(entry.name);
+        if (taken.has(name)) name = [...trail, name].join("-");
+        for (let n = 2; taken.has(name); n++) name = `${[...trail].join("-")}-${n}-${basename(entry.name)}`;
+        taken.add(name);
+        await rename(path, join(out, name));
+      }
+    }
+  };
+  for (const entry of await readdir(out, { withFileTypes: true }).catch(() => [])) {
+    if (entry.isDirectory() && !entry.name.startsWith("_") && !entry.name.startsWith(".") && entry.name !== "node_modules") {
+      await walk(join(out, entry.name), [entry.name]);
+      await rm(join(out, entry.name), { recursive: true, force: true }).catch(() => {});
     }
   }
 }
