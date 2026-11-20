@@ -4,7 +4,7 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { query, type McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import type { GuildClient } from "./guild.ts";
+import type { Budget, GuildClient } from "./guild.ts";
 import { GUILD_RULES, listSkills, RUNNER_TOOLS, skillsPrompt } from "./guild-rules.ts";
 import { specialistFile, type Specialist } from "./specialist.ts";
 import { specialistTools, toolNames } from "./tools.ts";
@@ -18,15 +18,31 @@ export interface WorkResult {
    * The session stopped at a limit before finishing: all its steps (maxTurns), or a reply longer
    * than maxOutputTokens. What's in out/ may still be good.
    */
-  stopped?: "steps" | "reply";
+  stopped?: "steps" | "reply" | "time" | "budget";
 }
 
-/** The task's limits, for the agent's instructions and for progress. */
+/** The task's limits, for the agent's instructions, for progress and for wrapping up in time. */
 export interface WorkLimits {
   /** When the task started on this runner (ms). */
   startedAt: number;
   /** When Guild ends the task (ms). */
   deadline: number;
+  /** The budget so far, as Guild last reported it (method.ts keeps it current). */
+  budget: () => Budget | null;
+}
+
+/**
+ * When a working session stops to leave room for the checks and delivery (Guild decision 059):
+ * at three quarters of the task's time, or four fifths of its budget.
+ */
+export const WRAP_UP = { time: 0.75, budget: 0.8 } as const;
+
+/** Whether the task has passed a wrap-up point, and which. */
+export function wrapUpReason(limits: WorkLimits, now = Date.now()): "time" | "budget" | null {
+  if (now - limits.startedAt >= WRAP_UP.time * (limits.deadline - limits.startedAt)) return "time";
+  const budget = limits.budget();
+  if (budget && budget.limitMicros > 0 && budget.spentMicros >= WRAP_UP.budget * budget.limitMicros) return "budget";
+  return null;
 }
 
 /** Where this session's progress runs on the task's bar, from and to (percent). */
@@ -42,7 +58,7 @@ export function limitsPrompt(maxTurns: number, maxOutputTokens: number, limits: 
     "## Your limits",
     "",
     `- This session has ${maxTurns} steps (each reply you make counts as one) and about ${minutes(limits.deadline - now)} minutes before the job ends.`,
-    "- Write a complete first version of every deliverable in out/ early, by about a third of the way through, then improve it. Work that isn't in out/ when you run out of steps or time is lost.",
+    "- Write a complete first version of every deliverable in out/ early, by about a third of the way through, then improve it. When time or budget runs low, your session is stopped and what's in out/ is checked and delivered, so keep out/ in a state you'd be happy to hand over.",
     "- Keep checks proportionate: verify the things that matter most, rather than every possible case.",
     `- Each reply can be at most about ${Math.round(maxOutputTokens * 0.6).toLocaleString("en-GB")} words, tool calls included. Write a long file in parts: create it with its first section, then add the rest with further edits.`,
   ].join("\n");
@@ -169,67 +185,84 @@ export async function work(options: {
   let lastProgress = Date.now();
   let sessionId = resume;
 
-  for await (const message of query({
-    prompt: limitedPrompt,
-    options: {
-      cwd: workdir,
-      model: settings.model,
-      maxTurns: settings.maxTurns,
-      abortController: abort,
-      ...(resume ? { resume } : {}),
-      systemPrompt: { type: "preset", preset: "claude_code", append: await systemPrompt(specialist) },
-      settingSources: ["project"],
-      skills,
-      mcpServers: {
-        specialist: specialistTools({ guild, waitForAnswer, specialist, workdir }),
-        // Remote MCP servers listed under connections.services in specialist/settings.json, each
-        // on a host declared in guild.manifest.json (docs/guild.md, "MCP servers").
-        ...serviceServers(specialist),
+  // Stop in time to leave room for the checks and delivery (decision 059).
+  let wrapUp: "time" | "budget" | null = null;
+  const watch = setInterval(() => {
+    wrapUp = wrapUp ?? wrapUpReason(limits);
+    if (wrapUp) abort.abort();
+  }, 10_000);
+  try {
+    for await (const message of query({
+      prompt: limitedPrompt,
+      options: {
+        cwd: workdir,
+        model: settings.model,
+        maxTurns: settings.maxTurns,
+        abortController: abort,
+        ...(resume ? { resume } : {}),
+        systemPrompt: { type: "preset", preset: "claude_code", append: await systemPrompt(specialist) },
+        settingSources: ["project"],
+        skills,
+        mcpServers: {
+          specialist: specialistTools({ guild, waitForAnswer, specialist, workdir }),
+          // Remote MCP servers listed under connections.services in specialist/settings.json, each
+          // on a host declared in guild.manifest.json (docs/guild.md, "MCP servers").
+          ...serviceServers(specialist),
+        },
+        allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", ...toolNames(specialist).map((name) => `mcp__specialist__${name}`), ...serviceTools(specialist)],
+        // WebFetch would fetch from the container, where only hosts declared in
+        // the manifest are reachable; WebSearch isn't metered by Guild yet. Add
+        // outside sources as connections in specialist/settings.json instead (docs/guild.md).
+        disallowedTools: ["WebFetch", "WebSearch"],
+        permissionMode: "dontAsk",
+        env: {
+          ...process.env,
+          CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(settings.maxOutputTokens),
+          // Nothing to update or report to from inside a sealed container.
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+        },
+        // AGENT_DEBUG=1 shows what the SDK is doing (local runs: `guild run --agent-env AGENT_DEBUG=1`).
+        ...(process.env.AGENT_DEBUG === "1" ? { stderr: (data: string) => process.stderr.write(`[sdk] ${data}`), debug: true } : {}),
       },
-      allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", ...toolNames(specialist).map((name) => `mcp__specialist__${name}`), ...serviceTools(specialist)],
-      // WebFetch would fetch from the container, where only hosts declared in
-      // the manifest are reachable; WebSearch isn't metered by Guild yet. Add
-      // outside sources as connections in specialist/settings.json instead (docs/guild.md).
-      disallowedTools: ["WebFetch", "WebSearch"],
-      permissionMode: "dontAsk",
-      env: {
-        ...process.env,
-        CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(settings.maxOutputTokens),
-        // Nothing to update or report to from inside a sealed container.
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-      },
-      // AGENT_DEBUG=1 shows what the SDK is doing (local runs: `guild run --agent-env AGENT_DEBUG=1`).
-      ...(process.env.AGENT_DEBUG === "1" ? { stderr: (data: string) => process.stderr.write(`[sdk] ${data}`), debug: true } : {}),
-    },
-  })) {
-    if (message.type === "system" && message.subtype === "init") sessionId = message.session_id;
-    if (message.type === "assistant") {
-      const id = message.message?.id ?? message.uuid;
-      if (!replies.has(id)) {
-        replies.add(id);
-        turns = replies.size;
+    })) {
+      if (message.type === "system" && message.subtype === "init") sessionId = message.session_id;
+      if (message.type === "assistant") {
+        const id = message.message?.id ?? message.uuid;
+        if (!replies.has(id)) {
+          replies.add(id);
+          turns = replies.size;
+        }
+        // Keep the buyer informed without flooding their task page.
+        if (Date.now() - lastProgress > 60_000) {
+          lastProgress = Date.now();
+          const now = Date.now();
+          const used = Math.min(1, Math.max(turns / settings.maxTurns, (now - limits.startedAt) / Math.max(1, limits.deadline - limits.startedAt)));
+          const label = `${revision ? "Revising" : "Working"}: step ${turns} of ${settings.maxTurns}, ${minutes(now - limits.startedAt)} of ${minutes(limits.deadline - limits.startedAt)} minutes`;
+          await progress(label, Math.round(span[0] + (span[1] - span[0]) * used)).catch(() => {});
+        }
       }
-      // Keep the buyer informed without flooding their task page.
-      if (Date.now() - lastProgress > 60_000) {
-        lastProgress = Date.now();
-        const now = Date.now();
-        const used = Math.min(1, Math.max(turns / settings.maxTurns, (now - limits.startedAt) / Math.max(1, limits.deadline - limits.startedAt)));
-        const label = `${revision ? "Revising" : "Working"}: step ${turns} of ${settings.maxTurns}, ${minutes(now - limits.startedAt)} of ${minutes(limits.deadline - limits.startedAt)} minutes`;
-        await progress(label, Math.round(span[0] + (span[1] - span[0]) * used)).catch(() => {});
+      if (message.type === "result" && wrapUp) break;
+      if (message.type === "result") {
+        // A "success" result can still carry an API error (is_error): treat that as a failure.
+        if (message.subtype === "success" && !message.is_error) return { ok: true, summary: message.result, sessionId, turns };
+        if (message.subtype === "error_max_turns") {
+          return { ok: false, stopped: "steps", summary: `The agent used all ${settings.maxTurns} of its steps before it finished.`, sessionId, turns };
+        }
+        const detail = message.subtype === "success" ? message.result : message.subtype;
+        if (/budget_exceeded/.test(String(detail))) {
+          return { ok: false, stopped: "budget", summary: "The agent reached its budget.", sessionId, turns };
+        }
+        if (/exceeded the \d+ output token maximum/.test(String(detail))) {
+          return { ok: false, stopped: "reply", summary: `One of the agent's replies was longer than its limit of ${settings.maxOutputTokens.toLocaleString("en-GB")} tokens.`, sessionId, turns };
+        }
+        return { ok: false, summary: `The work stopped early: ${String(detail).slice(0, 300)}`, sessionId, turns };
       }
     }
-    if (message.type === "result") {
-      // A "success" result can still carry an API error (is_error): treat that as a failure.
-      if (message.subtype === "success" && !message.is_error) return { ok: true, summary: message.result, sessionId, turns };
-      if (message.subtype === "error_max_turns") {
-        return { ok: false, stopped: "steps", summary: `The agent used all ${settings.maxTurns} of its steps before it finished.`, sessionId, turns };
-      }
-      const detail = message.subtype === "success" ? message.result : message.subtype;
-      if (/exceeded the \d+ output token maximum/.test(String(detail))) {
-        return { ok: false, stopped: "reply", summary: `One of the agent's replies was longer than its limit of ${settings.maxOutputTokens.toLocaleString("en-GB")} tokens.`, sessionId, turns };
-      }
-      return { ok: false, summary: `The work stopped early: ${String(detail).slice(0, 300)}`, sessionId, turns };
-    }
+  } catch (error) {
+    if (!wrapUp) throw error;
+  } finally {
+    clearInterval(watch);
   }
+  if (wrapUp) return { ok: false, stopped: wrapUp, summary: wrapUp === "time" ? "The agent was nearly out of time." : "The agent was nearly at its budget.", sessionId, turns };
   return { ok: false, summary: "The work ended without a result.", sessionId, turns };
 }

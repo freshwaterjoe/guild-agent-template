@@ -33,11 +33,21 @@ async function call(method: string, path: string, body?: BodyInit, contentType =
   return response;
 }
 
+/** What an attempt may spend on models, and has spent so far (settled and reserved). */
+export interface Budget {
+  limitMicros: number;
+  spentMicros: number;
+}
+
 export function guildClient(taskId: string) {
   const base = `/v1/tasks/${taskId}`;
   return {
-    progress: (message: string, percent?: number) =>
-      call("POST", `${base}/events`, JSON.stringify({ state: "working", message, percent })),
+    /** Reports progress. Guild replies with the attempt's budget so far, for pacing (Guild GLD-272). */
+    progress: async (message: string, percent?: number): Promise<Budget | null> => {
+      const response = await call("POST", `${base}/events`, JSON.stringify({ state: "working", message, percent }));
+      const reply = (await response.json().catch(() => null)) as { budget?: Budget } | null;
+      return reply?.budget && Number.isFinite(reply.budget.limitMicros) && Number.isFinite(reply.budget.spentMicros) ? reply.budget : null;
+    },
     ask: (question: string) => call("POST", `${base}/events`, JSON.stringify({ state: "input-required", question })),
     readFile: async (name: string) =>
       new Uint8Array(await (await call("GET", `${base}/files/${encodeURIComponent(name)}`)).arrayBuffer()),

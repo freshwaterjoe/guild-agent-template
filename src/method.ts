@@ -11,13 +11,13 @@
 //   4. Revise    if the work falls short, the same session fixes what review found
 //   5. Deliver   everything in out/, with a summary
 //
-// A session that stops at a limit (all its steps, or a reply longer than maxOutputTokens) doesn't
-// lose its work: whatever is in out/ is judged as usual, and the task fails only if there's
-// nothing there (GLD-272).
+// A session that stops at a limit (all its steps, a reply longer than maxOutputTokens, or three
+// quarters of the time or four fifths of the budget) doesn't lose its work: whatever is in out/ is
+// judged as usual, and the task fails only if there's nothing there (Guild GLD-272, decision 059).
 import { cp, mkdir, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { work, type WorkLimits } from "./agent.ts";
-import { guildClient, type GuildClient, type StartTaskRequest } from "./guild.ts";
+import { work, wrapUpReason, type WorkLimits } from "./agent.ts";
+import { guildClient, type Budget, type GuildClient, type StartTaskRequest } from "./guild.ts";
 import { checkOutputs, review } from "./judgement.ts";
 import { loadSpecialist, type Specialist } from "./specialist.ts";
 import { TOOLKIT_MODULES } from "./guild-rules.ts";
@@ -32,12 +32,14 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
   const guild = guildClient(task.taskId);
   const workdir = `/work/${task.taskId}-${task.attempt}`;
   const signal = control.abort.signal;
-  const limits: WorkLimits = { startedAt: Date.now(), deadline: Date.parse(task.deadline) || Date.now() + 30 * 60_000 };
+  // Guild replies to each progress report with the budget so far, which paces the work (decision 059).
+  let budget: Budget | null = null;
+  const limits: WorkLimits = { startedAt: Date.now(), deadline: Date.parse(task.deadline) || Date.now() + 30 * 60_000, budget: () => budget };
   // The bar only moves forward: a revision doesn't send it back.
   let shown = 0;
   const progress = async (message: string, percent: number) => {
     shown = Math.max(shown, Math.min(99, percent));
-    await guild.progress(message, shown);
+    budget = (await guild.progress(message, shown)) ?? budget;
   };
   try {
     // 1. Prepare -------------------------------------------------------------
@@ -66,12 +68,7 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
       // Stopped at a limit: judge what's in out/, if anything, rather than throw it away.
       const stopped = !result.ok && result.stopped && (await hasDeliverables(workdir)) ? result.stopped : undefined;
       if (!result.ok && !stopped) {
-        const advice =
-          result.stopped === "steps"
-            ? ` Nothing was in out/ to check. Raise "Steps per working session" under Limits and models, or choose Sonnet to do the work.`
-            : result.stopped === "reply"
-              ? ` Nothing was in out/ to check. Raise "Longest single reply" under Limits and models.`
-              : "";
+        const advice = result.stopped ? " Nothing was in out/ to check." : "";
         await guild.fail(`${result.summary}${advice}`, true);
         return;
       }
@@ -82,12 +79,13 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
         return;
       }
       const checking = revision === 0 ? "Checking the work" : `Checking the revision (${revision})`;
-      const why = stopped === "steps" ? "Out of steps" : stopped === "reply" ? "A reply was too long" : "";
+      const why = stopped ? { steps: "Out of steps", reply: "A reply was too long", time: "Nearly out of time", budget: "Nearly at the budget" }[stopped] : "";
       await progress(why ? `${why}: ${checking.toLowerCase()} in out/` : checking, revision === 0 ? 75 : 91);
       const problems = await checkOutputs(specialist, workdir);
       const verdict = problems.length > 0 ? { pass: false, issues: problems, summary: "" } : await review(specialist, workdir, task.brief, signal);
       if (verdict.pass) break;
-      if (revision >= specialist.settings.maxRevisions) {
+      // No revision without room for it and its check: the deadline and budget still hold.
+      if (revision >= specialist.settings.maxRevisions || wrapUpReason(limits)) {
         await guild.fail(`The work didn't pass its checks: ${verdict.issues.join("; ").slice(0, 1500)}`, true);
         return;
       }

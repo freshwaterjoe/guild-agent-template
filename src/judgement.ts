@@ -72,7 +72,8 @@ export async function review(specialist: Specialist, workdir: string, brief: Rec
       },
       env: {
         ...process.env,
-        CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(specialist.settings.maxOutputTokens),
+        // A verdict is short; a lower cap keeps each call's reserved budget small (decision 059).
+        CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(Math.min(specialist.settings.maxOutputTokens, 8000)),
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       },
     },
