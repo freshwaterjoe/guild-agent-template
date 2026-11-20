@@ -10,12 +10,13 @@
 //                have one, specialist/rubric.md
 //   4. Revise    if the work falls short, the same session fixes what review found
 //   5. Deliver   everything in out/, with a summary
-import { cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { work } from "./agent.ts";
 import { guildClient, type GuildClient, type StartTaskRequest } from "./guild.ts";
 import { checkOutputs, review } from "./judgement.ts";
 import { loadSpecialist, type Specialist } from "./specialist.ts";
+import { TOOLKIT_MODULES } from "./guild-rules.ts";
 
 export interface TaskControl {
   abort: AbortController;
@@ -107,6 +108,8 @@ async function prepareWorkspace(specialist: Specialist, workdir: string, task: S
   await mkdir(join(workdir, "input"), { recursive: true });
   await mkdir(join(workdir, "out"), { recursive: true });
   await writeFile(join(workdir, "brief.json"), JSON.stringify(task.brief, null, 2));
+  // The runner's web toolkit (GLD-267), where imports in the workspace find it. Not delivered: only out/ is.
+  await symlink(TOOLKIT_MODULES, join(workdir, "node_modules")).catch(() => {});
   // Both are optional: an agent may have only skills, or (from before decision 058) only a method.
   for (const [from, to] of [["skills", join(".claude", "skills")], ["references", "references"]] as const) {
     await mkdir(join(specialist.dir, from), { recursive: true });

@@ -5,7 +5,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { query, type McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import type { GuildClient } from "./guild.ts";
-import { GUILD_RULES, listSkills, skillsPrompt } from "./guild-rules.ts";
+import { GUILD_RULES, listSkills, RUNNER_TOOLS, skillsPrompt } from "./guild-rules.ts";
 import { specialistFile, type Specialist } from "./specialist.ts";
 import { specialistTools, toolNames } from "./tools.ts";
 
@@ -69,7 +69,7 @@ async function systemPrompt(specialist: Specialist): Promise<string> {
     listSkills(join(specialist.dir, "skills")),
     readdir(join(specialist.dir, "references")).then((names) => names.filter((name) => !name.startsWith(".") && name !== "README.md").length > 0, () => false),
   ]);
-  const sections = [GUILD_RULES, skillsPrompt(skills)];
+  const sections = [GUILD_RULES, skillsPrompt(skills), RUNNER_TOOLS];
   if (instructions || method) sections.push(["# Your method", "", instructions, method].filter(Boolean).join("\n\n"));
   if (rubric) sections.push(`## The rubric your work is judged on\n\nA separate reviewer checks your work against this, and against your skills' standards, before it's delivered.\n\n${rubric}`);
   sections.push(

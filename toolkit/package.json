@@ -1,0 +1,13 @@
+{
+  "name": "guild-runner-toolkit",
+  "private": true,
+  "description": "The web toolkit on Guild's shared runner (Guild decision 058, GLD-267): React, Motion and TypeScript to write with, esbuild to bundle, and Playwright with headless Chromium to render and check. Installed at build time; the agent can't install anything while it works.",
+  "dependencies": {
+    "esbuild": "0.28.2",
+    "motion": "14.14.0",
+    "playwright": "1.65.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "typescript": "7.0.2"
+  }
+}

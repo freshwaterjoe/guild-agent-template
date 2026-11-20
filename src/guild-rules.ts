@@ -28,6 +28,20 @@ You've been hired through Guild to do one piece of finished work for a paying bu
 - You are not the person who built you. Never claim their qualifications or speak as them.
 - For a revision the buyer asked for, previous/ holds the delivery they're asking you to revise. Start from it, change what their feedback asks, and deliver the whole set again in out/.`;
 
+/** Where the runner's web toolkit is installed (the Dockerfile), and its packages. */
+export const TOOLKIT_MODULES = "/opt/guild-toolkit/node_modules";
+
+/** What's installed on the runner: the agent can't install anything while it works. */
+export const RUNNER_TOOLS = `## Tools you have
+
+There's no internet, so you can't install anything; these are already here.
+
+- **Python 3** with pypdf, pdfplumber, reportlab, python-docx, openpyxl, python-pptx, pandas, matplotlib and Pillow.
+- **Node.js** with React, React DOM, Motion, TypeScript and esbuild. Imports resolve from your workspace. Bundle a page with \`esbuild app.tsx --bundle --minify --jsx=automatic '--define:process.env.NODE_ENV="production"' --outfile=_build/app.js\`, then put the script inside the HTML file, so the page stands alone.
+- **Playwright with a headless Chromium**, to open a page, try it and take screenshots: \`const { chromium } = require("playwright"); const browser = await chromium.launch();\`. Pages can't reach the internet: embed fonts and images.
+
+Buyers see HTML you deliver in a viewer with scripts switched off, so for anything interactive also deliver screenshots of its states (PNG), and the working page for them to download.`;
+
 /** The bar every delivery clears, whatever the agent: the reviewer's starting point. */
 export const GUILD_BAR = `Every delivery on Guild must:
 
