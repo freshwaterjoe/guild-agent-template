@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-20 (211ac31). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-20 (3fa5759). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -21557,9 +21557,11 @@ function skillFrontmatter(text) {
   const value = (key) => (new RegExp(`^${key}:\\s*(.*)$`, "m").exec(front)?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
   return { name: value("name"), description: value("description") };
 }
+var RUNNER_TOOLS_SUMMARY = "Python 3 with libraries for PDFs, Word, Excel, PowerPoint, data, charts and images, and Node with React, Motion, TypeScript, esbuild and Playwright with a headless Chromium";
 var WATCH = [
   {
-    pattern: /\b(curl|wget)\b|\bfetch\(|\brequests\.(get|post|put)\b|\burllib\b|\baxios\b|\bhttpx\b|\bWebFetch\b|\bWebSearch\b/,
+    // As commands or calls, not words: "a page curl" is a gesture, not a download.
+    pattern: /\b(curl|wget)\s+(-|https?:)|\bfetch\(\s*["'`]https?:|\brequests\.(get|post|put)\(|\burllib\.request\b|\baxios\.|\bhttpx\.|\bWebFetch\b|\bWebSearch\b/,
     message: "reaches out to the internet. On Guild an agent reaches only the hosts its manifest declares, so declare each one (and its key), or this part won't work."
   },
   {
@@ -21575,10 +21577,24 @@ var WATCH = [
     message: "installs something while it works. Guild's runner has no internet for installing: Python 3 and its common libraries are there already, and anything else needs code of your own."
   },
   {
-    pattern: /\b(soffice|libreoffice|pandoc|ffmpeg|imagemagick|magick|playwright|puppeteer|chromium|wkhtmltopdf|latex|pdflatex)\b/i,
-    message: "uses a program Guild's shared runner doesn't have. It has Node and Python 3 with libraries for PDFs, Word, Excel, PowerPoint, data, charts and images; anything else needs code of your own."
+    // Programs, not words: "scratched latex" is a material, pdflatex is a program.
+    // The runner has Playwright with a headless Chromium (GLD-267), so those aren't flagged.
+    pattern: /\b(soffice|libreoffice|pandoc|ffmpeg|imagemagick|puppeteer|wkhtmltopdf|pdflatex|xelatex|latexmk)\b/i,
+    message: `uses {match}, which Guild's shared runner doesn't have. It has ${RUNNER_TOOLS_SUMMARY}; anything else needs code of your own.`
   }
 ];
+var PROGRAM_NAMES = {
+  soffice: "LibreOffice",
+  libreoffice: "LibreOffice",
+  pandoc: "Pandoc",
+  ffmpeg: "FFmpeg",
+  imagemagick: "ImageMagick",
+  puppeteer: "Puppeteer (the runner has Playwright instead)",
+  wkhtmltopdf: "wkhtmltopdf",
+  pdflatex: "LaTeX",
+  xelatex: "LaTeX",
+  latexmk: "LaTeX"
+};
 function skillIssues(files) {
   const issues = [];
   const skillDocs = files.filter((file2) => SKILL_FILE.test(file2.path));
@@ -21607,9 +21623,10 @@ function skillIssues(files) {
     }
   }
   for (const file2 of files) {
-    if (!file2.path.startsWith("specialist/skills/")) continue;
+    if (!file2.path.startsWith("specialist/skills/") || /\/README\.md$/i.test(file2.path)) continue;
     for (const { pattern, message } of WATCH) {
-      if (pattern.test(file2.text)) issues.push({ level: "warn", path: file2.path, message });
+      const match = pattern.exec(file2.text)?.[0];
+      if (match) issues.push({ level: "warn", path: file2.path, message: message.replace("{match}", PROGRAM_NAMES[match.toLowerCase()] ?? match) });
     }
   }
   return issues;
@@ -22914,7 +22931,7 @@ ${outcomes.filter((outcome) => outcome === "completed").length} of ${briefs.leng
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
 var GATEWAY_FILE = existsSync9(join9(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-20 (211ac31)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-20 (3fa5759)" : "development (run from the Guild repository)";
 function fail3(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
