@@ -11,8 +11,9 @@
 //   4. Revise    if the work falls short, the same session fixes what review found
 //   5. Deliver   everything in out/, with a summary
 //
-// A session that uses all its steps (maxTurns) doesn't lose its work: whatever is in out/ is
-// judged as usual, and the task fails only if there's nothing there (GLD-272).
+// A session that stops at a limit (all its steps, or a reply longer than maxOutputTokens) doesn't
+// lose its work: whatever is in out/ is judged as usual, and the task fails only if there's
+// nothing there (GLD-272).
 import { cp, mkdir, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { work, type WorkLimits } from "./agent.ts";
@@ -62,12 +63,15 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
     // 3 and 4. Judge, then revise until the work passes or revisions run out --
     for (let revision = 0; ; revision++) {
       if (signal.aborted) return;
-      // Out of steps: judge what's in out/, if anything, rather than throw it away.
-      const outOfSteps = !result.ok && result.outOfSteps && (await hasDeliverables(workdir));
-      if (!result.ok && !outOfSteps) {
-        const advice = result.outOfSteps
-          ? ` Nothing was in out/ to check. Raise "Steps per working session" under Limits and models, or choose Sonnet to do the work.`
-          : "";
+      // Stopped at a limit: judge what's in out/, if anything, rather than throw it away.
+      const stopped = !result.ok && result.stopped && (await hasDeliverables(workdir)) ? result.stopped : undefined;
+      if (!result.ok && !stopped) {
+        const advice =
+          result.stopped === "steps"
+            ? ` Nothing was in out/ to check. Raise "Steps per working session" under Limits and models, or choose Sonnet to do the work.`
+            : result.stopped === "reply"
+              ? ` Nothing was in out/ to check. Raise "Longest single reply" under Limits and models.`
+              : "";
         await guild.fail(`${result.summary}${advice}`, true);
         return;
       }
@@ -78,7 +82,8 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
         return;
       }
       const checking = revision === 0 ? "Checking the work" : `Checking the revision (${revision})`;
-      await progress(outOfSteps ? `Out of steps: ${checking.toLowerCase()} in out/` : checking, revision === 0 ? 75 : 91);
+      const why = stopped === "steps" ? "Out of steps" : stopped === "reply" ? "A reply was too long" : "";
+      await progress(why ? `${why}: ${checking.toLowerCase()} in out/` : checking, revision === 0 ? 75 : 91);
       const problems = await checkOutputs(specialist, workdir);
       const verdict = problems.length > 0 ? { pass: false, issues: problems, summary: "" } : await review(specialist, workdir, task.brief, signal);
       if (verdict.pass) break;
@@ -106,7 +111,7 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
     await progress("Delivering", 95);
     const delivered = await deliverOutputs(workdir, guild);
     control.finished = true;
-    // A session that ran out of steps never wrote its summary for the buyer: name what's delivered.
+    // A session that stopped at a limit never wrote its summary for the buyer: name what's delivered.
     const summary = result.ok ? result.summary : `Here is your work: ${delivered.join(", ")}.`;
     await guild.complete(summary.slice(0, 1800), delivered, { turns: result.turns });
   } catch (error) {

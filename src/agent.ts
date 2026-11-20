@@ -14,8 +14,11 @@ export interface WorkResult {
   summary: string;
   sessionId: string | undefined;
   turns: number;
-  /** The session used all its steps (maxTurns) before finishing. What's in out/ may still be good. */
-  outOfSteps?: boolean;
+  /**
+   * The session stopped at a limit before finishing: all its steps (maxTurns), or a reply longer
+   * than maxOutputTokens. What's in out/ may still be good.
+   */
+  stopped?: "steps" | "reply";
 }
 
 /** The task's limits, for the agent's instructions and for progress. */
@@ -34,13 +37,14 @@ function minutes(ms: number): number {
 }
 
 /** What the agent is told about its steps and time, so it delivers something before either runs out. */
-export function limitsPrompt(maxTurns: number, limits: WorkLimits, now = Date.now()): string {
+export function limitsPrompt(maxTurns: number, maxOutputTokens: number, limits: WorkLimits, now = Date.now()): string {
   return [
     "## Your limits",
     "",
     `- This session has ${maxTurns} steps (each reply you make counts as one) and about ${minutes(limits.deadline - now)} minutes before the job ends.`,
     "- Write a complete first version of every deliverable in out/ early, by about a third of the way through, then improve it. Work that isn't in out/ when you run out of steps or time is lost.",
     "- Keep checks proportionate: verify the things that matter most, rather than every possible case.",
+    `- Each reply can be at most about ${Math.round(maxOutputTokens * 0.6).toLocaleString("en-GB")} words, tool calls included. Write a long file in parts: create it with its first section, then add the rest with further edits.`,
   ].join("\n");
 }
 
@@ -154,7 +158,7 @@ export async function work(options: {
           "```",
         ].join("\n")
       : ["Here is the brief. Do the work.", "", "```json", JSON.stringify(brief, null, 2), "```"].join("\n");
-  const limitedPrompt = `${prompt}\n\n${limitsPrompt(settings.maxTurns, limits)}`;
+  const limitedPrompt = `${prompt}\n\n${limitsPrompt(settings.maxTurns, settings.maxOutputTokens, limits)}`;
 
   const abort = new AbortController();
   signal.addEventListener("abort", () => abort.abort());
@@ -218,9 +222,12 @@ export async function work(options: {
       // A "success" result can still carry an API error (is_error): treat that as a failure.
       if (message.subtype === "success" && !message.is_error) return { ok: true, summary: message.result, sessionId, turns };
       if (message.subtype === "error_max_turns") {
-        return { ok: false, outOfSteps: true, summary: `The agent used all ${settings.maxTurns} of its steps before it finished.`, sessionId, turns };
+        return { ok: false, stopped: "steps", summary: `The agent used all ${settings.maxTurns} of its steps before it finished.`, sessionId, turns };
       }
       const detail = message.subtype === "success" ? message.result : message.subtype;
+      if (/exceeded the \d+ output token maximum/.test(String(detail))) {
+        return { ok: false, stopped: "reply", summary: `One of the agent's replies was longer than its limit of ${settings.maxOutputTokens.toLocaleString("en-GB")} tokens.`, sessionId, turns };
+      }
       return { ok: false, summary: `The work stopped early: ${String(detail).slice(0, 300)}`, sessionId, turns };
     }
   }
