@@ -14,6 +14,34 @@ export interface WorkResult {
   summary: string;
   sessionId: string | undefined;
   turns: number;
+  /** The session used all its steps (maxTurns) before finishing. What's in out/ may still be good. */
+  outOfSteps?: boolean;
+}
+
+/** The task's limits, for the agent's instructions and for progress. */
+export interface WorkLimits {
+  /** When the task started on this runner (ms). */
+  startedAt: number;
+  /** When Guild ends the task (ms). */
+  deadline: number;
+}
+
+/** Where this session's progress runs on the task's bar, from and to (percent). */
+export type ProgressSpan = readonly [number, number];
+
+function minutes(ms: number): number {
+  return Math.max(0, Math.round(ms / 60_000));
+}
+
+/** What the agent is told about its steps and time, so it delivers something before either runs out. */
+export function limitsPrompt(maxTurns: number, limits: WorkLimits, now = Date.now()): string {
+  return [
+    "## Your limits",
+    "",
+    `- This session has ${maxTurns} steps (each reply you make counts as one) and about ${minutes(limits.deadline - now)} minutes before the job ends.`,
+    "- Write a complete first version of every deliverable in out/ early, by about a third of the way through, then improve it. Work that isn't in out/ when you run out of steps or time is lost.",
+    "- Keep checks proportionate: verify the things that matter most, rather than every possible case.",
+  ].join("\n");
 }
 
 /**
@@ -99,8 +127,13 @@ export async function work(options: {
   revision?: string[];
   /** A revision the buyer asked for, with their feedback. The earlier delivery is in previous/. */
   buyerRevision?: { number: number; feedback: string };
+  limits: WorkLimits;
+  /** Where this session's progress runs on the task's bar. */
+  span: ProgressSpan;
+  /** Reports progress (method.ts keeps it from going backwards). */
+  progress: (message: string, percent: number) => Promise<void>;
 }): Promise<WorkResult> {
-  const { specialist, workdir, brief, guild, signal, waitForAnswer, resume, revision, buyerRevision } = options;
+  const { specialist, workdir, brief, guild, signal, waitForAnswer, resume, revision, buyerRevision, limits, span, progress } = options;
   const { settings } = specialist;
   const skills = await readdir(join(workdir, ".claude", "skills")).catch(() => []);
 
@@ -121,15 +154,19 @@ export async function work(options: {
           "```",
         ].join("\n")
       : ["Here is the brief. Do the work.", "", "```json", JSON.stringify(brief, null, 2), "```"].join("\n");
+  const limitedPrompt = `${prompt}\n\n${limitsPrompt(settings.maxTurns, limits)}`;
 
   const abort = new AbortController();
   signal.addEventListener("abort", () => abort.abort());
+  // A turn is one model reply. The SDK can send one reply as several messages (thinking, text,
+  // each tool call), all with the same message id, so turns are counted by id.
+  const replies = new Set<string>();
   let turns = 0;
   let lastProgress = Date.now();
   let sessionId = resume;
 
   for await (const message of query({
-    prompt,
+    prompt: limitedPrompt,
     options: {
       cwd: workdir,
       model: settings.model,
@@ -163,16 +200,26 @@ export async function work(options: {
   })) {
     if (message.type === "system" && message.subtype === "init") sessionId = message.session_id;
     if (message.type === "assistant") {
-      turns += 1;
+      const id = message.message?.id ?? message.uuid;
+      if (!replies.has(id)) {
+        replies.add(id);
+        turns = replies.size;
+      }
       // Keep the buyer informed without flooding their task page.
       if (Date.now() - lastProgress > 60_000) {
         lastProgress = Date.now();
-        await guild.progress(`Working (step ${turns})`, Math.min(75, 15 + turns)).catch(() => {});
+        const now = Date.now();
+        const used = Math.min(1, Math.max(turns / settings.maxTurns, (now - limits.startedAt) / Math.max(1, limits.deadline - limits.startedAt)));
+        const label = `${revision ? "Revising" : "Working"}: step ${turns} of ${settings.maxTurns}, ${minutes(now - limits.startedAt)} of ${minutes(limits.deadline - limits.startedAt)} minutes`;
+        await progress(label, Math.round(span[0] + (span[1] - span[0]) * used)).catch(() => {});
       }
     }
     if (message.type === "result") {
       // A "success" result can still carry an API error (is_error): treat that as a failure.
       if (message.subtype === "success" && !message.is_error) return { ok: true, summary: message.result, sessionId, turns };
+      if (message.subtype === "error_max_turns") {
+        return { ok: false, outOfSteps: true, summary: `The agent used all ${settings.maxTurns} of its steps before it finished.`, sessionId, turns };
+      }
       const detail = message.subtype === "success" ? message.result : message.subtype;
       return { ok: false, summary: `The work stopped early: ${String(detail).slice(0, 300)}`, sessionId, turns };
     }

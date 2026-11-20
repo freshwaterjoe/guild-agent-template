@@ -10,9 +10,12 @@
 //                have one, specialist/rubric.md
 //   4. Revise    if the work falls short, the same session fixes what review found
 //   5. Deliver   everything in out/, with a summary
+//
+// A session that uses all its steps (maxTurns) doesn't lose its work: whatever is in out/ is
+// judged as usual, and the task fails only if there's nothing there (GLD-272).
 import { cp, mkdir, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { work } from "./agent.ts";
+import { work, type WorkLimits } from "./agent.ts";
 import { guildClient, type GuildClient, type StartTaskRequest } from "./guild.ts";
 import { checkOutputs, review } from "./judgement.ts";
 import { loadSpecialist, type Specialist } from "./specialist.ts";
@@ -28,14 +31,21 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
   const guild = guildClient(task.taskId);
   const workdir = `/work/${task.taskId}-${task.attempt}`;
   const signal = control.abort.signal;
+  const limits: WorkLimits = { startedAt: Date.now(), deadline: Date.parse(task.deadline) || Date.now() + 30 * 60_000 };
+  // The bar only moves forward: a revision doesn't send it back.
+  let shown = 0;
+  const progress = async (message: string, percent: number) => {
+    shown = Math.max(shown, Math.min(99, percent));
+    await guild.progress(message, shown);
+  };
   try {
     // 1. Prepare -------------------------------------------------------------
-    await guild.progress("Reading the brief", 5);
+    await progress("Reading the brief", 5);
     const specialist = await loadSpecialist(task.taskId, guild);
     await prepareWorkspace(specialist, workdir, task, guild);
 
     // 2. Work ----------------------------------------------------------------
-    await guild.progress("Starting work", 10);
+    await progress("Starting work", 10);
     let result = await work({
       specialist,
       workdir,
@@ -44,13 +54,21 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
       signal,
       waitForAnswer: control.waitForAnswer,
       buyerRevision: task.revision ? { number: task.revision.number, feedback: task.revision.feedback } : undefined,
+      limits,
+      span: [10, 70],
+      progress,
     });
 
     // 3 and 4. Judge, then revise until the work passes or revisions run out --
     for (let revision = 0; ; revision++) {
       if (signal.aborted) return;
-      if (!result.ok) {
-        await guild.fail(result.summary, true);
+      // Out of steps: judge what's in out/, if anything, rather than throw it away.
+      const outOfSteps = !result.ok && result.outOfSteps && (await hasDeliverables(workdir));
+      if (!result.ok && !outOfSteps) {
+        const advice = result.outOfSteps
+          ? ` Nothing was in out/ to check. Raise "Steps per working session" under Limits and models, or choose Sonnet to do the work.`
+          : "";
+        await guild.fail(`${result.summary}${advice}`, true);
         return;
       }
       // The agent decided the job can't be done well: say why, rather than deliver weak work.
@@ -59,7 +77,8 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
         await guild.fail(decline, false);
         return;
       }
-      await guild.progress(revision === 0 ? "Checking the work" : `Checking the revision (${revision})`, 80);
+      const checking = revision === 0 ? "Checking the work" : `Checking the revision (${revision})`;
+      await progress(outOfSteps ? `Out of steps: ${checking.toLowerCase()} in out/` : checking, revision === 0 ? 75 : 91);
       const problems = await checkOutputs(specialist, workdir);
       const verdict = problems.length > 0 ? { pass: false, issues: problems, summary: "" } : await review(specialist, workdir, task.brief, signal);
       if (verdict.pass) break;
@@ -67,7 +86,7 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
         await guild.fail(`The work didn't pass its checks: ${verdict.issues.join("; ").slice(0, 1500)}`, true);
         return;
       }
-      await guild.progress(`Revising: ${verdict.issues.length} thing${verdict.issues.length === 1 ? "" : "s"} to fix`, 85);
+      await progress(`Revising: ${verdict.issues.length} thing${verdict.issues.length === 1 ? "" : "s"} to fix`, 76);
       result = await work({
         specialist,
         workdir,
@@ -77,14 +96,19 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
         waitForAnswer: control.waitForAnswer,
         resume: result.sessionId,
         revision: verdict.issues,
+        limits,
+        span: [76, 90],
+        progress,
       });
     }
 
     // 5. Deliver ---------------------------------------------------------------
-    await guild.progress("Delivering", 95);
+    await progress("Delivering", 95);
     const delivered = await deliverOutputs(workdir, guild);
     control.finished = true;
-    await guild.complete(result.summary.slice(0, 1800), delivered, { turns: result.turns });
+    // A session that ran out of steps never wrote its summary for the buyer: name what's delivered.
+    const summary = result.ok ? result.summary : `Here is your work: ${delivered.join(", ")}.`;
+    await guild.complete(summary.slice(0, 1800), delivered, { turns: result.turns });
   } catch (error) {
     console.error(error);
     if (!signal.aborted && !control.finished) {
@@ -125,6 +149,12 @@ async function prepareWorkspace(specialist: Specialist, workdir: string, task: S
       await writeFile(join(workdir, "previous", file.name), await guild.readRevisionFile(file.name));
     }
   }
+}
+
+/** Whether out/ has anything the buyer would get (names starting with "_" are scratch). */
+async function hasDeliverables(workdir: string): Promise<boolean> {
+  const names = await readdir(join(workdir, "out")).catch(() => [] as string[]);
+  return names.some((name) => !name.startsWith("_"));
 }
 
 /** The agent's reason for declining, from out/_decline.md, if it wrote one. */
