@@ -5,6 +5,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { query, type McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import type { Budget, GuildClient } from "./guild.ts";
+import type { Tracer } from "./trace.ts";
 import { GUILD_RULES, listSkills, RUNNER_TOOLS, skillsPrompt } from "./guild-rules.ts";
 import { specialistFile, type Specialist } from "./specialist.ts";
 import { specialistTools, toolNames } from "./tools.ts";
@@ -174,6 +175,8 @@ export async function work(options: {
   span: ProgressSpan;
   /** Reports progress (method.ts keeps it from going backwards). */
   progress: (message: string, percent: number) => Promise<void>;
+  /** The run trace (src/trace.ts), which sees every message. */
+  trace?: Tracer;
 }): Promise<WorkResult> {
   const { specialist, workdir, brief, guild, signal, waitForAnswer, resume, revision, carryOn, buyerRevision, limits, span, progress } = options;
   const { settings } = specialist;
@@ -249,6 +252,7 @@ export async function work(options: {
         ...(process.env.AGENT_DEBUG === "1" ? { stderr: (data: string) => process.stderr.write(`[sdk] ${data}`), debug: true } : {}),
       },
     })) {
+      options.trace?.observe(message as Parameters<Tracer["observe"]>[0]);
       if (message.type === "system" && message.subtype === "init") sessionId = message.session_id;
       if (message.type === "assistant") {
         const id = message.message?.id ?? message.uuid;

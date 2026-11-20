@@ -11,6 +11,8 @@ export interface StartTaskRequest {
   files: { name: string; contentType: string; sizeBytes: number }[];
   budgetMicros: number;
   deadline: string;
+  /** How much the run trace may say (Guild decision 060): "full" for the creator's own brief, else "structure". */
+  traceDetail?: "full" | "structure";
   /** Present when the buyer asked for a revision of an earlier delivery, with their feedback. */
   revision?: {
     /** 1 for the first revision. */
@@ -60,6 +62,8 @@ export function guildClient(taskId: string) {
     complete: (summary: string, deliverables: string[], metadata: Record<string, string | number | boolean>) =>
       call("POST", `${base}/complete`, JSON.stringify({ summary, deliverables, metadata })),
     fail: (reason: string, retryable: boolean) => call("POST", `${base}/fail`, JSON.stringify({ reason, retryable })),
+    /** Sends the run trace (src/trace.ts); each upload replaces the last. */
+    trace: (trace: unknown) => call("PUT", `${base}/trace`, JSON.stringify(trace)),
   };
 }
 

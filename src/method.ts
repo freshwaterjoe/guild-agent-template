@@ -21,6 +21,7 @@ import { guildClient, type Budget, type GuildClient, type StartTaskRequest } fro
 import { checkOutputs, review } from "./judgement.ts";
 import { loadSpecialist, type Specialist } from "./specialist.ts";
 import { TOOLKIT_MODULES } from "./guild-rules.ts";
+import { Tracer } from "./trace.ts";
 
 export interface TaskControl {
   abort: AbortController;
@@ -41,14 +42,20 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
     shown = Math.max(shown, Math.min(99, percent));
     budget = (await guild.progress(message, shown)) ?? budget;
   };
+  // What this run did and where its time went, for the Studio (decision 060). A buyer's task is
+  // traced as structure only; that's Guild's choice, sent with the task.
+  const tracer = new Tracer(guild, workdir, task.traceDetail ?? "structure");
   try {
     // 1. Prepare -------------------------------------------------------------
+    await tracer.begin();
+    tracer.stage("prepare");
     await progress("Reading the brief", 5);
     const specialist = await loadSpecialist(task.taskId, guild);
     await prepareWorkspace(specialist, workdir, task, guild);
 
     // 2. Work ----------------------------------------------------------------
     await progress("Starting work", 10);
+    tracer.stage("work");
     // A temporary error from the provider or the network doesn't end the job: pause, then carry on
     // in the same session, up to twice in a task (decision 059).
     let carryOns = 0;
@@ -58,7 +65,8 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
         carryOns += 1;
         await progress("A temporary error: carrying on in a moment", 0).catch(() => {});
         await new Promise((resolve) => setTimeout(resolve, 20_000));
-        result = await steady({ ...options, ...(result.sessionId ? { resume: result.sessionId, carryOn: true, revision: undefined, buyerRevision: undefined } : {}) });
+        tracer.carriedOn();
+        result = await work({ ...options, ...(result.sessionId ? { resume: result.sessionId, carryOn: true, revision: undefined, buyerRevision: undefined } : {}) });
       }
       return result;
     };
@@ -74,6 +82,7 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
       limits,
       span: [10, 70],
       progress,
+      trace: tracer,
     });
 
     // 3 and 4. Judge, then revise until the work passes or revisions run out --
@@ -82,31 +91,39 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
       // Files the agent put in folders inside out/ come up to out/ itself, so they're checked and delivered.
       await flattenOut(workdir);
       // Stopped at a limit: judge what's in out/, if anything, rather than throw it away.
+      tracer.stoppedAt(result.ok ? undefined : result.stopped);
       const stopped = !result.ok && result.stopped && (await hasDeliverables(workdir)) ? result.stopped : undefined;
       if (!result.ok && !stopped) {
         const advice = result.stopped ? " Nothing was in out/ to check." : "";
+        await tracer.end();
         await guild.fail(`${result.summary}${advice}`, true);
         return;
       }
       // The agent decided the job can't be done well: say why, rather than deliver weak work.
       const decline = await declineReason(workdir);
       if (decline) {
+        await tracer.end();
         await guild.fail(decline, false);
         return;
       }
       const checking = revision === 0 ? "Checking the work" : `Checking the revision (${revision})`;
       const why = stopped ? { steps: "Out of steps", reply: "A reply was too long", time: "Nearly out of time", budget: "Nearly at the budget" }[stopped] : "";
       await progress(why ? `${why}: ${checking.toLowerCase()} in out/` : checking, revision === 0 ? 75 : 91);
+      tracer.stage("check");
       const problems = await checkOutputs(specialist, workdir);
+      if (problems.length === 0) tracer.stage("review");
       const verdict = problems.length > 0 ? { pass: false, issues: problems, summary: "" } : await review(specialist, workdir, task.brief, signal);
+      tracer.checked(verdict.pass, verdict.issues);
       if (verdict.pass) break;
       // No revision without room for it and its check: the deadline and budget still hold.
       if (revision >= specialist.settings.maxRevisions || wrapUpReason(limits)) {
+        await tracer.end();
         await guild.fail(`The work didn't pass its checks: ${verdict.issues.join("; ").slice(0, 1500)}`, true);
         return;
       }
       await progress(`Revising: ${verdict.issues.length} thing${verdict.issues.length === 1 ? "" : "s"} to fix`, 76);
-      result = await work({
+      tracer.stage("revise");
+      result = await steady({
         specialist,
         workdir,
         brief: task.brief,
@@ -118,19 +135,23 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
         limits,
         span: [76, 90],
         progress,
+        trace: tracer,
       });
     }
 
     // 5. Deliver ---------------------------------------------------------------
     await progress("Delivering", 95);
+    tracer.stage("deliver");
     const delivered = await deliverOutputs(workdir, guild);
     control.finished = true;
     // A session that stopped at a limit never wrote its summary for the buyer: name what's delivered.
     const summary = result.ok ? result.summary : `Here is your work: ${delivered.join(", ")}.`;
+    await tracer.end();
     await guild.complete(summary.slice(0, 1800), delivered, { turns: result.turns });
   } catch (error) {
     console.error(error);
     if (!signal.aborted && !control.finished) {
+      await tracer.end();
       await guild.fail(`The agent hit an error: ${String((error as Error).message ?? error).slice(0, 500)}`, true).catch(() => {});
     }
   }
