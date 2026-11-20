@@ -15,7 +15,7 @@ export interface DeclaredHost {
 }
 
 export interface Specialist {
-  /** The folder holding method.md, rubric.md, skills/ and references/ (and instructions.md, in older agents). */
+  /** The folder holding skills/ and, if the agent has them, method.md, rubric.md, references/ and settings.json (and instructions.md, in older agents). */
   dir: string;
   settings: Settings;
   /** The outside hosts the manifest declares, with where each one's key goes. */

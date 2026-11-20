@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-18 (dbe883d). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-20 (211ac31). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -21176,7 +21176,11 @@ var CONTENT_LIMITS = {
   totalBytes: 25 * 1024 * 1024,
   depth: 6
 };
-var REQUIRED_CONTENT = ["guild.manifest.json", "specialist/method.md", "specialist/rubric.md"];
+var REQUIRED_CONTENT = ["guild.manifest.json"];
+function hasWorkingKnowledge(paths) {
+  for (const path of paths) if (path === "specialist/method.md" || /^specialist\/skills\/[^/]+\/SKILL\.md$/.test(path)) return true;
+  return false;
+}
 var SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/;
 var TEST_BRIEF = /^test-briefs\/[a-z0-9][a-z0-9._-]{0,63}\.json$/;
 function isContentPath(path) {
@@ -21221,6 +21225,7 @@ function validateBundle(input2) {
   }
   if (total > CONTENT_LIMITS.totalBytes) issues.push(`An agent's files come to at most ${CONTENT_LIMITS.totalBytes / 1024 / 1024} MB together.`);
   for (const path of REQUIRED_CONTENT) if (!seen.has(path)) issues.push(`${path} is missing.`);
+  if (!hasWorkingKnowledge(seen)) issues.push("Add a skill: specialist/skills/<name>/SKILL.md, saying how the agent does the work.");
   if (issues.length > 0) return { ok: false, issues };
   clean2.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   return { ok: true, bundle: { format: CONTENT_FORMAT, files: clean2 } };
@@ -21536,6 +21541,80 @@ var SECRET_PATTERNS = [
   { name: "a private key", pattern: /-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY( BLOCK)?-----/ }
 ];
 
+// src/skills.ts
+var SKILL_LIMITS = {
+  /** The Agent Skills format's limits. */
+  name: 64,
+  description: 1024,
+  /** A SKILL.md the agent can read in one go. */
+  skillBytes: 200 * 1024
+};
+var SKILL_FILE = /^specialist\/skills\/([^/]+)\/SKILL\.md$/;
+var NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+function skillFrontmatter(text) {
+  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1];
+  if (front === void 0) return null;
+  const value = (key) => (new RegExp(`^${key}:\\s*(.*)$`, "m").exec(front)?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
+  return { name: value("name"), description: value("description") };
+}
+var WATCH = [
+  {
+    pattern: /\b(curl|wget)\b|\bfetch\(|\brequests\.(get|post|put)\b|\burllib\b|\baxios\b|\bhttpx\b|\bWebFetch\b|\bWebSearch\b/,
+    message: "reaches out to the internet. On Guild an agent reaches only the hosts its manifest declares, so declare each one (and its key), or this part won't work."
+  },
+  {
+    pattern: /\b(upload|send|post|email)\b[^.\n]{0,60}\b(to|via)\b[^.\n]{0,40}(https?:\/\/|\bserver\b|\bwebhook\b|\bendpoint\b|@)/i,
+    message: "sends something somewhere. A Guild agent's work goes only to the buyer, so check it doesn't send the buyer's brief or files anywhere."
+  },
+  {
+    pattern: /\b(don'?t|do not|never)\s+(tell|mention|show|reveal)\s+(the\s+)?(user|buyer|client)\b|\bsecretly\b|\bwithout (telling|letting) (the )?(user|buyer)/i,
+    message: "asks the agent to keep something from the person it's working for. Check that's what you mean: on Guild the agent works openly for the buyer."
+  },
+  {
+    pattern: /\b(pip3?|npm|npx|yarn|pnpm|apt(-get)?|brew)\s+(install|add|i)\b/,
+    message: "installs something while it works. Guild's runner has no internet for installing: Python 3 and its common libraries are there already, and anything else needs code of your own."
+  },
+  {
+    pattern: /\b(soffice|libreoffice|pandoc|ffmpeg|imagemagick|magick|playwright|puppeteer|chromium|wkhtmltopdf|latex|pdflatex)\b/i,
+    message: "uses a program Guild's shared runner doesn't have. It has Node and Python 3 with libraries for PDFs, Word, Excel, PowerPoint, data, charts and images; anything else needs code of your own."
+  }
+];
+function skillIssues(files) {
+  const issues = [];
+  const skillDocs = files.filter((file2) => SKILL_FILE.test(file2.path));
+  const folders = new Set(files.map((file2) => /^specialist\/skills\/([^/]+)\//.exec(file2.path)?.[1]).filter(Boolean));
+  for (const folder of folders) {
+    if (!skillDocs.some((file2) => file2.path === `specialist/skills/${folder}/SKILL.md`)) {
+      issues.push({ level: "fail", path: `specialist/skills/${folder}/`, message: "has no SKILL.md, so the agent won't load it." });
+    }
+  }
+  const names = /* @__PURE__ */ new Map();
+  for (const file2 of skillDocs) {
+    const front = skillFrontmatter(file2.text);
+    if (!front || !front.name || !front.description) {
+      issues.push({ level: "fail", path: file2.path, message: "needs a `name` and a `description` between --- lines at the top, or the agent won't know when to use it." });
+    } else {
+      if (!NAME.test(front.name) || front.name.length > SKILL_LIMITS.name) {
+        issues.push({ level: "warn", path: file2.path, message: `\`name\` should be lower-case letters, numbers and hyphens, up to ${SKILL_LIMITS.name} characters.` });
+      }
+      if (front.description.length > SKILL_LIMITS.description) issues.push({ level: "warn", path: file2.path, message: `\`description\` is over ${SKILL_LIMITS.description} characters.` });
+      const seen = names.get(front.name);
+      if (seen) issues.push({ level: "fail", path: file2.path, message: `has the same name as ${seen}. Give each skill its own name.` });
+      names.set(front.name, file2.path);
+    }
+    if (new TextEncoder().encode(file2.text).length > SKILL_LIMITS.skillBytes) {
+      issues.push({ level: "warn", path: file2.path, message: "is very long. Move detail into other files in the skill's folder, and point to them from SKILL.md." });
+    }
+  }
+  for (const file2 of files) {
+    if (!file2.path.startsWith("specialist/skills/")) continue;
+    for (const { pattern, message } of WATCH) {
+      if (pattern.test(file2.text)) issues.push({ level: "warn", path: file2.path, message });
+    }
+  }
+  return issues;
+}
+
 // src/check.ts
 var PARTS = ["What it's hired for", "How it does the work", "What great looks like", "How the work is checked", "Test briefs"];
 var AREAS = [...PARTS, "Runs and cost", "Guild's rules", "When you submit", "Only you can check"];
@@ -21730,11 +21809,17 @@ function checkSpecialist(ctx) {
     ctx.add("fail", "Guild's rules", `\`limits.instance\` is "${m.limits.instance}", too small for the Agent SDK. Use "standard-1" or larger.`);
   }
   if (!existsSync3(join3(ctx.dir, "specialist"))) return;
+  const skillsDir = join3(ctx.dir, "specialist", "skills");
+  const skills = existsSync3(skillsDir) ? readdirSync2(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name) : [];
   for (const [file2, signature] of Object.entries(TEMPLATE_PLACEHOLDERS.files)) {
     const part = FILE_PART[file2];
     const text = readText(join3(ctx.dir, file2));
     if (text === null) {
-      ctx.add("fail", part, `There's no ${file2}. Guild needs it.`);
+      if (file2 === "specialist/rubric.md") {
+        ctx.add("pass", part, "No rubric: Guild's reviewer checks the work against the brief, your skills' own standards and Guild's bar. Add specialist/rubric.md only if you want checks of your own.");
+      } else if (skills.length === 0) {
+        ctx.add("fail", part, "Add a skill (specialist/skills/<name>/SKILL.md) saying how your agent does the work.");
+      }
       continue;
     }
     if (text.includes(signature)) ctx.add("open", part, `${file2} is still the template's example. Replace it with your own.`);
@@ -21748,21 +21833,15 @@ function checkSpecialist(ctx) {
       ctx.add("pass", "How it does the work", "specialist/instructions.md is your own, and your agent reads it with your method.");
     }
   }
-  const skillsDir = join3(ctx.dir, "specialist", "skills");
-  const skills = existsSync3(skillsDir) ? readdirSync2(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name) : [];
   if (skills.length === 0) {
     ctx.add("tip", "How it does the work", "No skills yet. A skill is know-how a general model gets wrong: techniques, rules of thumb, checklists (specialist/skills/<name>/SKILL.md).");
   }
+  const skillFiles = existsSync3(skillsDir) ? walk2(skillsDir).flatMap((file2) => {
+    const text = readText(join3(skillsDir, file2));
+    return text === null ? [] : [{ path: `specialist/skills/${file2}`, text }];
+  }) : [];
+  for (const issue2 of skillIssues(skillFiles)) ctx.add(issue2.level, "How it does the work", `${issue2.path} ${issue2.message}`);
   for (const skill of skills) {
-    const text = readText(join3(skillsDir, skill, "SKILL.md"));
-    if (text === null) {
-      ctx.add("fail", "How it does the work", `specialist/skills/${skill}/ has no SKILL.md, so the agent won't load it.`);
-      continue;
-    }
-    const front = text.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
-    const name = front.match(/^name:\s*(.+)$/m)?.[1]?.trim();
-    const description = front.match(/^description:\s*(.+)$/m)?.[1]?.trim();
-    if (!name || !description) ctx.add("fail", "How it does the work", `specialist/skills/${skill}/SKILL.md needs a \`name\` and a \`description\` between --- lines at the top, or the agent won't know when to use it.`);
     if (skill === TEMPLATE_PLACEHOLDERS.skill) ctx.add("open", "How it does the work", `specialist/skills/${skill} is the template's example skill. Replace it with your own know-how, or delete it.`);
   }
   const own2 = skills.filter((skill) => skill !== TEMPLATE_PLACEHOLDERS.skill);
@@ -21770,7 +21849,7 @@ function checkSpecialist(ctx) {
   const referencesDir = join3(ctx.dir, "specialist", "references");
   const references = existsSync3(referencesDir) ? walk2(referencesDir).filter((file2) => file2.toLowerCase() !== "readme.md") : [];
   if (references.length === 0) {
-    ctx.add("open", "What great looks like", "No examples yet. Add at least one example of excellent work to specialist/references/, with a note on what makes it excellent: showing what great looks like often does more than any instruction.");
+    ctx.add("tip", "What great looks like", "No examples yet. Add at least one example of excellent work to specialist/references/, with a note on what makes it excellent: showing what great looks like often does more than any instruction.");
   } else {
     ctx.add("pass", "What great looks like", `${plural2(references.length, "reference file")} in specialist/references/.`);
     ctx.add("todo", "What great looks like", "You have the right to use every file in specialist/references/ in a paid service.");
@@ -22835,7 +22914,7 @@ ${outcomes.filter((outcome) => outcome === "completed").length} of ${briefs.leng
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
 var GATEWAY_FILE = existsSync9(join9(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-18 (dbe883d)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-20 (211ac31)" : "development (run from the Guild repository)";
 function fail3(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
