@@ -3,9 +3,11 @@
 //
 //   1. Prepare   a fresh workspace: the brief, the buyer's files, your skills and references
 //                (and, for a buyer's revision, the earlier delivery in previous/)
-//   2. Work      one Agent SDK session, following specialist/method.md. If the job can't be
+//   2. Work      one Agent SDK session: Guild's rules, then your skills (and specialist/method.md,
+//                if you have one; Guild decision 058). If the job can't be
 //                done well, the agent writes out/_decline.md and the task fails with its reason
-//   3. Judge     checks in code, then a review against specialist/rubric.md
+//   3. Judge     checks in code, then a review against Guild's bar, your skills and, if you
+//                have one, specialist/rubric.md
 //   4. Revise    if the work falls short, the same session fixes what review found
 //   5. Deliver   everything in out/, with a summary
 import { cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
@@ -105,8 +107,11 @@ async function prepareWorkspace(specialist: Specialist, workdir: string, task: S
   await mkdir(join(workdir, "input"), { recursive: true });
   await mkdir(join(workdir, "out"), { recursive: true });
   await writeFile(join(workdir, "brief.json"), JSON.stringify(task.brief, null, 2));
-  await cp(join(specialist.dir, "skills"), join(workdir, ".claude", "skills"), { recursive: true });
-  await cp(join(specialist.dir, "references"), join(workdir, "references"), { recursive: true });
+  // Both are optional: an agent may have only skills, or (from before decision 058) only a method.
+  for (const [from, to] of [["skills", join(".claude", "skills")], ["references", "references"]] as const) {
+    await mkdir(join(specialist.dir, from), { recursive: true });
+    await cp(join(specialist.dir, from), join(workdir, to), { recursive: true });
+  }
   for (const file of task.files) {
     await writeFile(join(workdir, "input", file.name), await guild.readFile(file.name));
   }

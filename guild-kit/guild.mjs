@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-17 (70a6692). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-20 (211ac31). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -11,11 +11,11 @@ var __export = (target, all) => {
 
 // src/cli.ts
 import { spawn as spawn2, spawnSync as spawnSync2 } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
-import { copyFileSync, existsSync as existsSync7, mkdirSync as mkdirSync3, readdirSync as readdirSync4, readFileSync as readFileSync7, statSync as statSync3, writeFileSync as writeFileSync3 } from "node:fs";
-import { basename, dirname as dirname2, join as join7, resolve } from "node:path";
+import { randomBytes as randomBytes2, randomUUID } from "node:crypto";
+import { copyFileSync, existsSync as existsSync9, mkdirSync as mkdirSync4, readdirSync as readdirSync5, readFileSync as readFileSync9, statSync as statSync4, writeFileSync as writeFileSync4 } from "node:fs";
+import { basename as basename2, dirname as dirname2, join as join9, resolve as resolve2 } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, parseEnv } from "node:util";
+import { parseArgs } from "node:util";
 
 // ../../node_modules/@cfworker/json-schema/dist/esm/deep-compare-strict.js
 function deepCompareStrict(a, b) {
@@ -6201,7 +6201,7 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve2) {
+function isRecursive(inst, stack, resolve3) {
   const cached2 = recursive.get(inst);
   if (cached2 !== void 0)
     return cached2 ? PROVEN : NONE;
@@ -6211,7 +6211,7 @@ function isRecursive(inst, stack, resolve2) {
   let result = NONE;
   const check2 = (child) => {
     if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve2);
+      const answer = isRecursive(child, stack, resolve3);
       if (answer > result)
         result = answer;
     }
@@ -6222,7 +6222,7 @@ function isRecursive(inst, stack, resolve2) {
       const desc = Object.getOwnPropertyDescriptor(sh, key);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve2) : NONE;
+      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve3) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -6286,7 +6286,7 @@ function isRecursive(inst, stack, resolve2) {
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
-      const inner = def._cachedInner ?? (resolve2 ? inst._zod.innerType : void 0);
+      const inner = def._cachedInner ?? (resolve3 ? inst._zod.innerType : void 0);
       merge2(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
@@ -21176,7 +21176,11 @@ var CONTENT_LIMITS = {
   totalBytes: 25 * 1024 * 1024,
   depth: 6
 };
-var REQUIRED_CONTENT = ["guild.manifest.json", "specialist/method.md", "specialist/rubric.md"];
+var REQUIRED_CONTENT = ["guild.manifest.json"];
+function hasWorkingKnowledge(paths) {
+  for (const path of paths) if (path === "specialist/method.md" || /^specialist\/skills\/[^/]+\/SKILL\.md$/.test(path)) return true;
+  return false;
+}
 var SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/;
 var TEST_BRIEF = /^test-briefs\/[a-z0-9][a-z0-9._-]{0,63}\.json$/;
 function isContentPath(path) {
@@ -21221,6 +21225,7 @@ function validateBundle(input2) {
   }
   if (total > CONTENT_LIMITS.totalBytes) issues.push(`An agent's files come to at most ${CONTENT_LIMITS.totalBytes / 1024 / 1024} MB together.`);
   for (const path of REQUIRED_CONTENT) if (!seen.has(path)) issues.push(`${path} is missing.`);
+  if (!hasWorkingKnowledge(seen)) issues.push("Add a skill: specialist/skills/<name>/SKILL.md, saying how the agent does the work.");
   if (issues.length > 0) return { ok: false, issues };
   clean2.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   return { ok: true, bundle: { format: CONTENT_FORMAT, files: clean2 } };
@@ -21536,6 +21541,80 @@ var SECRET_PATTERNS = [
   { name: "a private key", pattern: /-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY( BLOCK)?-----/ }
 ];
 
+// src/skills.ts
+var SKILL_LIMITS = {
+  /** The Agent Skills format's limits. */
+  name: 64,
+  description: 1024,
+  /** A SKILL.md the agent can read in one go. */
+  skillBytes: 200 * 1024
+};
+var SKILL_FILE = /^specialist\/skills\/([^/]+)\/SKILL\.md$/;
+var NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+function skillFrontmatter(text) {
+  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1];
+  if (front === void 0) return null;
+  const value = (key) => (new RegExp(`^${key}:\\s*(.*)$`, "m").exec(front)?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
+  return { name: value("name"), description: value("description") };
+}
+var WATCH = [
+  {
+    pattern: /\b(curl|wget)\b|\bfetch\(|\brequests\.(get|post|put)\b|\burllib\b|\baxios\b|\bhttpx\b|\bWebFetch\b|\bWebSearch\b/,
+    message: "reaches out to the internet. On Guild an agent reaches only the hosts its manifest declares, so declare each one (and its key), or this part won't work."
+  },
+  {
+    pattern: /\b(upload|send|post|email)\b[^.\n]{0,60}\b(to|via)\b[^.\n]{0,40}(https?:\/\/|\bserver\b|\bwebhook\b|\bendpoint\b|@)/i,
+    message: "sends something somewhere. A Guild agent's work goes only to the buyer, so check it doesn't send the buyer's brief or files anywhere."
+  },
+  {
+    pattern: /\b(don'?t|do not|never)\s+(tell|mention|show|reveal)\s+(the\s+)?(user|buyer|client)\b|\bsecretly\b|\bwithout (telling|letting) (the )?(user|buyer)/i,
+    message: "asks the agent to keep something from the person it's working for. Check that's what you mean: on Guild the agent works openly for the buyer."
+  },
+  {
+    pattern: /\b(pip3?|npm|npx|yarn|pnpm|apt(-get)?|brew)\s+(install|add|i)\b/,
+    message: "installs something while it works. Guild's runner has no internet for installing: Python 3 and its common libraries are there already, and anything else needs code of your own."
+  },
+  {
+    pattern: /\b(soffice|libreoffice|pandoc|ffmpeg|imagemagick|magick|playwright|puppeteer|chromium|wkhtmltopdf|latex|pdflatex)\b/i,
+    message: "uses a program Guild's shared runner doesn't have. It has Node and Python 3 with libraries for PDFs, Word, Excel, PowerPoint, data, charts and images; anything else needs code of your own."
+  }
+];
+function skillIssues(files) {
+  const issues = [];
+  const skillDocs = files.filter((file2) => SKILL_FILE.test(file2.path));
+  const folders = new Set(files.map((file2) => /^specialist\/skills\/([^/]+)\//.exec(file2.path)?.[1]).filter(Boolean));
+  for (const folder of folders) {
+    if (!skillDocs.some((file2) => file2.path === `specialist/skills/${folder}/SKILL.md`)) {
+      issues.push({ level: "fail", path: `specialist/skills/${folder}/`, message: "has no SKILL.md, so the agent won't load it." });
+    }
+  }
+  const names = /* @__PURE__ */ new Map();
+  for (const file2 of skillDocs) {
+    const front = skillFrontmatter(file2.text);
+    if (!front || !front.name || !front.description) {
+      issues.push({ level: "fail", path: file2.path, message: "needs a `name` and a `description` between --- lines at the top, or the agent won't know when to use it." });
+    } else {
+      if (!NAME.test(front.name) || front.name.length > SKILL_LIMITS.name) {
+        issues.push({ level: "warn", path: file2.path, message: `\`name\` should be lower-case letters, numbers and hyphens, up to ${SKILL_LIMITS.name} characters.` });
+      }
+      if (front.description.length > SKILL_LIMITS.description) issues.push({ level: "warn", path: file2.path, message: `\`description\` is over ${SKILL_LIMITS.description} characters.` });
+      const seen = names.get(front.name);
+      if (seen) issues.push({ level: "fail", path: file2.path, message: `has the same name as ${seen}. Give each skill its own name.` });
+      names.set(front.name, file2.path);
+    }
+    if (new TextEncoder().encode(file2.text).length > SKILL_LIMITS.skillBytes) {
+      issues.push({ level: "warn", path: file2.path, message: "is very long. Move detail into other files in the skill's folder, and point to them from SKILL.md." });
+    }
+  }
+  for (const file2 of files) {
+    if (!file2.path.startsWith("specialist/skills/")) continue;
+    for (const { pattern, message } of WATCH) {
+      if (pattern.test(file2.text)) issues.push({ level: "warn", path: file2.path, message });
+    }
+  }
+  return issues;
+}
+
 // src/check.ts
 var PARTS = ["What it's hired for", "How it does the work", "What great looks like", "How the work is checked", "Test briefs"];
 var AREAS = [...PARTS, "Runs and cost", "Guild's rules", "When you submit", "Only you can check"];
@@ -21730,11 +21809,17 @@ function checkSpecialist(ctx) {
     ctx.add("fail", "Guild's rules", `\`limits.instance\` is "${m.limits.instance}", too small for the Agent SDK. Use "standard-1" or larger.`);
   }
   if (!existsSync3(join3(ctx.dir, "specialist"))) return;
+  const skillsDir = join3(ctx.dir, "specialist", "skills");
+  const skills = existsSync3(skillsDir) ? readdirSync2(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name) : [];
   for (const [file2, signature] of Object.entries(TEMPLATE_PLACEHOLDERS.files)) {
     const part = FILE_PART[file2];
     const text = readText(join3(ctx.dir, file2));
     if (text === null) {
-      ctx.add("fail", part, `There's no ${file2}. Guild needs it.`);
+      if (file2 === "specialist/rubric.md") {
+        ctx.add("pass", part, "No rubric: Guild's reviewer checks the work against the brief, your skills' own standards and Guild's bar. Add specialist/rubric.md only if you want checks of your own.");
+      } else if (skills.length === 0) {
+        ctx.add("fail", part, "Add a skill (specialist/skills/<name>/SKILL.md) saying how your agent does the work.");
+      }
       continue;
     }
     if (text.includes(signature)) ctx.add("open", part, `${file2} is still the template's example. Replace it with your own.`);
@@ -21748,21 +21833,15 @@ function checkSpecialist(ctx) {
       ctx.add("pass", "How it does the work", "specialist/instructions.md is your own, and your agent reads it with your method.");
     }
   }
-  const skillsDir = join3(ctx.dir, "specialist", "skills");
-  const skills = existsSync3(skillsDir) ? readdirSync2(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name) : [];
   if (skills.length === 0) {
     ctx.add("tip", "How it does the work", "No skills yet. A skill is know-how a general model gets wrong: techniques, rules of thumb, checklists (specialist/skills/<name>/SKILL.md).");
   }
+  const skillFiles = existsSync3(skillsDir) ? walk2(skillsDir).flatMap((file2) => {
+    const text = readText(join3(skillsDir, file2));
+    return text === null ? [] : [{ path: `specialist/skills/${file2}`, text }];
+  }) : [];
+  for (const issue2 of skillIssues(skillFiles)) ctx.add(issue2.level, "How it does the work", `${issue2.path} ${issue2.message}`);
   for (const skill of skills) {
-    const text = readText(join3(skillsDir, skill, "SKILL.md"));
-    if (text === null) {
-      ctx.add("fail", "How it does the work", `specialist/skills/${skill}/ has no SKILL.md, so the agent won't load it.`);
-      continue;
-    }
-    const front = text.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
-    const name = front.match(/^name:\s*(.+)$/m)?.[1]?.trim();
-    const description = front.match(/^description:\s*(.+)$/m)?.[1]?.trim();
-    if (!name || !description) ctx.add("fail", "How it does the work", `specialist/skills/${skill}/SKILL.md needs a \`name\` and a \`description\` between --- lines at the top, or the agent won't know when to use it.`);
     if (skill === TEMPLATE_PLACEHOLDERS.skill) ctx.add("open", "How it does the work", `specialist/skills/${skill} is the template's example skill. Replace it with your own know-how, or delete it.`);
   }
   const own2 = skills.filter((skill) => skill !== TEMPLATE_PLACEHOLDERS.skill);
@@ -21770,7 +21849,7 @@ function checkSpecialist(ctx) {
   const referencesDir = join3(ctx.dir, "specialist", "references");
   const references = existsSync3(referencesDir) ? walk2(referencesDir).filter((file2) => file2.toLowerCase() !== "readme.md") : [];
   if (references.length === 0) {
-    ctx.add("open", "What great looks like", "No examples yet. Add at least one example of excellent work to specialist/references/, with a note on what makes it excellent: showing what great looks like often does more than any instruction.");
+    ctx.add("tip", "What great looks like", "No examples yet. Add at least one example of excellent work to specialist/references/, with a note on what makes it excellent: showing what great looks like often does more than any instruction.");
   } else {
     ctx.add("pass", "What great looks like", `${plural2(references.length, "reference file")} in specialist/references/.`);
     ctx.add("todo", "What great looks like", "You have the right to use every file in specialist/references/ in a paid service.");
@@ -22303,7 +22382,7 @@ async function loginCommand(env) {
 `);
   if (process.platform === "darwin") spawn("open", [verificationUrl], { stdio: "ignore", detached: true }).unref();
   while (Date.now() < Date.parse(expiresAt)) {
-    await new Promise((resolve2) => setTimeout(resolve2, intervalSeconds * 1e3));
+    await new Promise((resolve3) => setTimeout(resolve3, intervalSeconds * 1e3));
     const polled = await fetch(`${base}/api/cli/login/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...accessHeaders() },
@@ -22412,7 +22491,7 @@ ${STATUS_TEXT[current.status] ?? current.status}`);
       last = summary + (note ?? "");
     }
     if (!["submitted", "checking"].includes(current.status)) return current;
-    await new Promise((resolve2) => setTimeout(resolve2, 1e4));
+    await new Promise((resolve3) => setTimeout(resolve3, 1e4));
   }
 }
 function currentDockerHost() {
@@ -22533,6 +22612,28 @@ async function statusCommand(env, versionId, options) {
   printChecks(current);
 }
 
+// src/env-file.ts
+import { existsSync as existsSync7, readFileSync as readFileSync7 } from "node:fs";
+import { join as join7 } from "node:path";
+import { parseEnv } from "node:util";
+function dotEnv(agentDir2) {
+  const path = join7(agentDir2, ".env");
+  if (!existsSync7(path)) return {};
+  try {
+    return Object.fromEntries(Object.entries(parseEnv(readFileSync7(path, "utf8"))).filter((entry) => typeof entry[1] === "string" && entry[1] !== ""));
+  } catch (error62) {
+    throw new Error(`This agent's .env file couldn't be read: ${error62 instanceof Error ? error62.message : String(error62)}`);
+  }
+}
+function modelKey(fromFile) {
+  return process.env.ANTHROPIC_API_KEY || fromFile.ANTHROPIC_API_KEY || void 0;
+}
+
+// src/try.ts
+import { randomBytes } from "node:crypto";
+import { appendFileSync, existsSync as existsSync8, mkdirSync as mkdirSync3, readdirSync as readdirSync4, readFileSync as readFileSync8, statSync as statSync3, writeFileSync as writeFileSync3 } from "node:fs";
+import { basename, join as join8, relative as relative3, resolve } from "node:path";
+
 // src/protocol.ts
 var GUILD_HOST = "guild.internal";
 var AGENT_NODE_OPTIONS = "--report-exclude-network";
@@ -22541,28 +22642,296 @@ function isSafeFileName(name) {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) && !name.includes("..");
 }
 
+// src/try.ts
+var TryError = class extends Error {
+};
+function fail2(message) {
+  throw new TryError(message);
+}
+var POLL_MS = 3e3;
+function testBriefPaths(agentDir2) {
+  const dir2 = join8(agentDir2, "test-briefs");
+  if (!existsSync8(dir2)) return [];
+  return readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort().map((name) => join8("test-briefs", name));
+}
+function chooseBriefs(agentDir2, options) {
+  if (options.brief && options.all) fail2("Pass either --brief or --all, not both.");
+  if (options.brief) {
+    const path = resolve(options.brief);
+    if (!existsSync8(path)) fail2(`Brief file ${options.brief} not found.`);
+    return [path];
+  }
+  const tests = testBriefPaths(agentDir2).map((path) => join8(agentDir2, path));
+  if (tests.length === 0) fail2("Add a test brief in test-briefs/*.json, or pass --brief <file>.");
+  return options.all ? tests : [tests[0]];
+}
+function outcomeOf(status) {
+  if (["delivered", "in_review", "done", "accepted"].includes(status)) return "completed";
+  if (status === "cancelled") return "cancelled";
+  return "failed";
+}
+function reasonOf(view) {
+  for (let index = view.events.length - 1; index >= 0; index--) {
+    const event = view.events[index];
+    if (/failed|cancelled/.test(event.type) && typeof event.payload.reason === "string") return event.payload.reason;
+  }
+  return null;
+}
+function summaryOf(view) {
+  const delivered = [...view.events].reverse().find((event) => event.type === "delivered" || event.type === "completed");
+  return typeof delivered?.payload.summary === "string" ? delivered.payload.summary : null;
+}
+function tryResult(view, allEvents, url2) {
+  const outcome = outcomeOf(view.status);
+  const reason = outcome === "completed" ? null : reasonOf({ events: allEvents });
+  return {
+    outcome,
+    ...reason ? { reason } : {},
+    ...summaryOf({ events: allEvents }) ? { summary: summaryOf({ events: allEvents }) } : {},
+    deliverables: view.deliverables.map((file2) => file2.filename),
+    seconds: view.seconds,
+    cost: { costMicros: view.costMicros, mocked: false, paidWith: "your own Anthropic key" },
+    refused: view.refused,
+    onGuild: { taskId: view.taskId, version: view.version, status: view.status, url: url2 }
+  };
+}
+function safeName(name) {
+  const cleaned = basename(name).replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "_");
+  return cleaned || "file";
+}
+async function request(login, method, path, body, json2 = true) {
+  let response;
+  try {
+    response = await fetch(`${login.platformUrl}${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${login.token}`, ...json2 && body !== void 0 ? { "Content-Type": "application/json" } : {}, ...accessHeaders() },
+      body
+    });
+  } catch {
+    fail2(`Couldn't reach Guild at ${login.platformUrl}. Check your connection and try again.`);
+  }
+  if (response.headers.get("content-type")?.includes("application/json")) {
+    return { status: response.status, body: await response.json().catch(() => ({})), response };
+  }
+  return { status: response.status, body: {}, response };
+}
+async function patiently(attempt) {
+  for (let tries = 0; ; tries++) {
+    const result = await attempt();
+    if (result.status !== 429 || tries >= 5) return result;
+    await new Promise((resolveWait) => setTimeout(resolveWait, 15e3));
+  }
+}
+async function saveKey(login, agentDir2) {
+  let fromFile = {};
+  try {
+    fromFile = dotEnv(agentDir2);
+  } catch (error62) {
+    fail2(error62.message);
+  }
+  const key = modelKey(fromFile);
+  if (!key) fail2("Put your Anthropic key in this agent's .env file as ANTHROPIC_API_KEY (or set it in your shell), then run this again.");
+  const saved = await request(login, "POST", "/api/cli/anthropic-key", JSON.stringify({ key }));
+  if (saved.status !== 200) fail2(saved.body.error ?? `Guild couldn't save your key (${saved.status}).`);
+  console.log(`\u2713 Saved your Anthropic key (ending ${saved.body.lastFour}) for trial runs. Guild sealed it, uses it only for your trial runs, and never shows it again.`);
+}
+async function forgetKey(login) {
+  const removed = await request(login, "DELETE", "/api/cli/anthropic-key");
+  if (removed.status !== 200) fail2(removed.body.error ?? `Guild couldn't remove your key (${removed.status}).`);
+  console.log("\u2713 Removed your Anthropic key from Guild. Trial runs need it again before they can start.");
+}
+function loadManifest(agentDir2) {
+  let raw;
+  try {
+    raw = resolveIntakeInstructions(agentDir2, JSON.parse(readFileSync8(join8(agentDir2, "guild.manifest.json"), "utf8")));
+  } catch (error62) {
+    fail2(error62 instanceof Error ? error62.message : String(error62));
+  }
+  const checked = validateManifest(raw);
+  if (!checked.ok) fail2("guild.manifest.json is invalid. Run `guild validate` for details.");
+  return { raw, manifest: checked.manifest };
+}
+var ICONS = { started: "\u25B6", progress: "\u2026", question: "?", answer: "\u21B3", delivered: "\u2713", completed: "\u2713", failed: "\u2717", cancelled: "\u25A0" };
+function describeEvent(event) {
+  const p = event.payload;
+  if (event.type === "progress") return `${p.message}${typeof p.percent === "number" ? ` (${p.percent}%)` : ""}`;
+  if (event.type === "question") return `Question: ${p.question}`;
+  if (event.type === "answer") return `Answer: ${p.text}`;
+  if (event.type === "started") return "Started on Guild";
+  if (typeof p.reason === "string") return `${event.type}: ${p.reason}`;
+  if (typeof p.summary === "string") return `${event.type}: ${p.summary}`;
+  return event.type;
+}
+async function tryOne(login, agentDir2, input2) {
+  const shown = relative3(agentDir2, input2.briefPath) || input2.briefPath;
+  let brief;
+  try {
+    brief = JSON.parse(readFileSync8(input2.briefPath, "utf8"));
+  } catch {
+    fail2(`${shown} isn't valid JSON.`);
+  }
+  const checked = validateBrief(input2.manifest, brief);
+  if (!checked.ok) fail2(`${shown} doesn't match the brief's fields: ${checked.issues.join("; ")}`);
+  const form = new FormData();
+  form.set("content", new Blob([input2.content], { type: "application/json" }), "content.json");
+  form.set("runner", input2.runner);
+  form.set("brief", JSON.stringify(brief));
+  for (const path of input2.files) {
+    if (!existsSync8(path) || !statSync3(path).isFile()) fail2(`File ${path} not found.`);
+    form.append("file", new Blob([readFileSync8(path)]), basename(path));
+  }
+  console.log(`
+\u25B6 Trying ${input2.manifest.name} on Guild with ${shown}`);
+  const started = await request(login, "POST", "/api/cli/tries", form, false);
+  if (started.status !== 201 || !started.body.taskId) {
+    if (started.body.needsKey) {
+      fail2(`${started.body.error}
+  Put your key in this agent's .env file as ANTHROPIC_API_KEY, then run \`npm run guild -- try --save-key\` once.`);
+    }
+    fail2(started.body.error ?? `Guild couldn't start the try (${started.status}).`);
+  }
+  const { taskId, url: url2 = "" } = started.body;
+  console.log(`\xB7 Trial version ${started.body.version}, run ${taskId}`);
+  console.log(`\xB7 Follow it in your browser too: ${url2}`);
+  const runId = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
+  const runDir = resolve(agentDir2, ".guild", "runs", runId);
+  mkdirSync3(join8(runDir, "deliverables"), { recursive: true });
+  writeFileSync3(join8(runDir, "task.json"), JSON.stringify({ taskId, onGuild: true, briefFile: shown, brief, files: input2.files.map((path) => basename(path)) }, null, 2));
+  const briefName = basename(input2.briefPath).replace(/\.json$/, "");
+  await report(agentDir2, "run_started", { brief: briefName });
+  let interrupted = false;
+  const onInterrupt = () => {
+    if (interrupted) process.exit(130);
+    interrupted = true;
+    console.log("\n\u25A0 Stopping the run on Guild\u2026");
+    void request(login, "POST", `/api/cli/tries/${taskId}/cancel`).finally(() => process.exit(130));
+  };
+  process.on("SIGINT", onInterrupt);
+  const answers = [...input2.answers];
+  const answered = /* @__PURE__ */ new Set();
+  const allEvents = [];
+  let after = "0";
+  let view = null;
+  try {
+    for (; ; ) {
+      const read = await patiently(() => request(login, "GET", `/api/cli/tries/${taskId}?after=${after}`));
+      if (read.status !== 200) fail2(read.body.error ?? `Couldn't follow the run (${read.status}).`);
+      view = read.body;
+      for (const event of view.events) {
+        allEvents.push(event);
+        appendFileSync(join8(runDir, "events.jsonl"), `${JSON.stringify(event)}
+`);
+        console.log(`${ICONS[event.type] ?? "\xB7"} ${describeEvent(event)}`);
+        after = event.id;
+      }
+      const question = [...allEvents].reverse().find((event) => event.type === "question");
+      if (view.status === "needs_input" && question && !answered.has(question.id)) {
+        answered.add(question.id);
+        const text = answers.shift() ?? CHECK_ANSWER;
+        const sent = await request(login, "POST", `/api/cli/tries/${taskId}/answer`, JSON.stringify({ text }));
+        if (sent.status !== 200) console.log(`! Couldn't answer: ${sent.body.error ?? sent.status}`);
+      }
+      if (!view.running) break;
+      await new Promise((resolveWait) => setTimeout(resolveWait, POLL_MS));
+    }
+  } finally {
+    process.off("SIGINT", onInterrupt);
+  }
+  if (!view) fail2("Couldn't follow the run.");
+  for (const file2 of view.deliverables) {
+    const download = await patiently(() => request(login, "GET", `/api/cli/tries/${taskId}/files/${file2.id}`, void 0, false));
+    if (download.status !== 200) {
+      console.log(`! Couldn't download ${file2.filename} (${download.status}).`);
+      continue;
+    }
+    writeFileSync3(join8(runDir, "deliverables", safeName(file2.filename)), Buffer.from(await download.response.arrayBuffer()));
+    console.log(`\u2193 ${file2.filename}`);
+  }
+  const result = tryResult(view, allEvents, url2);
+  writeFileSync3(join8(runDir, "result.json"), JSON.stringify(result, null, 2));
+  for (const call of view.refused) console.log(`\u2298 Guild refused ${call.endpoint}${call.reason ? ` (${call.reason})` : ""}`);
+  const cost = `$${(view.costMicros / 1e6).toFixed(4)} on your Anthropic key`;
+  const time4 = view.seconds !== null ? `${view.seconds} s` : "";
+  const mark = { completed: "\u2713", failed: "\u2717", cancelled: "\u25A0" }[result.outcome];
+  console.log(`${mark} ${result.outcome}${"reason" in result && result.reason ? `: ${result.reason}` : ""} (${[time4, cost].filter(Boolean).join(", ")})`);
+  console.log(`Run files: ${runDir}`);
+  await report(agentDir2, "run", {
+    brief: briefName,
+    outcome: result.outcome,
+    mocked: false,
+    seconds: view.seconds,
+    costMicros: view.costMicros,
+    reason: result.outcome === "completed" ? null : ("reason" in result ? result.reason : null) ?? null
+  });
+  return result.outcome;
+}
+async function tryCommand(agentDir2, options) {
+  try {
+    const login = requireLogin(options.env);
+    if (options.forgetKey) {
+      await forgetKey(login);
+      return;
+    }
+    if (options.saveKey) {
+      await saveKey(login, agentDir2);
+      if (!options.brief && !options.all) return;
+    }
+    const { manifest } = loadManifest(agentDir2);
+    const briefs = chooseBriefs(agentDir2, options);
+    if (briefs.length > 1 && options.files.length > 0) fail2("--file goes with --brief: test briefs carry no files.");
+    const runner = await matchingRunner(login, agentDir2);
+    if (!runner) {
+      fail2(
+        "This agent has code of its own (or this Guild has no shared runner yet), so it can't be tried on Guild from its files. Run it on your machine with `npm run guild -- run --brief <file>`, which needs Docker."
+      );
+    }
+    const bundle = validateBundle(bundleFromDir(agentDir2));
+    if (!bundle.ok) fail2(`This agent's files aren't ready to try:
+  ${bundle.issues.join("\n  ")}`);
+    const content = JSON.stringify(bundle.bundle);
+    console.log(`\xB7 Your code is Guild's runner ${runner}, unchanged: sending your agent's own files (${bundle.bundle.files.length})`);
+    if (!options.brief) {
+      const others = testBriefPaths(agentDir2).length - briefs.length;
+      if (others > 0) console.log(`\xB7 Trying ${relative3(agentDir2, briefs[0])}. Pass --all for every test brief, or --brief <file> for another.`);
+    }
+    const outcomes = [];
+    for (const briefPath of briefs) {
+      outcomes.push(await tryOne(login, agentDir2, { runner, content, manifest, briefPath, files: options.files, answers: options.answers }));
+    }
+    if (briefs.length > 1) console.log(`
+${outcomes.filter((outcome) => outcome === "completed").length} of ${briefs.length} completed.`);
+    if (outcomes.some((outcome) => outcome !== "completed")) process.exitCode = 1;
+  } catch (error62) {
+    if (error62 instanceof TryError) {
+      console.error(`\u2717 ${error62.message}`);
+      process.exit(1);
+    }
+    throw error62;
+  }
+}
+
 // src/cli.ts
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
-var GATEWAY_FILE = existsSync7(join7(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
+var GATEWAY_FILE = existsSync9(join9(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-17 (70a6692)" : "development (run from the Guild repository)";
-function fail2(message) {
+var KIT_VERSION = true ? "2026-11-20 (211ac31)" : "development (run from the Guild repository)";
+function fail3(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
 }
-function loadManifest(agentDir2) {
-  const path = join7(agentDir2, "guild.manifest.json");
-  if (!existsSync7(path)) fail2(`No guild.manifest.json in ${agentDir2}.`);
+function loadManifest2(agentDir2) {
+  const path = join9(agentDir2, "guild.manifest.json");
+  if (!existsSync9(path)) fail3(`No guild.manifest.json in ${agentDir2}.`);
   let json2;
   try {
-    json2 = JSON.parse(readFileSync7(path, "utf8"));
+    json2 = JSON.parse(readFileSync9(path, "utf8"));
   } catch (error62) {
-    fail2(`guild.manifest.json is not valid JSON: ${String(error62)}`);
+    fail3(`guild.manifest.json is not valid JSON: ${String(error62)}`);
   }
   try {
     json2 = resolveIntakeInstructions(agentDir2, json2);
   } catch (error62) {
-    fail2(error62 instanceof Error ? error62.message : String(error62));
+    fail3(error62 instanceof Error ? error62.message : String(error62));
   }
   const result = validateManifest(json2);
   if (!result.ok) {
@@ -22572,17 +22941,12 @@ function loadManifest(agentDir2) {
   }
   return result.manifest;
 }
-function dotEnv(agentDir2) {
-  const path = join7(agentDir2, ".env");
-  if (!existsSync7(path)) return {};
+function dotEnv2(agentDir2) {
   try {
-    return Object.fromEntries(Object.entries(parseEnv(readFileSync7(path, "utf8"))).filter((entry) => typeof entry[1] === "string" && entry[1] !== ""));
+    return dotEnv(agentDir2);
   } catch (error62) {
-    fail2(`This agent's .env file couldn't be read: ${error62 instanceof Error ? error62.message : String(error62)}`);
+    fail3(error62.message);
   }
-}
-function modelKey(fromFile) {
-  return process.env.ANTHROPIC_API_KEY || fromFile.ANTHROPIC_API_KEY || void 0;
 }
 function docker2(args, options = {}) {
   const result = spawnSync2("docker", args, { encoding: "utf8", env: options.env ?? process.env });
@@ -22593,15 +22957,15 @@ function docker2(args, options = {}) {
   return result.stdout.trim();
 }
 function validateCommand(agentDir2) {
-  const manifest = loadManifest(agentDir2);
+  const manifest = loadManifest2(agentDir2);
   console.log(`\u2713 ${manifest.name} ${manifest.version} is valid.`);
-  const dir2 = join7(agentDir2, "test-briefs");
-  const briefs = existsSync7(dir2) ? readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort() : [];
+  const dir2 = join9(agentDir2, "test-briefs");
+  const briefs = existsSync9(dir2) ? readdirSync5(dir2).filter((name) => name.endsWith(".json")).sort() : [];
   let invalid = 0;
   for (const name of briefs) {
     let brief;
     try {
-      brief = JSON.parse(readFileSync7(join7(dir2, name), "utf8"));
+      brief = JSON.parse(readFileSync9(join9(dir2, name), "utf8"));
     } catch {
       console.error(`\u2717 test-briefs/${name} isn't valid JSON.`);
       invalid++;
@@ -22619,7 +22983,7 @@ function validateCommand(agentDir2) {
     console.log("! `preview` is no longer used: buyers get the files when your agent delivers (decision 027). You can remove it.");
   }
 }
-var ICONS = {
+var ICONS2 = {
   gateway_ready: "\xB7",
   agent_ready: "\xB7",
   task_started: "\u25B6",
@@ -22650,13 +23014,13 @@ function describe3(line) {
   return Object.keys(rest).length ? JSON.stringify(rest) : String(type);
 }
 async function runCommand(agentDir2, options) {
-  const manifest = loadManifest(agentDir2);
-  if (!existsSync7(options.brief)) fail2(`Brief file ${options.brief} not found.`);
-  const brief = JSON.parse(readFileSync7(options.brief, "utf8"));
-  const fromFile = dotEnv(agentDir2);
+  const manifest = loadManifest2(agentDir2);
+  if (!existsSync9(options.brief)) fail3(`Brief file ${options.brief} not found.`);
+  const brief = JSON.parse(readFileSync9(options.brief, "utf8"));
+  const fromFile = dotEnv2(agentDir2);
   const anthropicKey = modelKey(fromFile);
   if (!options.mockModels && !anthropicKey) {
-    fail2("Set ANTHROPIC_API_KEY to your own development key (in your shell, or in this agent's .env file), or pass --mock-models.");
+    fail3("Set ANTHROPIC_API_KEY to your own development key (in your shell, or in this agent's .env file), or pass --mock-models.");
   }
   const passed = new Set(options.agentEnv.map((pair) => pair.split("=")[0]));
   const declared = [...new Set(declaredKeys(manifest).map(({ key }) => key.secret))];
@@ -22668,14 +23032,14 @@ async function runCommand(agentDir2, options) {
     const label = (name) => optional2.has(name) ? `${name} (optional)` : name;
     console.log(`\xB7 Not in .env or passed with --agent-env: ${unpassed.map(label).join(", ")}. Calls that need ${unpassed.length === 1 ? "it" : "them"} won't have a key locally.`);
   }
-  const runId = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
-  const runDir = resolve(agentDir2, ".guild", "runs", runId);
-  mkdirSync3(join7(runDir, "inputs"), { recursive: true });
+  const runId = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}-${randomBytes2(3).toString("hex")}`;
+  const runDir = resolve2(agentDir2, ".guild", "runs", runId);
+  mkdirSync4(join9(runDir, "inputs"), { recursive: true });
   const files = options.files.map((path) => {
-    const name = basename(path);
-    if (!isSafeFileName(name)) fail2(`Input file name ${name} is not allowed.`);
-    copyFileSync(path, join7(runDir, "inputs", name));
-    return { name, contentType: "application/octet-stream", sizeBytes: statSync3(path).size };
+    const name = basename2(path);
+    if (!isSafeFileName(name)) fail3(`Input file name ${name} is not allowed.`);
+    copyFileSync(path, join9(runDir, "inputs", name));
+    return { name, contentType: "application/octet-stream", sizeBytes: statSync4(path).size };
   });
   const task = {
     taskId: randomUUID(),
@@ -22685,25 +23049,25 @@ async function runCommand(agentDir2, options) {
     budgetMicros: manifest.limits.budgetMicros,
     deadline: new Date(Date.now() + manifest.limits.deadlineSeconds * 1e3).toISOString()
   };
-  writeFileSync3(join7(runDir, "task.json"), JSON.stringify(task, null, 2));
+  writeFileSync4(join9(runDir, "task.json"), JSON.stringify(task, null, 2));
   if (options.content) {
     const checked = validateBundle(bundleFromDir(agentDir2));
-    if (!checked.ok) fail2(`This agent's content isn't a valid bundle:
+    if (!checked.ok) fail3(`This agent's content isn't a valid bundle:
   ${checked.issues.join("\n  ")}`);
-    writeFileSync3(join7(runDir, "content.json"), serializeBundle(checked.bundle));
+    writeFileSync4(join9(runDir, "content.json"), serializeBundle(checked.bundle));
     console.log(`\xB7 Content mode: the agent fetches its ${checked.bundle.files.length} content files from the gateway, as Guild's shared runner does`);
   }
-  const token = randomBytes(24).toString("base64url");
+  const token = randomBytes2(24).toString("base64url");
   const image = `guild-agent-${manifest.slug}:dev`;
   const network = `guild-run-${runId.slice(-6)}`;
   const agentName = `guild-agent-${runId.slice(-6)}`;
   const gatewayName = `guild-gateway-${runId.slice(-6)}`;
   const dnsName = `guild-dns-${runId.slice(-6)}`;
-  const briefName = basename(options.brief).replace(/\.json$/, "");
+  const briefName = basename2(options.brief).replace(/\.json$/, "");
   await report(agentDir2, "run_started", { brief: briefName });
   console.log(`\xB7 Building ${image}`);
   const build = spawnSync2("docker", ["build", "-q", "-t", image, agentDir2], { stdio: ["ignore", "ignore", "inherit"] });
-  if (build.status !== 0) fail2("docker build failed.");
+  if (build.status !== 0) fail3("docker build failed.");
   const cleanup = () => {
     for (const args of [["rm", "-f", agentName], ["rm", "-f", gatewayName], ["rm", "-f", dnsName], ["network", "rm", network]]) {
       spawnSync2("docker", args, { stdio: "ignore" });
@@ -22714,11 +23078,11 @@ async function runCommand(agentDir2, options) {
     process.exit(130);
   });
   try {
-    const subnet = `10.${200 + randomBytes(1)[0] % 50}.${randomBytes(1)[0]}`;
+    const subnet = `10.${200 + randomBytes2(1)[0] % 50}.${randomBytes2(1)[0]}`;
     const ip = { gateway: `${subnet}.10`, agent: `${subnet}.20`, dns: `${subnet}.53` };
     docker2(["network", "create", "--internal", "--subnet", `${subnet}.0/24`, network]);
     docker2(["run", "-d", "--name", dnsName, "--network", network, "--ip", ip.dns, "busybox:1.37", "nc", "-lku", "-p", "53"]);
-    writeFileSync3(join7(runDir, "resolv.conf"), `nameserver ${ip.dns}
+    writeFileSync4(join9(runDir, "resolv.conf"), `nameserver ${ip.dns}
 options timeout:5 attempts:2
 `);
     docker2([
@@ -22733,7 +23097,7 @@ options timeout:5 attempts:2
       "--ip",
       ip.agent,
       "-v",
-      `${join7(runDir, "resolv.conf")}:/etc/resolv.conf:ro`,
+      `${join9(runDir, "resolv.conf")}:/etc/resolv.conf:ro`,
       "--add-host",
       `${GUILD_HOST}:${ip.gateway}`,
       "-e",
@@ -22796,7 +23160,7 @@ options timeout:5 attempts:2
           buffer = buffer.slice(newline + 1);
           try {
             const line = JSON.parse(text);
-            console.log(`${ICONS[String(line.type)] ?? "\xB7"} ${describe3(line)}`);
+            console.log(`${ICONS2[String(line.type)] ?? "\xB7"} ${describe3(line)}`);
           } catch {
             console.log(text);
           }
@@ -22819,11 +23183,11 @@ Run files: ${runDir}`);
 }
 async function checkCommand(agentDir2, options) {
   if (options.run) {
-    const dir2 = join7(agentDir2, "test-briefs");
-    const briefs = existsSync7(dir2) ? readdirSync4(dir2).filter((name) => name.endsWith(".json")).sort() : [];
-    if (briefs.length === 0) fail2("There are no test briefs in test-briefs/ to run.");
-    if (!options.mockModels && !modelKey(dotEnv(agentDir2))) {
-      fail2("Set ANTHROPIC_API_KEY to your own development key (in your shell, or in this agent's .env file) to run the test briefs, or pass --mock-models.");
+    const dir2 = join9(agentDir2, "test-briefs");
+    const briefs = existsSync9(dir2) ? readdirSync5(dir2).filter((name) => name.endsWith(".json")).sort() : [];
+    if (briefs.length === 0) fail3("There are no test briefs in test-briefs/ to run.");
+    if (!options.mockModels && !modelKey(dotEnv2(agentDir2))) {
+      fail3("Set ANTHROPIC_API_KEY to your own development key (in your shell, or in this agent's .env file) to run the test briefs, or pass --mock-models.");
     }
     const answers = options.answers.length > 0 ? options.answers : Array.from({ length: 5 }, () => CHECK_ANSWER);
     for (const [index, name] of briefs.entries()) {
@@ -22831,7 +23195,7 @@ async function checkCommand(agentDir2, options) {
 \u2501\u2501 Test brief ${index + 1} of ${briefs.length}: ${name}
 `);
       await runCommand(agentDir2, {
-        brief: join7(dir2, name),
+        brief: join9(dir2, name),
         files: [],
         answers,
         mockModels: options.mockModels,
@@ -22843,9 +23207,9 @@ async function checkCommand(agentDir2, options) {
   }
   const readiness = checkAgent(agentDir2);
   const markdown = formatReadiness(readiness);
-  mkdirSync3(join7(agentDir2, ".guild"), { recursive: true });
-  writeFileSync3(join7(agentDir2, ".guild", "readiness.md"), markdown);
-  writeFileSync3(join7(agentDir2, ".guild", "readiness.json"), JSON.stringify(readiness, null, 2) + "\n");
+  mkdirSync4(join9(agentDir2, ".guild"), { recursive: true });
+  writeFileSync4(join9(agentDir2, ".guild", "readiness.md"), markdown);
+  writeFileSync4(join9(agentDir2, ".guild", "readiness.json"), JSON.stringify(readiness, null, 2) + "\n");
   if (options.json) console.log(JSON.stringify(readiness, null, 2));
   else console.log(`${formatReadiness(readiness, { short: true })}
 The full report, with what's done, is in .guild/readiness.md.`);
@@ -22863,7 +23227,7 @@ function checkReport(readiness) {
 }
 function runReport(brief, runDir) {
   try {
-    const result = JSON.parse(readFileSync7(join7(runDir, "result.json"), "utf8"));
+    const result = JSON.parse(readFileSync9(join9(runDir, "result.json"), "utf8"));
     const outcome = result.outcome === "completed" || result.outcome === "cancelled" ? result.outcome : "failed";
     return {
       brief,
@@ -22878,12 +23242,12 @@ function runReport(brief, runDir) {
   }
 }
 async function connectCommand(agentDir2, code, env) {
-  if (!code) fail2("Pass the code from your agent's page in the Studio: `npm run guild -- connect <code>`.");
+  if (!code) fail3("Pass the code from your agent's page in the Studio: `npm run guild -- connect <code>`.");
   let connected;
   try {
     connected = await redeemCode(env, code, false);
   } catch (error62) {
-    fail2(error62.message);
+    fail3(error62.message);
   }
   saveConnection(agentDir2, { env, platformUrl: connected.platformUrl, agent: connected.agent, connectedAt: (/* @__PURE__ */ new Date()).toISOString() });
   const manifest = applyAgentToManifest(agentDir2, connected.agent);
@@ -22892,19 +23256,19 @@ async function connectCommand(agentDir2, code, env) {
   if (manifest.otherSlug) {
     console.log(`! This copy's manifest is for ${manifest.otherSlug}. To submit it as ${connected.agent.name}, change "slug" in guild.manifest.json to "${connected.agent.slug}".`);
   }
-  if (existsSync7(join7(agentDir2, "guild.manifest.json"))) {
+  if (existsSync9(join9(agentDir2, "guild.manifest.json"))) {
     const readiness = checkAgent(agentDir2);
     await report(agentDir2, "check", checkReport(readiness));
   }
   console.log(`\xB7 Its progress shows in the Studio: ${connected.platformUrl}/studio/agents/${connected.agent.slug}`);
 }
 async function intakeCommand(agentDir2, notesPath) {
-  const manifest = loadManifest(agentDir2);
-  if (!pasteIntakeOffered(manifest)) fail2("This agent doesn't offer intake. Add `intake` with `instructions` or `instructionsFile` to guild.manifest.json.");
-  if (!notesPath) fail2("Pass --paste <file> with some notes a buyer might paste.");
-  const apiKey = modelKey(dotEnv(agentDir2));
-  if (!apiKey) fail2("Set ANTHROPIC_API_KEY to your own Anthropic key (in your shell, or in this agent's .env file). Guild pays for intake on Guild; locally, you do.");
-  const notes = readFileSync7(resolve(notesPath), "utf8");
+  const manifest = loadManifest2(agentDir2);
+  if (!pasteIntakeOffered(manifest)) fail3("This agent doesn't offer intake. Add `intake` with `instructions` or `instructionsFile` to guild.manifest.json.");
+  if (!notesPath) fail3("Pass --paste <file> with some notes a buyer might paste.");
+  const apiKey = modelKey(dotEnv2(agentDir2));
+  if (!apiKey) fail3("Set ANTHROPIC_API_KEY to your own Anthropic key (in your shell, or in this agent's .env file). Guild pays for intake on Guild; locally, you do.");
+  const notes = readFileSync9(resolve2(notesPath), "utf8");
   console.log(`\xB7 Asking ${INTAKE_MODEL} to fill in ${manifest.name}'s brief`);
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -22912,7 +23276,7 @@ async function intakeCommand(agentDir2, notesPath) {
     body: JSON.stringify(pasteIntakeRequest(manifest, notes))
   });
   const body = await response.json();
-  if (!response.ok) fail2(`Anthropic answered ${response.status}: ${body.error?.message ?? "no detail"}`);
+  if (!response.ok) fail3(`Anthropic answered ${response.status}: ${body.error?.message ?? "no detail"}`);
   const draft = parseIntakeReply(manifest, body);
   console.log("\nFilled in:");
   for (const [name, value] of Object.entries(draft.fields)) console.log(`  ${name}: ${JSON.stringify(value)}`);
@@ -22930,7 +23294,7 @@ Required and still empty: ${required2.join(", ")}`);
   console.log(`
 ${body.usage?.input_tokens ?? 0} input and ${body.usage?.output_tokens ?? 0} output tokens.`);
 }
-var USAGE = "Usage:\n  guild validate [agent-dir]\n  guild check [agent-dir] [--run [--mock-models] [--answer <text>]... [--agent-env NAME=value]...] [--json]\n  guild run [agent-dir] --brief <file> [--file <path>]... [--answer <text>]... [--mock-models [--mock-tool-call <json>]] [--content]\n  guild intake [agent-dir] --paste <notes-file>\n  guild connect <code> [agent-dir] [--env staging]\n  guild login | whoami | logout [--env staging]\n  guild submit [agent-dir] [--env staging] [--wait] [--image] [--upload-with-wrangler]\n  guild status <version-id> [--env staging] [--wait]\n  guild version\n  guild help";
+var USAGE = "Usage:\n  guild validate [agent-dir]\n  guild check [agent-dir] [--run [--mock-models] [--answer <text>]... [--agent-env NAME=value]...] [--json]\n  guild run [agent-dir] --brief <file> [--file <path>]... [--answer <text>]... [--mock-models [--mock-tool-call <json>]] [--content]\n  guild try [agent-dir] [--brief <file> [--file <path>]... | --all] [--answer <text>]... [--env staging]\n  guild try --save-key | --forget-key [--env staging]\n  guild intake [agent-dir] --paste <notes-file>\n  guild connect <code> [agent-dir] [--env staging]\n  guild login | whoami | logout [--env staging]\n  guild submit [agent-dir] [--env staging] [--wait] [--image] [--upload-with-wrangler]\n  guild status <version-id> [--env staging] [--wait]\n  guild version\n  guild help";
 function argumentProblem(error62) {
   const code = error62?.code;
   if (typeof code !== "string" || !code.startsWith("ERR_PARSE_ARGS_")) return null;
@@ -22973,21 +23337,24 @@ function parseCommandLine() {
       wait: { type: "boolean", default: false },
       "upload-with-wrangler": { type: "boolean", default: false },
       run: { type: "boolean", default: false },
-      json: { type: "boolean", default: false }
+      json: { type: "boolean", default: false },
+      all: { type: "boolean", default: false },
+      "save-key": { type: "boolean", default: false },
+      "forget-key": { type: "boolean", default: false }
     }
   });
 }
 var [command, dir = "."] = values.help ? ["help"] : positionals;
-var agentDir = resolve(dir);
+var agentDir = resolve2(dir);
 switch (command) {
   case "validate":
     validateCommand(agentDir);
     break;
   case "run":
-    if (!values.brief) fail2("Pass --brief <file>.");
+    if (!values.brief) fail3("Pass --brief <file>.");
     await runCommand(agentDir, {
-      brief: resolve(values.brief),
-      files: values.file.map((path) => resolve(path)),
+      brief: resolve2(values.brief),
+      files: values.file.map((path) => resolve2(path)),
       answers: values.answer,
       mockModels: values["mock-models"],
       mockToolCall: values["mock-tool-call"],
@@ -22996,9 +23363,9 @@ switch (command) {
     });
     break;
   case "deploy":
-    fail2("`guild deploy` has been replaced by `guild submit`. Run `guild login` once, then `guild submit`.");
+    fail3("`guild deploy` has been replaced by `guild submit`. Run `guild login` once, then `guild submit`.");
   case "connect":
-    await connectCommand(resolve(positionals[2] ?? "."), positionals[1], values.env ?? "staging");
+    await connectCommand(resolve2(positionals[2] ?? "."), positionals[1], values.env ?? "staging");
     break;
   case "login":
     await loginCommand(values.env ?? "staging");
@@ -23014,6 +23381,17 @@ switch (command) {
       wait: values.wait,
       uploadWithWrangler: values["upload-with-wrangler"],
       image: values.image
+    });
+    break;
+  case "try":
+    await tryCommand(agentDir, {
+      env: values.env ?? "staging",
+      brief: values.brief,
+      all: values.all,
+      files: values.file.map((path) => resolve2(path)),
+      answers: values.answer,
+      saveKey: values["save-key"],
+      forgetKey: values["forget-key"]
     });
     break;
   case "status":
@@ -23032,7 +23410,7 @@ switch (command) {
     });
     break;
   case "setup":
-    fail2("`guild setup` has been replaced by the setup in Claude Code: open this folder in Claude Code and run /guild-setup.");
+    fail3("`guild setup` has been replaced by the setup in Claude Code: open this folder in Claude Code and run /guild-setup.");
   case "version":
   case "--version":
     console.log(`guild ${KIT_VERSION}`);
