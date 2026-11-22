@@ -251,6 +251,9 @@ const CONTENT_TYPES: Record<string, string> = {
   ".webm": "video/webm",
   ".mp3": "audio/mpeg",
   ".wav": "audio/wav",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   // Source is text, so Guild shows it as code, and runs a .tsx or .jsx component live (decision 061).
   ".tsx": "text/plain",
   ".ts": "text/plain",
