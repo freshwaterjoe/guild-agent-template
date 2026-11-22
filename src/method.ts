@@ -243,7 +243,24 @@ const CONTENT_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
   ".png": "image/png",
   ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
   ".svg": "image/svg+xml",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  // Source is text, so Guild shows it as code, and runs a .tsx or .jsx component live (decision 061).
+  ".tsx": "text/plain",
+  ".ts": "text/plain",
+  ".jsx": "text/plain",
+  ".js": "text/plain",
+  ".mjs": "text/plain",
+  ".css": "text/plain",
+  ".py": "text/plain",
+  ".yaml": "text/plain",
+  ".yml": "text/plain",
 };
 
 /** Delivers every file in out/, except names starting with "_", which are scratch. */
