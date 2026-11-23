@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-20 (3fa5759). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-23 (0ee102b). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -1122,16 +1122,37 @@ var Validator = class {
 };
 
 // src/brief.ts
+var TIER_FIELD = "_tier";
+function splitTier(brief) {
+  if (!(TIER_FIELD in brief)) return { brief, tier: null };
+  const { [TIER_FIELD]: tier, ...rest } = brief;
+  return { brief: rest, tier: typeof tier === "string" ? tier : null };
+}
+function findTier(manifest, id) {
+  const tier = id ? manifest.pricing.tiers.find((entry) => entry.id === id) : void 0;
+  return tier ? { id: tier.id, name: tier.name, ...tier.description ? { description: tier.description } : {} } : null;
+}
+function briefWithTier(brief, tierId) {
+  const { brief: rest } = splitTier(brief);
+  return tierId ? { ...rest, [TIER_FIELD]: tierId } : rest;
+}
 function validateBrief(manifest, brief) {
   if (typeof brief !== "object" || brief === null || Array.isArray(brief)) {
     return { ok: false, issues: ["The brief must be a JSON object."] };
   }
-  const result = new Validator(manifest.inputs.schema, "2020-12", false).validate(brief);
-  if (result.valid) return { ok: true };
-  return {
-    ok: false,
-    issues: result.errors.filter((error62) => error62.keyword !== "properties").map((error62) => `${error62.instanceLocation.replace(/^#\/?/, "") || "brief"}: ${error62.error}`)
-  };
+  const issues = [];
+  const { brief: proper, tier } = splitTier(brief);
+  if (TIER_FIELD in brief) {
+    const ids = manifest.pricing.tiers.map((entry) => entry.id);
+    if (tier === null || !ids.includes(tier)) issues.push(`${TIER_FIELD}: name one of this agent's tiers (${ids.join(", ")}).`);
+  }
+  const result = new Validator(manifest.inputs.schema, "2020-12", false).validate(proper);
+  if (!result.valid) {
+    issues.push(
+      ...result.errors.filter((error62) => error62.keyword !== "properties").map((error62) => `${error62.instanceLocation.replace(/^#\/?/, "") || "brief"}: ${error62.error}`)
+    );
+  }
+  return issues.length === 0 ? { ok: true } : { ok: false, issues };
 }
 
 // ../../node_modules/zod/v4/classic/external.js
@@ -20884,6 +20905,7 @@ var PLATFORM_STATEMENTS = {
     text: "Each task runs in a new, empty environment that is destroyed afterwards. Nothing carries over between tasks."
   }
 };
+var AGENT_KINDS = ["standard", "pro"];
 var INSTANCE_SIZES = ["lite", "basic", "standard-1", "standard-2", "standard-3", "standard-4"];
 var slug = external_exports.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters, numbers and single hyphens.").max(64);
 var RESERVED_KEY_NAMES = ["PATH", "HOME", "USER", "PWD", "SHELL", "LANG", "TZ", "HOSTNAME", "TERM"];
@@ -20949,6 +20971,11 @@ var manifestSchema = external_exports.object({
   version: external_exports.string().regex(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/, "Use a semantic version such as 1.0.0."),
   summary: external_exports.string().min(1).max(280),
   builder: external_exports.object({ name: external_exports.string().min(1).max(80), url: external_exports.url().optional() }).strict(),
+  // What kind of agent this is (decision 062), said here and never worked out from its files.
+  // "standard": its skills (and optional instructions and rubric) run on Guild's shared runner, and
+  // any code in its folder is ignored. "pro": a Guild Pro agent, with code of its own built into
+  // its own image. Absent means standard, unless its folder has code of its own (see agentKind).
+  kind: external_exports.enum(AGENT_KINDS).optional(),
   inputs: external_exports.object({
     // JSON Schema describing the brief. Guild validates briefs against it.
     schema: external_exports.looseObject({ type: external_exports.literal("object") }),
@@ -21174,21 +21201,47 @@ var CONTENT_LIMITS = {
   fileBytes: 10 * 1024 * 1024,
   /** Every file together, decoded. */
   totalBytes: 25 * 1024 * 1024,
-  depth: 6
+  /**
+   * Folders deep, counting the file's own name: `specialist/skills/<name>/` is already three, and
+   * skills brought from elsewhere nest their scripts, assets and examples further (decision 062).
+   */
+  depth: 16
 };
 var REQUIRED_CONTENT = ["guild.manifest.json"];
 function hasWorkingKnowledge(paths) {
   for (const path of paths) if (path === "specialist/method.md" || /^specialist\/skills\/[^/]+\/SKILL\.md$/.test(path)) return true;
   return false;
 }
-var SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/;
+var SEGMENT = /^[A-Za-z0-9_@([][A-Za-z0-9._ @+,=()[\]-]{0,127}$/;
 var TEST_BRIEF = /^test-briefs\/[a-z0-9][a-z0-9._-]{0,63}\.json$/;
-function isContentPath(path) {
-  if (path === "guild.manifest.json" || path === "intake.md") return true;
-  if (TEST_BRIEF.test(path)) return true;
-  if (!path.startsWith("specialist/")) return false;
+function contentPathProblem(path) {
+  if (path === "guild.manifest.json" || path === "intake.md") return null;
+  if (path.startsWith("test-briefs/")) {
+    if (TEST_BRIEF.test(path)) return null;
+    if (path.split("/").pop().startsWith(".")) return "hidden files (names starting with a dot) aren't sent";
+    return "a test brief is test-briefs/<name>.json, with a name of lowercase letters, digits, dots, dashes and underscores";
+  }
+  if (!path.startsWith("specialist/")) return "only guild.manifest.json, intake.md, specialist/ and test-briefs/ are your agent's own files";
   const segments = path.split("/");
-  return segments.length >= 2 && segments.length <= CONTENT_LIMITS.depth && segments.every((segment) => SEGMENT.test(segment) && !segment.includes(".."));
+  if (segments.some((segment) => segment.startsWith("."))) return "hidden files and folders (names starting with a dot) aren't sent";
+  if (segments.length > CONTENT_LIMITS.depth) return `it's more than ${CONTENT_LIMITS.depth - 1} folders deep`;
+  const bad = segments.find((segment) => !SEGMENT.test(segment) || segment.includes(".."));
+  if (bad !== void 0) return `"${bad}" has a character Guild doesn't accept in a file name, or is longer than 128 characters`;
+  return null;
+}
+function isContentPath(path) {
+  return path.length <= 1024 && contentPathProblem(path) === null;
+}
+var HOUSEKEEPING = /^(\.DS_Store|Thumbs\.db|\.gitignore|\.gitattributes|\.gitkeep|\.keep|\.npmignore|\.editorconfig|\.prettierrc.*|\.prettierignore|\.eslintrc.*|\.eslintignore)$/;
+function leftOutContent(paths) {
+  const out = [];
+  for (const path of paths) {
+    if (!path.startsWith("specialist/") && !path.startsWith("test-briefs/")) continue;
+    if (HOUSEKEEPING.test(path.split("/").pop())) continue;
+    const why = contentPathProblem(path);
+    if (why) out.push({ path, why });
+  }
+  return out;
 }
 function decodedBytes(file2) {
   if (file2.encoding === "utf8") return new TextEncoder().encode(file2.data).length;
@@ -21212,7 +21265,7 @@ function validateBundle(input2) {
       continue;
     }
     if (!isContentPath(file2.path)) {
-      issues.push(`${file2.path} isn't one of an agent's own files (the manifest, intake.md, specialist/ and test-briefs/).`);
+      issues.push(`${file2.path} can't be sent: ${contentPathProblem(file2.path) ?? "its path is too long"}.`);
       continue;
     }
     if (seen.has(file2.path)) issues.push(`${file2.path} is listed twice.`);
@@ -21266,7 +21319,7 @@ function imageSources(dockerfile) {
   }
   return sources.length > 0 ? sources : null;
 }
-var NOT_CODE = /^(node_modules|\.git|\.guild|guild-kit|out|dist|\.claude|material)(\/|$)/;
+var NOT_CODE = /^(node_modules|\.git|\.guild|guild-kit|out|dist|\.claude|material|specialist|test-briefs)(\/|$)/;
 function codePaths(paths, dockerfile) {
   const sources = imageSources(dockerfile);
   if (!sources) return null;
@@ -21302,19 +21355,56 @@ async function fingerprintCode(files) {
   return sha256Hex(new TextEncoder().encode(lines));
 }
 
+// src/template-code.ts
+var TEMPLATE_CODE = /* @__PURE__ */ new Map([
+  ["250825b3ae96a13b1b20ea09bca5039d4621704e6f0d041217a2643243b21246", "af128f1 2026-11-04"],
+  ["bab231937dd07fd7f93d791fa2ef43a2e58a9fca64666bf12e30bfad19ce9d17", "39b5c98 2026-11-09"],
+  ["192057526beaba79bff1bfe407018ea48c4ce8d57d34236c3be58a9cf6dbce24", "973ffc2 2026-11-09"],
+  ["c103c9474b2457a1973b76f8e7a8bace86c4b31a9a2bd18db7eb0d9fbc5694ed", "951a7f9 2026-11-11"],
+  ["6b41a25433ed385b3569a198c94a8131a61853ca8931cddec2300c64621f908b", "e82bdbf 2026-11-11"],
+  ["e80e843833da9785ce6749da89ab87b2afffc71cdd4d2693880fa80556633cd8", "ceebf45 2026-11-11"],
+  ["846846e71915c167e3eb416004271f777a9deca8143b8a84c96d5f291b7cf8fe", "a28a8f8 2026-11-12"],
+  ["00641b887ae24b9215b8f8dd38b22c546276a2c6f750c4650dce3a87a18b0eeb", "d6d4e24 2026-11-20"],
+  ["aec6528d9e124095a85e8f5baaf663db6357cd6165ddbe29dc11aa635cd9e3d4", "213001b 2026-11-20"],
+  ["01d39e61e2332e0aa1169267f3d6086d32266adc28f9b4031a27120883a2e1e0", "61da2ae 2026-11-20"],
+  ["667431082d7669511130ee00cbd17709981238912d29ee52ddec5e4af37bd9bb", "f70097d 2026-11-20"],
+  ["4d7537a66754d3d32ce4d20261db761510bf318bbe5b70f6806293f446d61247", "24781bc 2026-11-20"],
+  ["1cc21a7229d54e1a46cd09086627755524fcb532f1b2ab77cc32bfa3e40f58eb", "e71056f 2026-11-20"],
+  ["0050cdac867ae19090c3f4521ab725aaed5c447eebd429d1c940ea7478e2a06e", "bedbe79 2026-11-20"],
+  ["27da284ae11e0968550b2477c228e444afb42380291a722f1f987add8181929b", "2727dd8 2026-11-22"],
+  ["7a11cb8d649ba90a89a1227699230d2ea9a5dd72b1dbca0468f9ec91d0e1aaab", "067d8e7 2026-11-22"]
+]);
+
 // src/content-files.ts
 var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", ".guild", "guild-kit", "out", "dist", ".claude", "material"]);
-function walk(root, dir2 = root, out = []) {
+var SKIP_ANYWHERE = /* @__PURE__ */ new Set(["node_modules", ".git"]);
+function walk(root, dir2 = root, out = [], skipped = []) {
   if (!existsSync(dir2)) return out;
   for (const entry of readdirSync(dir2, { withFileTypes: true }).sort((a, b) => a.name < b.name ? -1 : 1)) {
     const path = join(dir2, entry.name);
     if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name)) walk(root, path, out);
+      const top = dir2 === root;
+      if (SKIP_ANYWHERE.has(entry.name) || top && SKIP_DIRS.has(entry.name)) {
+        if (!top) skipped.push(`${relative(root, path).split("\\").join("/")}/`);
+        continue;
+      }
+      walk(root, path, out, skipped);
     } else if (entry.isFile() && entry.name !== ".DS_Store") {
       out.push(relative(root, path).split("\\").join("/"));
     }
   }
   return out;
+}
+function leftOutFromDir(agentDir2) {
+  const skipped = [];
+  const paths = walk(agentDir2, agentDir2, [], skipped);
+  const folders = skipped.filter((path) => path.startsWith("specialist/") || path.startsWith("test-briefs/")).map((path) => ({ path, why: path.endsWith("node_modules/") ? "installed packages aren't sent: Guild's runner has its own, and a skill's scripts use those" : "git's own files aren't sent" }));
+  return [...folders, ...leftOutContent(paths)];
+}
+function leftOutLines(leftOut, shown = 12) {
+  const lines = leftOut.slice(0, shown).map((item) => `  ${item.path}: ${item.why}`);
+  if (leftOut.length > shown) lines.push(`  \u2026 and ${leftOut.length - shown} more`);
+  return lines;
 }
 function contentFile(path, bytes) {
   try {
@@ -21330,13 +21420,32 @@ function bundleFromDir(agentDir2) {
 }
 async function codeFingerprint(agentDir2) {
   if (!existsSync(join(agentDir2, "Dockerfile"))) return null;
-  const files = codePaths(walk(agentDir2), readFileSync(join(agentDir2, "Dockerfile"), "utf8"));
+  const paths = walk(agentDir2).filter((path) => !path.split("/").slice(0, -1).some((segment) => SKIP_DIRS.has(segment)));
+  const files = codePaths(paths, readFileSync(join(agentDir2, "Dockerfile"), "utf8"));
   if (!files) return null;
   const present = files.filter((path) => existsSync(join(agentDir2, path)) && statSync(join(agentDir2, path)).isFile());
   return {
     fingerprint: await fingerprintCode(present.map((path) => ({ path, bytes: new Uint8Array(readFileSync(join(agentDir2, path))) }))),
     files: present
   };
+}
+async function agentKind(agentDir2, declared, runnerFingerprints2 = []) {
+  if (declared === "pro") return { kind: "pro", declared: true };
+  const code = await codeFingerprint(agentDir2);
+  const templateCode = Boolean(code && (TEMPLATE_CODE.has(code.fingerprint) || new Set(runnerFingerprints2).has(code.fingerprint)));
+  if (declared === "standard") return { kind: "standard", declared: true, templateCode };
+  if (!code || templateCode) return { kind: "standard", declared: false, templateCode };
+  return { kind: null, codeFiles: code.files };
+}
+function undeclaredKindMessage(codeFiles) {
+  const shown = codeFiles.filter((path) => path !== "Dockerfile").slice(0, 6);
+  return [
+    "This folder has code of its own, and guild.manifest.json doesn't say which kind of agent it is.",
+    `  The code: ${shown.join(", ")}${codeFiles.length - 1 > shown.length ? ` and ${codeFiles.length - 1 - shown.length} more` : ""}.`,
+    "  Add one of these to guild.manifest.json:",
+    '  "kind": "standard"   Guild runs your skills on its shared runner, and ignores this code.',
+    `  "kind": "pro"        A Guild Pro agent: Guild builds this code into the agent's own image.`
+  ].join("\n");
 }
 
 // src/check.ts
@@ -21574,15 +21683,29 @@ var WATCH = [
   },
   {
     pattern: /\b(pip3?|npm|npx|yarn|pnpm|apt(-get)?|brew)\s+(install|add|i)\b/,
-    message: "installs something while it works. Guild's runner has no internet for installing: Python 3 and its common libraries are there already, and anything else needs code of your own."
+    message: "installs something while it works. Guild's runner has no internet for installing: Python 3 and its common libraries are there already, and anything else needs a Guild Pro agent, with code of its own (kind: pro in the manifest)."
   },
   {
     // Programs, not words: "scratched latex" is a material, pdflatex is a program.
     // The runner has Playwright with a headless Chromium (GLD-267), so those aren't flagged.
     pattern: /\b(soffice|libreoffice|pandoc|ffmpeg|imagemagick|puppeteer|wkhtmltopdf|pdflatex|xelatex|latexmk)\b/i,
-    message: `uses {match}, which Guild's shared runner doesn't have. It has ${RUNNER_TOOLS_SUMMARY}; anything else needs code of your own.`
+    message: `uses {match}, which Guild's shared runner doesn't have. It has ${RUNNER_TOOLS_SUMMARY}; anything else needs a Guild Pro agent, with code of its own (kind: pro in the manifest).`
   }
 ];
+var INTERNET = 0;
+var NEGATED = /\b(no|not|without|lacks?|isn'?t|aren'?t|doesn'?t (have|ship|include)|don'?t (have|need)|never|instead of)\b[^.\n]{0,24}$/i;
+function firstUnnegated(pattern, text) {
+  const global = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`);
+  for (const match of text.matchAll(global)) {
+    const lineStart = text.lastIndexOf("\n", match.index) + 1;
+    if (!NEGATED.test(text.slice(lineStart, match.index))) return match[0];
+  }
+  return null;
+}
+function callsOnlyDeclaredHosts(text, declared) {
+  const hosts = [...text.matchAll(/https?:\/\/([a-z0-9][a-z0-9.-]*\.[a-z]{2,})/gi)].map((match) => match[1].toLowerCase());
+  return hosts.length > 0 && hosts.every((host) => declared.has(host));
+}
 var PROGRAM_NAMES = {
   soffice: "LibreOffice",
   libreoffice: "LibreOffice",
@@ -21595,7 +21718,7 @@ var PROGRAM_NAMES = {
   xelatex: "LaTeX",
   latexmk: "LaTeX"
 };
-function skillIssues(files) {
+function skillIssues(files, declaredHosts = []) {
   const issues = [];
   const skillDocs = files.filter((file2) => SKILL_FILE.test(file2.path));
   const folders = new Set(files.map((file2) => /^specialist\/skills\/([^/]+)\//.exec(file2.path)?.[1]).filter(Boolean));
@@ -21622,12 +21745,31 @@ function skillIssues(files) {
       issues.push({ level: "warn", path: file2.path, message: "is very long. Move detail into other files in the skill's folder, and point to them from SKILL.md." });
     }
   }
+  const found = /* @__PURE__ */ new Map();
+  const declared = new Set([...declaredHosts].map((host) => host.toLowerCase()));
   for (const file2 of files) {
     if (!file2.path.startsWith("specialist/skills/") || /\/README\.md$/i.test(file2.path)) continue;
-    for (const { pattern, message } of WATCH) {
-      const match = pattern.exec(file2.text)?.[0];
-      if (match) issues.push({ level: "warn", path: file2.path, message: message.replace("{match}", PROGRAM_NAMES[match.toLowerCase()] ?? match) });
+    const folder = /^specialist\/skills\/[^/]+\//.exec(file2.path)?.[0] ?? file2.path;
+    for (const [index, { pattern, message }] of WATCH.entries()) {
+      const match = firstUnnegated(pattern, file2.text);
+      if (!match) continue;
+      if (index === INTERNET && callsOnlyDeclaredHosts(file2.text, declared)) continue;
+      const text = message.replace("{match}", PROGRAM_NAMES[match.toLowerCase()] ?? match);
+      const key = `${folder}\0${text}`;
+      const entry = found.get(key) ?? { message: text, paths: [] };
+      entry.paths.push(file2.path);
+      found.set(key, entry);
     }
+  }
+  for (const [key, { message, paths }] of found) {
+    if (paths.length === 1) {
+      issues.push({ level: "warn", path: paths[0], message });
+      continue;
+    }
+    const folder = key.split("\0")[0];
+    const names2 = paths.map((path) => path.slice(folder.length));
+    const shown = names2.slice(0, 2).join(", ") + (names2.length > 2 ? ` and ${names2.length - 2} more` : "");
+    issues.push({ level: "warn", path: folder, message: message.replace(/^([^,.]+)/, `$1 in ${paths.length} files (${shown})`) });
   }
   return issues;
 }
@@ -21818,8 +21960,26 @@ function checkInterface(ctx) {
   }
 }
 var FILE_PART = { "specialist/method.md": "How it does the work", "specialist/rubric.md": "How the work is checked" };
+function checkKindAndContent(ctx) {
+  const kind = ctx.kind;
+  if (kind?.kind === null) {
+    ctx.add("fail", "When you submit", undeclaredKindMessage(kind.codeFiles).split("\n").map((line) => line.trim()).join(" "));
+  } else if (kind?.kind === "pro") {
+    ctx.add("pass", "When you submit", "A Guild Pro agent: Guild builds the code in this folder into the agent's own image.");
+  } else if (kind?.kind === "standard") {
+    ctx.add(
+      "pass",
+      "When you submit",
+      `A standard agent: Guild runs your skills on its shared runner${kind.templateCode ? ". The copy of the template's code in this folder isn't used on Guild and isn't sent" : ""}.`
+    );
+  }
+  if (kind?.kind === "pro") return;
+  const leftOut = leftOutFromDir(ctx.dir);
+  for (const item of leftOut.slice(0, 10)) ctx.add("warn", "When you submit", `${item.path} won't be sent with your agent, so it won't have it on Guild: ${item.why}.`);
+  if (leftOut.length > 10) ctx.add("warn", "When you submit", `\u2026 and ${leftOut.length - 10} more files in your agent's folders that won't be sent.`);
+}
 function checkSpecialist(ctx) {
-  if (!existsSync3(join3(ctx.dir, "Dockerfile"))) ctx.add("fail", "Guild's rules", "There's no Dockerfile. Guild builds your agent's image from it.");
+  if (ctx.kind?.kind === "pro" && !existsSync3(join3(ctx.dir, "Dockerfile"))) ctx.add("fail", "Guild's rules", "There's no Dockerfile. Guild builds a Pro agent's image from it.");
   const m = ctx.manifest;
   const pkg = readText(join3(ctx.dir, "package.json")) ?? "";
   if (m && ["lite", "basic"].includes(m.limits.instance) && pkg.includes("@anthropic-ai/claude-agent-sdk")) {
@@ -21857,7 +22017,9 @@ function checkSpecialist(ctx) {
     const text = readText(join3(skillsDir, file2));
     return text === null ? [] : [{ path: `specialist/skills/${file2}`, text }];
   }) : [];
-  for (const issue2 of skillIssues(skillFiles)) ctx.add(issue2.level, "How it does the work", `${issue2.path} ${issue2.message}`);
+  for (const issue2 of skillIssues(skillFiles, ctx.manifest?.network.hosts.map((entry) => entry.host) ?? [])) {
+    ctx.add(issue2.level, "How it does the work", `${issue2.path} ${issue2.message}`);
+  }
   for (const skill of skills) {
     if (skill === TEMPLATE_PLACEHOLDERS.skill) ctx.add("open", "How it does the work", `specialist/skills/${skill} is the template's example skill. Replace it with your own know-how, or delete it.`);
   }
@@ -21951,8 +22113,9 @@ function checkKeysAndHosts(ctx) {
     if (IGNORED_HOSTS.test(host) || hosts.has(host) || host === "api.anthropic.com") continue;
     ctx.add("warn", "Guild's rules", `${path} mentions https://${host}, which isn't under \`network.hosts\`. If the agent calls it, Guild blocks the call: declare it with a plain \`purpose\`.`);
   }
+  const skillText = ctx.files.filter((file2) => file2.startsWith("specialist/") && !/\.(png|jpe?g|gif|webp|pdf|zip|woff2?|ttf|otf|mp4|ico)$/i.test(file2)).map((file2) => readText(join3(ctx.dir, file2)) ?? "").join("\n");
   for (const entry of m.network.hosts) {
-    if (!called.has(entry.host.toLowerCase()) && !allCode.includes(entry.host) && !connected.has(entry.host)) {
+    if (!called.has(entry.host.toLowerCase()) && !allCode.includes(entry.host) && !skillText.includes(entry.host) && !connected.has(entry.host)) {
       ctx.add("tip", "Guild's rules", `${entry.host} is declared, but the code doesn't mention it. Remove it if the agent doesn't call it.`);
     }
   }
@@ -22141,12 +22304,13 @@ var MANUAL_CHECKS = [
   ["Only you can check", "When the work can't be done well, the agent fails with a clear reason rather than delivering something weak."],
   ["Guild's rules", "If you've changed the code or the Dockerfile: it installs everything at build time, and the image builds for linux/amd64 (Guild's machines)."]
 ];
-function checkAgent(agentDir2) {
+function checkAgent(agentDir2, options = {}) {
   const findings = [];
   const files = walk2(agentDir2);
   const sources = imageSources(readText(join3(agentDir2, "Dockerfile")));
   const ctx = {
     dir: agentDir2,
+    kind: options.kind ?? null,
     raw: null,
     settings: null,
     manifest: null,
@@ -22162,6 +22326,7 @@ function checkAgent(agentDir2) {
   checkListing(ctx);
   checkInterface(ctx);
   checkSpecialist(ctx);
+  checkKindAndContent(ctx);
   checkModels(ctx);
   checkKeysAndHosts(ctx);
   checkSecrets(ctx);
@@ -22370,16 +22535,28 @@ async function report(agentDir2, kind, data) {
 // src/creator-commands.ts
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync as existsSync6, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync6, rmSync } from "node:fs";
-import { hostname as hostname4, tmpdir, userInfo as userInfo2 } from "node:os";
+import { homedir as homedir2, hostname as hostname4, tmpdir, userInfo as userInfo2 } from "node:os";
 import { join as join6 } from "node:path";
 function fail(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
 }
+function styled(stream) {
+  return Boolean(stream.isTTY) && !process.env.NO_COLOR && process.env.TERM !== "dumb";
+}
+var bold = (text) => styled(process.stdout) ? `\x1B[1m${text}\x1B[22m` : text;
+var dim = (text) => styled(process.stdout) ? `\x1B[2m${text}\x1B[22m` : text;
+function loginCommandFor(env) {
+  return env === "staging" ? "guild login" : `guild login --env ${env}`;
+}
+function shortPath(path) {
+  const home = homedir2();
+  return path.startsWith(home + "/") ? `~${path.slice(home.length)}` : path;
+}
 function requireLogin(env) {
   const login = loadLogin(env);
-  if (!login) fail(`You're not signed in to ${env}. Run \`guild login --env ${env}\`.`);
-  if (Date.parse(login.expiresAt) < Date.now()) fail(`Your ${env} sign-in has expired. Run \`guild login --env ${env}\`.`);
+  if (!login) fail(`You're not signed in to ${env}. Run \`${loginCommandFor(env)}\`.`);
+  if (Date.parse(login.expiresAt) < Date.now()) fail(`Your ${env} sign-in has expired. Run \`${loginCommandFor(env)}\`.`);
   return login;
 }
 async function loginCommand(env) {
@@ -22392,12 +22569,18 @@ async function loginCommand(env) {
   });
   if (!started.ok) fail(`Could not start signing in (${started.status}): ${await started.text()}`);
   const { deviceCode, userCode, verificationUrl, expiresAt, intervalSeconds } = await started.json();
-  console.log(`
-  Your code: ${userCode}
-`);
-  console.log(`  Approve it in your browser: ${verificationUrl}
-`);
-  if (process.platform === "darwin") spawn("open", [verificationUrl], { stdio: "ignore", detached: true }).unref();
+  const minutes = Math.max(1, Math.round((Date.parse(expiresAt) - Date.now()) / 6e4));
+  const opened = process.platform === "darwin";
+  console.log("");
+  console.log(`  ${bold("Sign in to Guild")} ${dim(`(${env})`)}`);
+  console.log("");
+  console.log(`  ${dim("Your code")}   ${bold(userCode)}`);
+  console.log("");
+  console.log(opened ? "  We've opened this link in your browser. Check the code matches, then approve:" : "  Open this link, check the code matches, then approve:");
+  console.log(`  ${verificationUrl}`);
+  console.log("");
+  console.log(dim(`  Waiting for approval. The code works for ${minutes} minutes.`));
+  if (opened) spawn("open", [verificationUrl], { stdio: "ignore", detached: true }).unref();
   while (Date.now() < Date.parse(expiresAt)) {
     await new Promise((resolve3) => setTimeout(resolve3, intervalSeconds * 1e3));
     const polled = await fetch(`${base}/api/cli/login/token`, {
@@ -22407,6 +22590,10 @@ async function loginCommand(env) {
     });
     if (polled.status === 202 || polled.status === 429) continue;
     const result = await polled.json().catch(() => ({}));
+    if (result.status === "denied" || result.status === "expired") console.error("");
+    if (result.status === "denied") fail(`Sign-in refused in the browser. Nothing was saved.
+  To sign in after all, run \`${loginCommandFor(env)}\`.`);
+    if (result.status === "expired") fail(`The code expired before it was approved. Run \`${loginCommandFor(env)}\` for a new one.`);
     if (result.status !== "issued" || !result.token) fail(result.error ?? `Signing in failed (${polled.status}).`);
     const path = saveLogin(env, {
       platformUrl: base,
@@ -22415,10 +22602,13 @@ async function loginCommand(env) {
       expiresAt: result.expiresAt,
       creator: result.creator
     });
-    console.log(`\u2713 Signed in to ${env} as ${result.creator.name}. Token ${result.prefix} saved to ${path}.`);
+    console.log("");
+    console.log(`\u2713 ${bold("Approved.")} Signed in to ${env} as ${result.creator.name}.`);
+    console.log(dim(`  Token ${result.prefix} saved to ${shortPath(path)}`));
+    console.log(`  Next: \`guild submit\` sends an agent for review; \`guild whoami\` shows who you are.`);
     return;
   }
-  fail("The code expired before it was approved. Run `guild login` again.");
+  fail(`The code expired before it was approved. Run \`${loginCommandFor(env)}\` for a new one.`);
 }
 async function whoamiCommand(env) {
   const login = requireLogin(env);
@@ -22428,17 +22618,20 @@ async function whoamiCommand(env) {
     "/api/cli/whoami"
   );
   if (status !== 200) fail(body.error ?? `whoami failed (${status}).`);
-  console.log(`${body.email} publishing as ${body.creator.name} on ${env} (token ${login.prefix}, expires ${login.expiresAt.slice(0, 10)})`);
+  const expires = new Date(login.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  console.log(`Signed in to ${env} as ${body.email}`);
+  console.log(`  ${dim("Publishing as")}  ${body.creator.name}`);
+  console.log(`  ${dim("Token")}          ${login.prefix}, until ${expires}`);
 }
 async function logoutCommand(env) {
   const login = loadLogin(env);
   if (!login) {
-    console.log(`Not signed in to ${env}.`);
+    console.log(`Not signed in to ${env}. To sign in, run \`${loginCommandFor(env)}\`.`);
     return;
   }
   const { status } = await platformRequest(login, "POST", "/api/cli/logout");
   forgetLogin(env);
-  console.log(status === 200 ? `\u2713 Signed out of ${env}; token ${login.prefix} revoked.` : `\u2713 Signed out of ${env} on this machine.`);
+  console.log(status === 200 ? `\u2713 Signed out of ${env}. Token ${login.prefix} revoked.` : `\u2713 Signed out of ${env} on this machine. Guild couldn't be reached to revoke token ${login.prefix}.`);
 }
 var MAX_TEST_BRIEFS2 = 5;
 function keysNote(missing) {
@@ -22563,12 +22756,16 @@ function uploadWithWrangler(agentDir2, env, slug2, version2) {
   if (!repository || !digest) fail("The upload finished but wrangler didn't report the image's repository and digest.");
   return { repository, digest };
 }
-async function matchingRunner(login, agentDir2) {
-  const code = await codeFingerprint(agentDir2);
-  if (!code) return null;
+async function runnerFingerprints(login) {
   const listed = await platformRequest(login, "GET", "/api/cli/runners").catch(() => null);
-  if (!listed || listed.status !== 200) return null;
-  return listed.body.runners?.find((runner) => runner.codeFingerprint === code.fingerprint)?.name ?? null;
+  if (!listed || listed.status !== 200) return [];
+  return (listed.body.runners ?? []).map((runner) => runner.codeFingerprint);
+}
+function sayLeftOut(agentDir2) {
+  const leftOut = leftOutFromDir(agentDir2);
+  if (leftOut.length === 0) return;
+  console.log(`! ${leftOut.length} file${leftOut.length === 1 ? "" : "s"} in your agent's folders won't be sent, so the agent won't have ${leftOut.length === 1 ? "it" : "them"} on Guild:`);
+  for (const line of leftOutLines(leftOut)) console.log(line);
 }
 async function submitCommand(agentDir2, env, options) {
   const login = requireLogin(env);
@@ -22586,15 +22783,24 @@ async function submitCommand(agentDir2, env, options) {
     const result = validateBrief(manifest, test.brief);
     if (!result.ok) fail(`test-briefs/${test.name}.json doesn't match the manifest's inputs: ${result.issues.join("; ")}`);
   }
-  const runner = options.image ? null : await matchingRunner(login, agentDir2);
+  const kind = await agentKind(agentDir2, manifest.kind, await runnerFingerprints(login));
+  if (options.image && kind.kind === "standard" && kind.declared) {
+    fail(`guild.manifest.json says "kind": "standard", so there's no image to build. Remove --image, or say "kind": "pro".`);
+  }
   let body;
-  if (runner) {
+  if (kind.kind === "standard" && !options.image) {
+    sayLeftOut(agentDir2);
     const bundle = validateBundle(bundleFromDir(agentDir2));
     if (!bundle.ok) fail(`This agent's files aren't ready to submit:
   ${bundle.issues.join("\n  ")}`);
-    console.log(`\xB7 Your code is Guild's runner ${runner}, unchanged: submitting your agent's own files only (${bundle.bundle.files.length} files, no image to build)`);
-    body = { content: bundle.bundle, runner };
+    console.log(
+      `\xB7 A standard agent: submitting its own files (${bundle.bundle.files.length}), which Guild runs on its shared runner${kind.templateCode ? ". The template's code in this folder isn't needed and isn't sent" : ""}`
+    );
+    body = { content: bundle.bundle };
+  } else if (kind.kind === null && !options.image) {
+    fail(undeclaredKindMessage(kind.codeFiles));
   } else {
+    console.log("\xB7 A Guild Pro agent: building its code into its own image");
     const { repository, digest } = options.uploadWithWrangler ? uploadWithWrangler(agentDir2, env, manifest.slug, manifest.version) : await uploadWithGuildCredentials(login, agentDir2, env, manifest.slug, manifest.version);
     body = { manifest: raw, imageRef: `${repository}@${digest}`, testBriefs };
   }
@@ -22791,7 +22997,6 @@ async function tryOne(login, agentDir2, input2) {
   if (!checked.ok) fail2(`${shown} doesn't match the brief's fields: ${checked.issues.join("; ")}`);
   const form = new FormData();
   form.set("content", new Blob([input2.content], { type: "application/json" }), "content.json");
-  form.set("runner", input2.runner);
   form.set("brief", JSON.stringify(brief));
   for (const path of input2.files) {
     if (!existsSync8(path) || !statSync3(path).isFile()) fail2(`File ${path} not found.`);
@@ -22896,24 +23101,24 @@ async function tryCommand(agentDir2, options) {
     const { manifest } = loadManifest(agentDir2);
     const briefs = chooseBriefs(agentDir2, options);
     if (briefs.length > 1 && options.files.length > 0) fail2("--file goes with --brief: test briefs carry no files.");
-    const runner = await matchingRunner(login, agentDir2);
-    if (!runner) {
-      fail2(
-        "This agent has code of its own (or this Guild has no shared runner yet), so it can't be tried on Guild from its files. Run it on your machine with `npm run guild -- run --brief <file>`, which needs Docker."
-      );
+    const kind = await agentKind(agentDir2, manifest.kind, await runnerFingerprints(login));
+    if (kind.kind === null) fail2(undeclaredKindMessage(kind.codeFiles));
+    if (kind.kind === "pro") {
+      fail2("This is a Guild Pro agent, with code of its own, so it can't be tried on Guild from its files. Run it on your machine with `npm run guild -- run --brief <file>`, which needs Docker.");
     }
+    sayLeftOut(agentDir2);
     const bundle = validateBundle(bundleFromDir(agentDir2));
     if (!bundle.ok) fail2(`This agent's files aren't ready to try:
   ${bundle.issues.join("\n  ")}`);
     const content = JSON.stringify(bundle.bundle);
-    console.log(`\xB7 Your code is Guild's runner ${runner}, unchanged: sending your agent's own files (${bundle.bundle.files.length})`);
+    console.log(`\xB7 Sending your agent's own files (${bundle.bundle.files.length}) to run on Guild's shared runner`);
     if (!options.brief) {
       const others = testBriefPaths(agentDir2).length - briefs.length;
       if (others > 0) console.log(`\xB7 Trying ${relative3(agentDir2, briefs[0])}. Pass --all for every test brief, or --brief <file> for another.`);
     }
     const outcomes = [];
     for (const briefPath of briefs) {
-      outcomes.push(await tryOne(login, agentDir2, { runner, content, manifest, briefPath, files: options.files, answers: options.answers }));
+      outcomes.push(await tryOne(login, agentDir2, { content, manifest, briefPath, files: options.files, answers: options.answers }));
     }
     if (briefs.length > 1) console.log(`
 ${outcomes.filter((outcome) => outcome === "completed").length} of ${briefs.length} completed.`);
@@ -22931,7 +23136,7 @@ ${outcomes.filter((outcome) => outcome === "completed").length} of ${briefs.leng
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
 var GATEWAY_FILE = existsSync9(join9(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-20 (3fa5759)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-23 (0ee102b)" : "development (run from the Guild repository)";
 function fail3(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
@@ -22973,9 +23178,33 @@ function docker2(args, options = {}) {
   }
   return result.stdout.trim();
 }
-function validateCommand(agentDir2) {
+function declaredKind(agentDir2) {
+  try {
+    const kind = JSON.parse(readFileSync9(join9(agentDir2, "guild.manifest.json"), "utf8")).kind;
+    return AGENT_KINDS.includes(kind) ? kind : void 0;
+  } catch {
+    return void 0;
+  }
+}
+async function validateCommand(agentDir2) {
   const manifest = loadManifest2(agentDir2);
   console.log(`\u2713 ${manifest.name} ${manifest.version} is valid.`);
+  const kind = await agentKind(agentDir2, manifest.kind);
+  if (kind.kind === null) {
+    console.error(`\u2717 ${undeclaredKindMessage(kind.codeFiles)}`);
+    process.exitCode = 1;
+  } else if (kind.kind === "pro") {
+    console.log("\u2713 A Guild Pro agent: Guild builds this folder's code into its own image.");
+  } else {
+    console.log(`\u2713 A standard agent: Guild runs its skills on its shared runner${kind.templateCode ? " (the template's code in this folder isn't used on Guild)" : ""}.`);
+    const leftOut = leftOutFromDir(agentDir2);
+    if (leftOut.length > 0) {
+      console.log(`! ${leftOut.length} file${leftOut.length === 1 ? "" : "s"} in your agent's folders won't be sent, so the agent won't have ${leftOut.length === 1 ? "it" : "them"} on Guild:`);
+      for (const line of leftOutLines(leftOut)) console.log(line);
+    } else {
+      console.log("\u2713 Every file in specialist/ and test-briefs/ will be sent.");
+    }
+  }
   const dir2 = join9(agentDir2, "test-briefs");
   const briefs = existsSync9(dir2) ? readdirSync5(dir2).filter((name) => name.endsWith(".json")).sort() : [];
   let invalid = 0;
@@ -23058,10 +23287,12 @@ async function runCommand(agentDir2, options) {
     copyFileSync(path, join9(runDir, "inputs", name));
     return { name, contentType: "application/octet-stream", sizeBytes: statSync4(path).size };
   });
+  const tier = findTier(manifest, splitTier(brief).tier);
   const task = {
     taskId: randomUUID(),
     attempt: 1,
-    brief,
+    brief: briefWithTier(brief, tier?.id),
+    ...tier ? { tier } : {},
     files,
     budgetMicros: manifest.limits.budgetMicros,
     deadline: new Date(Date.now() + manifest.limits.deadlineSeconds * 1e3).toISOString()
@@ -23222,7 +23453,7 @@ async function checkCommand(agentDir2, options) {
     }
     console.log("");
   }
-  const readiness = checkAgent(agentDir2);
+  const readiness = checkAgent(agentDir2, { kind: await agentKind(agentDir2, declaredKind(agentDir2)) });
   const markdown = formatReadiness(readiness);
   mkdirSync4(join9(agentDir2, ".guild"), { recursive: true });
   writeFileSync4(join9(agentDir2, ".guild", "readiness.md"), markdown);
@@ -23274,7 +23505,7 @@ async function connectCommand(agentDir2, code, env) {
     console.log(`! This copy's manifest is for ${manifest.otherSlug}. To submit it as ${connected.agent.name}, change "slug" in guild.manifest.json to "${connected.agent.slug}".`);
   }
   if (existsSync9(join9(agentDir2, "guild.manifest.json"))) {
-    const readiness = checkAgent(agentDir2);
+    const readiness = checkAgent(agentDir2, { kind: await agentKind(agentDir2, declaredKind(agentDir2)) });
     await report(agentDir2, "check", checkReport(readiness));
   }
   console.log(`\xB7 Its progress shows in the Studio: ${connected.platformUrl}/studio/agents/${connected.agent.slug}`);
@@ -23365,7 +23596,7 @@ var [command, dir = "."] = values.help ? ["help"] : positionals;
 var agentDir = resolve2(dir);
 switch (command) {
   case "validate":
-    validateCommand(agentDir);
+    await validateCommand(agentDir);
     break;
   case "run":
     if (!values.brief) fail3("Pass --brief <file>.");
