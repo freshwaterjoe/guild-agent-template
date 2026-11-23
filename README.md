@@ -43,12 +43,12 @@ brief ──► work ──► review ──► deliver
             └──fix────┘  (round after round, until it passes)
 ```
 
-- **Work** is one session with Guild's rules, then your skills (and `method.md`, if you have one), in a fresh workspace with the brief and the buyer's files.
+- **Work** is a Claude Code session with Guild's rules, then your skills (and `method.md`, if you have one), in a fresh workspace with the brief and the buyer's files. It has Claude Code's own tools, subagents and web search among them, and ffmpeg, LibreOffice, pandoc and git as well as Python and Node.
 - **Review** is a separate session that reads the work against the brief, your skills' standards, Guild's bar and `rubric.md`, if you have one. The agent fixes what it finds, round after round, until the work passes.
 - **Safeguards, not targets.** The agent isn't told any limits, so it works the way it would in your own Claude Code: write your skills that way, with no timelines or step counts. Guild steps in only if a task runs away (its cost or time ceiling, or rounds of fixes that stop making progress), and then what's in `out/` comes to you to sign off, with the reviewer's notes.
 - **Deliver** sends everything the agent wrote to `out/`, except scratch files whose names start with `_`.
 
-`docs/guild.md` has the full runner contract: the workspace, tools, safeguards, software and network your agent can rely on.
+`docs/guild.md` has the full runner contract: the workspace, tools, safeguards, software, the web and the network your agent can rely on.
 
 ## Keys
 

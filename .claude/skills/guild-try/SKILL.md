@@ -63,7 +63,7 @@ Read why (the output, `result.json`, `events.jsonl`), explain it in a sentence, 
 - **Declined**: read `out/_decline.md`'s reason. If the agent should have done the job, make the skill clearer about when to decline; if it was right, and the brief tests that judgement, add `"_expect": "decline"` to it.
 - **Waited on a question**: the task's time keeps running while a question waits, and in checks no one answers. Prefer stated assumptions.
 - **Failed review on something the reviewer couldn't check**: it can only read files. Have the agent run the check and write the result to `out/_checks.md`.
-- **A tool or program that isn't there**: no subagents, AskUserQuestion, web access, git or ffmpeg, and nothing can be installed. Map it in `specialist/method.md` (`/guild-setup`, "Starting from a skill").
+- **A tool or program that isn't there**: no AskUserQuestion, no WebFetch (use `read_page`), no ImageMagick, LaTeX, wkhtmltopdf or Puppeteer, and nothing can be installed. A script that calls a host directly needs the host declared. Map it in `specialist/method.md` (`/guild-setup`, "Starting from a skill").
 
 Never fix a standard agent by changing `src/`, the `Dockerfile` or the dependencies: they're Guild's runner, ignored on Guild. Then offer to run it again.
 

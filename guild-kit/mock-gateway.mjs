@@ -1,4 +1,4 @@
-// Guild agent kit 2026-11-23 (cc27fe9). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-23 (32b0d14). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -16,6 +16,7 @@ import { pipeline } from "node:stream/promises";
 
 // src/protocol.ts
 var AGENT_PORT = 8080;
+var CHECK_ANSWER = "This is an automated check, so there's no buyer to answer. Make a sensible assumption, state it in the work, and carry on.";
 var STANDARD_TIME_CEILING_SECONDS = 3 * 60 * 60;
 var guildPaths = {
   events: (taskId) => `/v1/tasks/${taskId}/events`,
@@ -61,6 +62,7 @@ var PRICES = {
   },
   "claude-haiku-4-5": { input: 1e6, output: 5e6, cacheRead: 1e5 }
 };
+var WEB_SEARCH_MICROS = 1e4;
 var perToken = (tokens, microsPerMillion) => tokens * microsPerMillion / 1e6;
 function costFromUsage(model, usage) {
   const price = PRICES[model];
@@ -77,7 +79,7 @@ function costFromUsage(model, usage) {
   const outputRate = long ? price.longContextOutput : price.output;
   const cacheReadRate = long ? price.cacheRead * price.longContextInput / price.input : price.cacheRead;
   return Math.ceil(
-    perToken(input2, inputRate) + perToken(cacheWrite5m, inputRate * 1.25) + perToken(cacheWrite1h, inputRate * 2) + perToken(cacheRead, cacheReadRate) + perToken(output2, outputRate)
+    perToken(input2, inputRate) + perToken(cacheWrite5m, inputRate * 1.25) + perToken(cacheWrite1h, inputRate * 2) + perToken(cacheRead, cacheReadRate) + perToken(output2, outputRate) + (usage.server_tool_use?.web_search_requests ?? 0) * WEB_SEARCH_MICROS
   );
 }
 function usageFromResponse(text2, streamed) {
@@ -3729,15 +3731,15 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     const syms = normalized.symbolKeys;
     const doc = new Doc(["payload", "ctx"], { shape, inst, memo: memo2, syms });
     const parseStr = (k) => `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
-    const prefixStr = (id, k) => `
-          let ${id}_ab = false;
-          for (let i = 0; i < ${id}.issues.length; i++) {
-            const iss = ${id}.issues[i];
+    const prefixStr = (id2, k) => `
+          let ${id2}_ab = false;
+          for (let i = 0; i < ${id2}.issues.length; i++) {
+            const iss = ${id2}.issues[i];
             iss.path = iss.path ? [${k}, ...iss.path] : [${k}];
             payload.issues.push(iss);
-            if (iss.continue !== true) ${id}_ab = true;
+            if (iss.continue !== true) ${id2}_ab = true;
           }
-          if (${id}_ab && ctx && ctx.abortEarly) {
+          if (${id2}_ab && ctx && ctx.abortEarly) {
             payload.value = newResult;
             return payload;
           }`;
@@ -3751,34 +3753,34 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     for (const key of normalized.allKeys) {
       if (key === "__proto__")
         continue;
-      const id = ids[key];
+      const id2 = ids[key];
       const k = typeof key === "symbol" ? `syms[${syms.indexOf(key)}]` : esc(key);
       const isPresent = `${k} in input`;
       const schema = shape[key];
       const optin = schema?._zod?.optin;
       const isOptionalIn = optin !== void 0;
       const isOptionalOut = schema?._zod?.optout === "optional";
-      doc.write(`const ${id} = ${parseStr(k)};`);
+      doc.write(`const ${id2} = ${parseStr(k)};`);
       if (isOptionalIn && isOptionalOut) {
-        const assign = optin === "optional" ? `${id}_present` : `${id}.value !== undefined || ${id}_present`;
+        const assign = optin === "optional" ? `${id2}_present` : `${id2}.value !== undefined || ${id2}_present`;
         doc.write(`
-        const ${id}_present = ${isPresent};
-        if (!${id}.issues.length || ${id}_present) {
-          if (${id}.issues.length) {${prefixStr(id, k)}
+        const ${id2}_present = ${isPresent};
+        if (!${id2}.issues.length || ${id2}_present) {
+          if (${id2}.issues.length) {${prefixStr(id2, k)}
           }
 
           if (${assign}) {
-            newResult[${k}] = ${id}.value;
+            newResult[${k}] = ${id2}.value;
           }
         }
 
       `);
       } else if (!isOptionalIn) {
         doc.write(`
-        const ${id}_present = ${isPresent};
-        if (${id}.issues.length) {${prefixStr(id, k)}
+        const ${id2}_present = ${isPresent};
+        if (${id2}.issues.length) {${prefixStr(id2, k)}
         }
-        if (!${id}_present && !${id}.issues.length) {
+        if (!${id2}_present && !${id2}.issues.length) {
           payload.issues.push({
             code: "invalid_type",
             expected: "nonoptional",
@@ -3791,22 +3793,22 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
           }
         }
 
-        if (${id}_present) {
-          newResult[${k}] = ${id}.value;
+        if (${id2}_present) {
+          newResult[${k}] = ${id2}.value;
         }
 
       `);
       } else {
         doc.write(`
-        if (${id}.issues.length) {${prefixStr(id, k)}
+        if (${id2}.issues.length) {${prefixStr(id2, k)}
         }
       `);
         if (optin === "defaulted") {
-          doc.write(`newResult[${k}] = ${id}.value;`);
+          doc.write(`newResult[${k}] = ${id2}.value;`);
         } else {
           doc.write(`
-        if (${id}.value !== undefined || ${isPresent}) {
-          newResult[${k}] = ${id}.value;
+        if (${id2}.value !== undefined || ${isPresent}) {
+          newResult[${k}] = ${id2}.value;
         }
       `);
         }
@@ -3872,7 +3874,7 @@ var $ZodUnion = /* @__PURE__ */ $constructor("$ZodUnion", (inst, def) => {
   defineLazyInternal(inst, "optout", (zod) => zod.def.options.some((o) => o._zod.optout === "optional") ? "optional" : void 0);
   defineLazyInternal(inst, "values", (zod) => {
     if (zod.def.options.every((o) => o._zod.values)) {
-      return new Set(zod.def.options.flatMap((option) => Array.from(option._zod.values)));
+      return new Set(zod.def.options.flatMap((option2) => Array.from(option2._zod.values)));
     }
     return void 0;
   });
@@ -3890,8 +3892,8 @@ var $ZodUnion = /* @__PURE__ */ $constructor("$ZodUnion", (inst, def) => {
     }
     let async = false;
     const results = [];
-    for (const option of def.options) {
-      const result = option._zod.run({
+    for (const option2 of def.options) {
+      const result = option2._zod.run({
         value: payload.value,
         issues: []
       }, ctx);
@@ -3950,8 +3952,8 @@ var $ZodXor = /* @__PURE__ */ $constructor("$ZodXor", (inst, def) => {
     }
     let async = false;
     const results = [];
-    for (const option of def.options) {
-      const result = option._zod.run({
+    for (const option2 of def.options) {
+      const result = option2._zod.run({
         value: payload.value,
         issues: []
       }, ctx);
@@ -3976,24 +3978,24 @@ function getDiscriminatedOption(union2, value) {
     map2 = discriminatorMap(internals.def);
     internals.bag.optionsMap = map2;
   }
-  const option = map2.get(value);
-  if (option === null)
+  const option2 = map2.get(value);
+  if (option2 === null)
     throw new Error(`Ambiguous discriminator value "${String(value)}"`);
-  return option;
+  return option2;
 }
 function discriminatorMap(def) {
   const map2 = /* @__PURE__ */ new Map();
-  for (const option of def.options) {
-    const values = option._zod.propValues?.[def.discriminator];
+  for (const option2 of def.options) {
+    const values = option2._zod.propValues?.[def.discriminator];
     if (!values || values.size === 0)
-      throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(option)}"`);
+      throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(option2)}"`);
     for (const value of values) {
       if (map2.has(value)) {
         if (value !== void 0)
           throw new Error(`Duplicate discriminator value "${String(value)}"`);
         map2.set(value, null);
       } else {
-        map2.set(value, option);
+        map2.set(value, option2);
       }
     }
   }
@@ -4006,10 +4008,10 @@ var $ZodDiscriminatedUnion = /* @__PURE__ */ $constructor("$ZodDiscriminatedUnio
   defineLazyInternal(inst, "propValues", (zod) => {
     const propValues = {};
     let undefinedCount = 0;
-    for (const option of zod.def.options) {
-      const pv = option._zod.propValues;
+    for (const option2 of zod.def.options) {
+      const pv = option2._zod.propValues;
       if (!pv || Object.keys(pv).length === 0)
-        throw new Error(`Invalid discriminated union option at index "${zod.def.options.indexOf(option)}"`);
+        throw new Error(`Invalid discriminated union option at index "${zod.def.options.indexOf(option2)}"`);
       if (pv[zod.def.discriminator]?.has(void 0))
         undefinedCount++;
       for (const [k, v] of Object.entries(pv)) {
@@ -4025,8 +4027,8 @@ var $ZodDiscriminatedUnion = /* @__PURE__ */ $constructor("$ZodDiscriminatedUnio
       propValues[zod.def.discriminator]?.delete(void 0);
     return propValues;
   });
-  def.options.forEach((option, i) => {
-    const propShape = rawShape(option._zod.def);
+  def.options.forEach((option2, i) => {
+    const propShape = rawShape(option2._zod.def);
     if (propShape && !Object.prototype.hasOwnProperty.call(propShape, def.discriminator)) {
       throw new Error(`Invalid discriminated union option at index "${i}"`);
     }
@@ -5343,14 +5345,14 @@ var memo = {
     var _a3;
     (_a3 = inst._zod).deferred ?? (_a3.deferred = []);
     inst._zod.deferred.push(() => {
-      const base = inst._zod.parse;
+      const base2 = inst._zod.parse;
       const wrapped = (payload, ctx) => {
         if (ctx.direction !== "backward" && isBackEdge(ctx, payload.value))
           throw new $ZodCyclicError();
-        return base(payload, ctx);
+        return base2(payload, ctx);
       };
       inst._zod.parse = wrapped;
-      if (inst._zod.run === base)
+      if (inst._zod.run === base2)
         inst._zod.run = wrapped;
     });
   },
@@ -5362,15 +5364,15 @@ var memo = {
     let lastBucket;
     (_a3 = inst._zod).deferred ?? (_a3.deferred = []);
     inst._zod.deferred.push(() => {
-      const base = inst._zod.parse;
+      const base2 = inst._zod.parse;
       const wrapped = (payload, ctx) => {
         if (isRecursiveInst === void 0) {
           const walked = isRecursive(inst, /* @__PURE__ */ new Set(), false);
           if (walked === NONE) {
-            inst._zod.parse = base;
+            inst._zod.parse = base2;
             if (inst._zod.run === wrapped)
-              inst._zod.run = base;
-            return base(payload, ctx);
+              inst._zod.run = base2;
+            return base2(payload, ctx);
           }
           if (walked === PROVEN || rechecked)
             isRecursiveInst = true;
@@ -5379,7 +5381,7 @@ var memo = {
         }
         const input2 = payload.value;
         if (!isRef(input2))
-          return base(payload, ctx);
+          return base2(payload, ctx);
         let state = ctx[STATE];
         if (!state) {
           state = { buckets: /* @__PURE__ */ new WeakMap(), backEdges: void 0 };
@@ -5408,7 +5410,7 @@ var memo = {
         }
         handoff = bucket;
         const depth = open.length;
-        const result = base(payload, ctx);
+        const result = base2(payload, ctx);
         handoff = void 0;
         const entry = open.length > depth ? open.pop() : void 0;
         if (result instanceof Promise) {
@@ -5423,7 +5425,7 @@ var memo = {
         return result;
       };
       inst._zod.parse = wrapped;
-      if (inst._zod.run === base)
+      if (inst._zod.run === base2)
         inst._zod.run = wrapped;
     });
   }
@@ -9464,8 +9466,8 @@ function ko_default() {
 var capitalizeFirstCharacter = (text2) => {
   return text2.charAt(0).toUpperCase() + text2.slice(1);
 };
-function getUnitTypeFromNumber(number4) {
-  const abs = Math.abs(number4);
+function getUnitTypeFromNumber(number5) {
+  const abs = Math.abs(number5);
   const last = abs % 10;
   const last2 = abs % 100;
   if (last2 >= 11 && last2 <= 19 || last === 0)
@@ -13076,14 +13078,14 @@ function compileValidator(schema, parser) {
     return parser;
   }
 }
-function compile(schema, options) {
+function compile(schema, options2) {
   try {
     const parser = compileFn(schema);
     const clone2 = withParser(schema, parser);
     clone2._zod.bag.validator = compileValidator(schema, parser);
     return clone2;
   } catch (err) {
-    if (options?.strict)
+    if (options2?.strict)
       throw err;
     return schema;
   }
@@ -13143,7 +13145,7 @@ function installCompiledUserMethods(target, source, parser) {
     };
   }
 }
-function compileFn(schema, options) {
+function compileFn(schema, options2) {
   let recursive2 = true;
   try {
     recursive2 = isRecursiveSchema(schema);
@@ -13159,12 +13161,12 @@ function compileFn(schema, options) {
     definite: true
   };
   const doc = new Doc(["input"]);
-  const outputAccessor = generateCheck(doc, ctx, schema, "input", !options?.assertOnly);
+  const outputAccessor = generateCheck(doc, ctx, schema, "input", !options2?.assertOnly);
   doc.write(outputAccessor === null ? `return true;` : `return ${outputAccessor};`);
   const constantNames = ["INVALID", ...ctx.constants.keys()];
   const constantValues = [INVALID, ...ctx.constants.values()];
   const code = doc.content.join("\n");
-  const fullCode = options?.debug ? constantNames.length > 0 ? `// Constants: ${constantNames.join(", ")}
+  const fullCode = options2?.debug ? constantNames.length > 0 ? `// Constants: ${constantNames.join(", ")}
 ${code}` : code : "";
   const F = Function;
   const factoryCode = `return (input) => {
@@ -13177,7 +13179,7 @@ ${code}
   } catch (err) {
     throw new ZodCompileUnsupportedError(`this schema (generated code failed to evaluate: ${err.message})`);
   }
-  if (options?.debug) {
+  if (options2?.debug) {
     fn.code = fullCode;
   }
   fn.definite = ctx.definite;
@@ -14284,31 +14286,31 @@ function getTupleOptStart2(items, key) {
 }
 function generateUnionCheck(doc, ctx, schema, accessor) {
   const def = schema._zod.def;
-  const options = def.options;
+  const options2 = def.options;
   if (def.discriminator) {
     return generateDiscriminatedUnionCheck(doc, ctx, def, accessor);
   }
   if (def.inclusive === false) {
     throw new ZodCompileUnsupportedError("exclusive unions (z.xor)");
   }
-  if (options.length === 0) {
+  if (options2.length === 0) {
     doc.write("return INVALID;");
     return accessor;
   }
-  if (options.length === 1) {
-    return generateCheck(doc, ctx, options[0], accessor);
+  if (options2.length === 1) {
+    return generateCheck(doc, ctx, options2[0], accessor);
   }
-  const allLiterals = options.every((opt) => opt._zod.def.type === "literal" && !opt._zod.def.checks?.length);
+  const allLiterals = options2.every((opt) => opt._zod.def.type === "literal" && !opt._zod.def.checks?.length);
   if (allLiterals) {
-    const values = new Set(options.flatMap((opt) => opt._zod.def.values));
+    const values = new Set(options2.flatMap((opt) => opt._zod.def.values));
     const valuesConst = addConstant(ctx, values);
     doc.write(`if (!${valuesConst}.has(${accessor})) return INVALID;`);
     return accessor;
   }
   const outputVar = newVar(ctx);
   doc.write(`let ${outputVar};`);
-  for (let i = 0; i < options.length; i++) {
-    const opt = options[i];
+  for (let i = 0; i < options2.length; i++) {
+    const opt = options2[i];
     if (i === 0) {
       doc.write(`${outputVar} = (() => {`);
     } else {
@@ -14337,8 +14339,8 @@ function generateDiscriminatedUnionCheck(doc, ctx, def, accessor) {
   doc.write(`let ${outputVar};`);
   let firstBranch = true;
   const claimed = /* @__PURE__ */ new Set();
-  for (const option of def.options) {
-    const values = option._zod.propValues?.[def.discriminator];
+  for (const option2 of def.options) {
+    const values = option2._zod.propValues?.[def.discriminator];
     if (!values || values.size === 0) {
       throw new ZodCompileUnsupportedError("discriminated union option without static discriminator values");
     }
@@ -14352,7 +14354,7 @@ function generateDiscriminatedUnionCheck(doc, ctx, def, accessor) {
     const prefix = firstBranch ? "if" : "else if";
     doc.write(`${prefix} (${conditions.join(" || ")}) {`);
     doc.indented((d) => {
-      const branchOutput = generateCheck(d, ctx, option, accessor);
+      const branchOutput = generateCheck(d, ctx, option2, accessor);
       d.write(`${outputVar} = ${branchOutput};`);
     });
     doc.write(`}`);
@@ -15379,26 +15381,26 @@ function _array(Class2, element, params) {
   });
 }
 // @__NO_SIDE_EFFECTS__
-function _union(Class2, options, params) {
+function _union(Class2, options2, params) {
   return new Class2({
     type: "union",
-    options,
+    options: options2,
     ...normalizeParams(params)
   });
 }
-function _xor(Class2, options, params) {
+function _xor(Class2, options2, params) {
   return new Class2({
     type: "union",
-    options,
+    options: options2,
     inclusive: false,
     ...normalizeParams(params)
   });
 }
 // @__NO_SIDE_EFFECTS__
-function _discriminatedUnion(Class2, discriminator, options, params) {
+function _discriminatedUnion(Class2, discriminator, options2, params) {
   return new Class2({
     type: "union",
-    options,
+    options: options2,
     discriminator,
     ...normalizeParams(params)
   });
@@ -15834,26 +15836,26 @@ function extractDefs(ctx, schema) {
     return;
   const idToSchema = /* @__PURE__ */ new Map();
   for (const entry of ctx.seen.entries()) {
-    const id = ctx.metadataRegistry.get(entry[0])?.id;
-    if (id) {
-      const existing = idToSchema.get(id);
+    const id2 = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id2) {
+      const existing = idToSchema.get(id2);
       if (existing && existing !== entry[0]) {
-        throw new Error(`Duplicate schema id "${id}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
+        throw new Error(`Duplicate schema id "${id2}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
       }
-      idToSchema.set(id, entry[0]);
+      idToSchema.set(id2, entry[0]);
     }
   }
   const makeURI = (entry) => {
     const defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
     if (ctx.external) {
       const externalId = ctx.external.registry.get(entry[0])?.id;
-      const uriGenerator = ctx.external.uri ?? ((id2) => id2);
+      const uriGenerator = ctx.external.uri ?? ((id3) => id3);
       if (externalId) {
         return { ref: uriGenerator(externalId) };
       }
-      const id = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
-      entry[1].defId = id;
-      return { defId: id, ref: `${uriGenerator("__shared")}#/${defsSegment}/${encodeJSONPointerSegment(id)}` };
+      const id2 = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
+      entry[1].defId = id2;
+      return { defId: id2, ref: `${uriGenerator("__shared")}#/${defsSegment}/${encodeJSONPointerSegment(id2)}` };
     }
     const uriPrefix = `#`;
     const defUriPrefix = `${uriPrefix}/${defsSegment}/`;
@@ -15901,8 +15903,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         continue;
       }
     }
-    const id = ctx.metadataRegistry.get(entry[0])?.id;
-    if (id) {
+    const id2 = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id2) {
       extractToDef(entry);
       continue;
     }
@@ -15920,18 +15922,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     ctx.sharedDefsExtractedFor = ctx.external;
 }
 function compactTypeUnion(schema) {
-  const options = schema.anyOf;
-  if (!Array.isArray(options) || options.length === 0 || schema.type !== void 0)
+  const options2 = schema.anyOf;
+  if (!Array.isArray(options2) || options2.length === 0 || schema.type !== void 0)
     return;
   const types = [];
-  for (const option of options) {
-    if (!option || typeof option !== "object")
+  for (const option2 of options2) {
+    if (!option2 || typeof option2 !== "object")
       return;
-    compactTypeUnion(option);
-    const keys = Object.keys(option);
+    compactTypeUnion(option2);
+    const keys = Object.keys(option2);
     if (keys.length !== 1 || keys[0] !== "type")
       return;
-    const type = option.type;
+    const type = option2.type;
     for (const member of Array.isArray(type) ? type : [type]) {
       if (typeof member !== "string")
         return;
@@ -16135,10 +16137,10 @@ function finalize(ctx, schema) {
   } else {
   }
   if (ctx.external?.uri) {
-    const id = ctx.external.registry.get(schema)?.id;
-    if (!id)
+    const id2 = ctx.external.registry.get(schema)?.id;
+    if (!id2)
       throw new Error("Schema is missing an `id` property");
-    result.$id = ctx.external.uri(id);
+    result.$id = ctx.external.uri(id2);
   }
   assignProps(result, root.defId ? root.schema : root.def ?? root.schema);
   const rootMetaId = ctx.metadataRegistry.get(schema)?.id;
@@ -16221,8 +16223,8 @@ function isTransforming(_schema, _ctx) {
     return false;
   }
   if (def.type === "union") {
-    for (const option of def.options) {
-      if (isTransforming(option, ctx))
+    for (const option2 of def.options) {
+      if (isTransforming(option2, ctx))
         return true;
     }
     return false;
@@ -16628,14 +16630,14 @@ var objectProcessor = (schema, ctx, _json, params) => {
 var unionProcessor = (schema, ctx, json2, params) => {
   const def = schema._zod.def;
   const isExclusive = def.inclusive === false;
-  const options = def.options.map((x, i) => processSchema(x, ctx, {
+  const options2 = def.options.map((x, i) => processSchema(x, ctx, {
     ...params,
     path: [...params.path, isExclusive ? "oneOf" : "anyOf", i]
   }));
   if (isExclusive) {
-    json2.oneOf = options;
+    json2.oneOf = options2;
   } else {
-    json2.anyOf = options;
+    json2.anyOf = options2;
   }
 };
 var intersectionProcessor = (schema, ctx, json2, params) => {
@@ -16744,7 +16746,7 @@ function stringifyKeyNames(bySchema, json2, visited) {
   const values = json2.enum ?? (json2.const !== void 0 ? [json2.const] : void 0);
   if (!numericType && !values?.some((v) => typeof v === "number"))
     return json2;
-  const { minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf, format, id, ...rest } = json2;
+  const { minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf, format, id: id2, ...rest } = json2;
   if (rest.enum)
     rest.enum = rest.enum.map((v) => typeof v === "number" ? String(v) : v);
   else if (typeof rest.const === "number")
@@ -18249,10 +18251,10 @@ var ZodUnion = /* @__PURE__ */ $constructor("ZodUnion", (inst, def) => {
   inst._zod.processJSONSchema = (ctx, json2, params) => unionProcessor(inst, ctx, json2, params);
   inst.options = def.options;
 });
-function union(options, params) {
+function union(options2, params) {
   return new ZodUnion({
     type: "union",
-    options,
+    options: options2,
     ...util_exports.normalizeParams(params)
   });
 }
@@ -18262,10 +18264,10 @@ var ZodXor = /* @__PURE__ */ $constructor("ZodXor", (inst, def) => {
   inst._zod.processJSONSchema = (ctx, json2, params) => unionProcessor(inst, ctx, json2, params);
   inst.options = def.options;
 });
-function xor(options, params) {
+function xor(options2, params) {
   return new ZodXor({
     type: "union",
-    options,
+    options: options2,
     inclusive: false,
     ...util_exports.normalizeParams(params)
   });
@@ -18274,10 +18276,10 @@ var ZodDiscriminatedUnion = /* @__PURE__ */ $constructor("ZodDiscriminatedUnion"
   ZodUnion.init(inst, def);
   $ZodDiscriminatedUnion.init(inst, def);
 });
-function discriminatedUnion(discriminator, options, params) {
+function discriminatedUnion(discriminator, options2, params) {
   return new ZodDiscriminatedUnion({
     type: "union",
-    options,
+    options: options2,
     discriminator,
     ...util_exports.normalizeParams(params)
   });
@@ -19509,13 +19511,13 @@ function convertSchema(schema, ctx) {
   let baseSchema = convertBaseSchema(schema, ctx);
   const hasExplicitType = schema.type || schema.enum !== void 0 || schema.const !== void 0;
   if (schema.anyOf && Array.isArray(schema.anyOf)) {
-    const options = schema.anyOf.map((s) => convertSchema(s, ctx));
-    const anyOfUnion = z.union(options);
+    const options2 = schema.anyOf.map((s) => convertSchema(s, ctx));
+    const anyOfUnion = z.union(options2);
     baseSchema = hasExplicitType ? z.intersection(baseSchema, anyOfUnion) : anyOfUnion;
   }
   if (schema.oneOf && Array.isArray(schema.oneOf)) {
-    const options = schema.oneOf.map((s) => convertSchema(s, ctx));
-    const oneOfUnion = z.xor(options);
+    const options2 = schema.oneOf.map((s) => convertSchema(s, ctx));
+    const oneOfUnion = z.xor(options2);
     baseSchema = hasExplicitType ? z.intersection(baseSchema, oneOfUnion) : oneOfUnion;
   }
   if (schema.allOf && Array.isArray(schema.allOf)) {
@@ -19919,6 +19921,140 @@ function checkTrace(input2, detail) {
   return { ok: true, trace };
 }
 
+// src/questions.ts
+var QUESTION_LIMITS = {
+  /** The question text, as ask_buyer has always taken it. */
+  questionMin: 5,
+  questionMax: 500,
+  maxFields: 5,
+  labelMax: 80,
+  hintMax: 160,
+  optionLabelMax: 60,
+  optionHintMax: 120,
+  minOptions: 2,
+  maxOptions: 8,
+  textMax: 500,
+  longTextMax: 4e3,
+  linkMax: 2e3,
+  /** The widest a scale may run, so a dragged value is always one the buyer can see. */
+  scaleMaxSteps: 100,
+  scaleEndMax: 24
+};
+var L = QUESTION_LIMITS;
+var words = (max) => external_exports.string().trim().min(1).max(max);
+var id = external_exports.string().regex(/^[a-z][a-z0-9_]{0,31}$/, "A field id is 1 to 32 lowercase letters, digits or underscores, starting with a letter.");
+var base = { id, label: words(L.labelMax), hint: words(L.hintMax).optional() };
+var option = external_exports.union([
+  words(L.optionLabelMax),
+  external_exports.object({ label: words(L.optionLabelMax), hint: words(L.optionHintMax).optional() }).strict()
+]);
+var options = external_exports.array(option).min(L.minOptions).max(L.maxOptions);
+var textField = external_exports.object({ ...base, kind: external_exports.literal("text"), default: external_exports.string().trim().max(L.textMax), maxLength: external_exports.int().min(1).max(L.textMax).optional() }).strict();
+var longTextField = external_exports.object({ ...base, kind: external_exports.literal("longText"), default: external_exports.string().trim().max(L.longTextMax), maxLength: external_exports.int().min(1).max(L.longTextMax).optional() }).strict();
+var linkField = external_exports.object({ ...base, kind: external_exports.literal("link"), default: external_exports.string().trim().max(L.linkMax) }).strict();
+var singleField = external_exports.object({ ...base, kind: external_exports.literal("single"), options, default: external_exports.string().trim() }).strict();
+var multiField = external_exports.object({ ...base, kind: external_exports.literal("multi"), options, min: external_exports.int().min(0).max(L.maxOptions).optional(), max: external_exports.int().min(1).max(L.maxOptions).optional(), default: external_exports.array(external_exports.string().trim()).max(L.maxOptions) }).strict();
+var scaleField = external_exports.object({
+  ...base,
+  kind: external_exports.literal("scale"),
+  min: external_exports.number().default(0),
+  max: external_exports.number().default(10),
+  step: external_exports.number().positive().default(1),
+  minLabel: words(L.scaleEndMax),
+  maxLabel: words(L.scaleEndMax),
+  default: external_exports.number()
+}).strict();
+var fieldSchema = external_exports.discriminatedUnion("kind", [textField, longTextField, linkField, singleField, multiField, scaleField]);
+function isAnswerLink(value) {
+  if (value.length > L.linkMax) return false;
+  try {
+    const url2 = new URL(value);
+    return url2.protocol === "https:" && !url2.username && !url2.password && url2.hostname.includes(".");
+  } catch {
+    return false;
+  }
+}
+function onScale(field, value) {
+  if (!Number.isFinite(value) || value < field.min || value > field.max) return false;
+  const steps = (value - field.min) / field.step;
+  return Math.abs(steps - Math.round(steps)) < 1e-9;
+}
+function checkQuestionFields(raw) {
+  if (raw === void 0 || raw === null) return { ok: true, value: [] };
+  if (!Array.isArray(raw)) return { ok: false, issue: "fields must be a list." };
+  if (raw.length > L.maxFields) return { ok: false, issue: `A question has at most ${L.maxFields} fields.` };
+  const fields = [];
+  const ids = /* @__PURE__ */ new Set();
+  for (const [index, item] of raw.entries()) {
+    const kind = item?.kind;
+    if (kind === "file") return { ok: false, issue: `Field ${index + 1}: file fields aren't available yet. Ask for a link, or describe the file in a text field.` };
+    const parsed = fieldSchema.safeParse(item);
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return { ok: false, issue: `Field ${index + 1}${first.path.length ? ` (${first.path.join(".")})` : ""}: ${first.message}` };
+    }
+    const field = parsed.data;
+    if (ids.has(field.id)) return { ok: false, issue: `Field ${index + 1}: the id ${field.id} is used twice.` };
+    ids.add(field.id);
+    const at = `Field ${index + 1} (${field.id})`;
+    if (field.kind === "single" || field.kind === "multi") {
+      const normal = field.options.map((entry) => typeof entry === "string" ? { label: entry } : entry);
+      const labels = normal.map((entry) => entry.label);
+      if (new Set(labels).size !== labels.length) return { ok: false, issue: `${at}: two options have the same label.` };
+      if (field.kind === "single") {
+        if (!labels.includes(field.default)) return { ok: false, issue: `${at}: the default must be one of the options.` };
+        fields.push({ ...field, options: normal });
+      } else {
+        const min = field.min ?? 0;
+        const max = field.max ?? labels.length;
+        if (min > max) return { ok: false, issue: `${at}: min is more than max.` };
+        if (max > labels.length) return { ok: false, issue: `${at}: max is more than the number of options.` };
+        if (new Set(field.default).size !== field.default.length || field.default.some((label) => !labels.includes(label)))
+          return { ok: false, issue: `${at}: the default must list options, each once.` };
+        if (field.default.length < min || field.default.length > max) return { ok: false, issue: `${at}: the default must pick between min and max options.` };
+        fields.push({ ...field, options: normal });
+      }
+      continue;
+    }
+    if (field.kind === "scale") {
+      if (field.max <= field.min) return { ok: false, issue: `${at}: max must be more than min.` };
+      if ((field.max - field.min) / field.step > L.scaleMaxSteps) return { ok: false, issue: `${at}: a scale has at most ${L.scaleMaxSteps} steps.` };
+      if (!onScale(field, field.default)) return { ok: false, issue: `${at}: the default must be on the scale, on one of its steps.` };
+    }
+    if ((field.kind === "text" || field.kind === "longText") && field.maxLength !== void 0 && field.default.length > field.maxLength)
+      return { ok: false, issue: `${at}: the default is longer than maxLength.` };
+    if (field.kind === "link" && field.default !== "" && !isAnswerLink(field.default)) return { ok: false, issue: `${at}: the default must be an https link, or "" for none.` };
+    fields.push(field);
+  }
+  return { ok: true, value: fields };
+}
+function defaultAnswers(fields) {
+  return Object.fromEntries(fields.map((field) => [field.id, Array.isArray(field.default) ? [...field.default] : field.default]));
+}
+var number4 = (value) => String(Number(value.toFixed(6)));
+function describeAnswer(field, value) {
+  switch (field.kind) {
+    case "scale": {
+      const n = typeof value === "number" ? value : Number(value);
+      const ends = `(${field.minLabel} ${number4(field.min)} \u2026 ${field.maxLabel} ${number4(field.max)})`;
+      return field.min === 0 ? `${number4(n)} of ${number4(field.max)} ${ends}` : `${number4(n)} ${ends}`;
+    }
+    case "multi":
+      return Array.isArray(value) && value.length > 0 ? value.join(", ") : "none";
+    case "link":
+      return typeof value === "string" && value !== "" ? value : "no link";
+    default: {
+      const text2 = String(value).trim();
+      return text2 === "" ? "(left blank)" : text2.replace(/\s*\n\s*/g, " / ");
+    }
+  }
+}
+function summariseAnswers(fields, answers, how = "buyer") {
+  const lines = fields.map((field, i) => `${i + 1}. ${field.label}: ${describeAnswer(field, answers[field.id] ?? field.default)}`);
+  const head = how === "check" ? "This is an automated check, so there's no buyer to answer. Go with your suggestions:" : how === "suggested" ? "Go ahead with your suggestions:" : "";
+  return [head, ...lines].filter(Boolean).join("\n");
+}
+
 // src/mock-gateway.ts
 var RUN_DIR = process.env.GUILD_RUN_DIR ?? "/run/guild";
 var TOKEN = required2("GUILD_TASK_TOKEN");
@@ -19926,6 +20062,7 @@ var ALLOWED_MODELS = required2("GUILD_ALLOWED_MODELS").split(",");
 var MOCK_MODELS = process.env.GUILD_MOCK_MODELS === "1";
 var MOCK_TOOL_CALL = process.env.GUILD_MOCK_TOOL_CALL ? JSON.parse(process.env.GUILD_MOCK_TOOL_CALL) : null;
 var ANSWERS = JSON.parse(process.env.GUILD_ANSWERS ?? "[]");
+var CHECK_ANSWERS = process.env.GUILD_CHECK_ANSWERS === "1";
 var AGENT_URL = `http://agent:${AGENT_PORT}`;
 var task = JSON.parse(readFileSync(join(RUN_DIR, "task.json"), "utf8"));
 task.traceDetail ??= "full";
@@ -20098,14 +20235,14 @@ var server = createServer(async (request, response) => {
     }
     const url2 = new URL(request.url ?? "/", "http://guild.internal");
     const path = url2.pathname;
-    const id = task.taskId;
+    const id2 = task.taskId;
     if (request.method === "POST" && path === guildPaths.anthropicMessages) {
       return await handleModelCall(request, response);
     }
-    if (!path.startsWith(`/v1/tasks/${id}/`)) {
+    if (!path.startsWith(`/v1/tasks/${id2}/`)) {
       return refuse(response, 404, "not_found", `Unknown path ${path}.`);
     }
-    if (request.method === "PUT" && path === guildPaths.trace(id)) {
+    if (request.method === "PUT" && path === guildPaths.trace(id2)) {
       const raw = await readBody(request);
       if (raw.byteLength > 1024 * 1024) return refuse(response, 413, "invalid_request", "A run trace is limited to 1 MB.");
       let body;
@@ -20123,27 +20260,41 @@ var server = createServer(async (request, response) => {
     if (finished) {
       return refuse(response, 409, "task_finished", "The task has already finished.");
     }
-    if (request.method === "POST" && path === guildPaths.events(id)) {
+    if (request.method === "POST" && path === guildPaths.events(id2)) {
       const event = JSON.parse((await readBody(request)).toString("utf8"));
       log("event", event);
       sendJson(response, 202, { accepted: true, budget: { limitMicros: task.budgetMicros, spentMicros: costSoFar } });
       if (event.state === "input-required") {
-        const answer = ANSWERS[questionsAsked];
+        const fields = checkQuestionFields(event.fields);
+        if (!fields.ok) {
+          finish("failed", { reason: `The agent asked a question Guild would refuse: ${fields.issue}` });
+          return;
+        }
+        let answer = ANSWERS[questionsAsked];
+        let answers;
         questionsAsked += 1;
+        if (answer === void 0 && CHECK_ANSWERS) {
+          if (fields.value.length > 0) {
+            answers = defaultAnswers(fields.value);
+            answer = summariseAnswers(fields.value, answers, "check");
+          } else {
+            answer = CHECK_ANSWER;
+          }
+        }
         if (answer === void 0) {
           finish("failed", { reason: "The agent asked a question and no --answer was given." });
           return;
         }
-        log("answer", { text: answer });
-        await fetch(`${AGENT_URL}/tasks/${id}/messages`, {
+        log("answer", { text: answer, ...answers ? { answers } : {} });
+        await fetch(`${AGENT_URL}/tasks/${id2}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: answer })
+          body: JSON.stringify({ text: answer, ...answers ? { answers } : {} })
         });
       }
       return;
     }
-    if (request.method === "GET" && path === guildPaths.content(id)) {
+    if (request.method === "GET" && path === guildPaths.content(id2)) {
       const contentPath = join(RUN_DIR, "content.json");
       if (!existsSync(contentPath)) return refuse(response, 404, "not_found", "This run has no content bundle. Pass --content to guild run.");
       log("content", { bytes: statSync(contentPath).size });
@@ -20166,7 +20317,7 @@ var server = createServer(async (request, response) => {
         return sendJson(response, 201, { stored: name });
       }
     }
-    if (request.method === "POST" && path === guildPaths.complete(id)) {
+    if (request.method === "POST" && path === guildPaths.complete(id2)) {
       const result = JSON.parse((await readBody(request)).toString("utf8"));
       const missing = result.deliverables.filter((name) => !existsSync(join(deliverablesDir, name)));
       if (missing.length > 0) {
@@ -20175,7 +20326,7 @@ var server = createServer(async (request, response) => {
       sendJson(response, 200, { accepted: true });
       return finish("completed", { summary: result.summary, deliverables: result.deliverables, metadata: result.metadata });
     }
-    if (request.method === "POST" && path === guildPaths.fail(id)) {
+    if (request.method === "POST" && path === guildPaths.fail(id2)) {
       const result = JSON.parse((await readBody(request)).toString("utf8"));
       sendJson(response, 200, { accepted: true });
       return finish("failed", { reason: result.reason, retryable: result.retryable });

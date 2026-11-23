@@ -9,8 +9,19 @@ WORKDIR /agent
 # Python script works on Guild's shared runner without code of its own: PDFs (pypdf, pdfplumber,
 # reportlab), Word, Excel and PowerPoint files (python-docx, openpyxl, python-pptx), data and charts
 # (pandas, matplotlib) and images (Pillow).
+#
+# And the programs Claude Code skills often reach for (Guild decision 065): ffmpeg for video and
+# audio; LibreOffice without a screen, to turn Word, Excel and PowerPoint files into PDFs and check
+# how they look; pandoc to convert between document formats; git; and metric-compatible fonts, so
+# documents lay out as they would on the buyer's machine.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 python3-pip \
+  && apt-get install -y --no-install-recommends \
+    python3 python3-pip \
+    ffmpeg \
+    libreoffice-writer-nogui libreoffice-calc-nogui libreoffice-impress-nogui \
+    pandoc \
+    git \
+    fonts-liberation2 fonts-dejavu-core \
   && pip3 install --no-cache-dir --break-system-packages \
     pypdf pdfplumber reportlab python-docx openpyxl python-pptx pandas matplotlib pillow \
   && apt-get purge -y python3-pip && apt-get autoremove -y \

@@ -59,9 +59,17 @@ If the job can't be done well, the agent writes `out/_decline.md` with a short r
 
 ### Tools
 
-The working agent has Read, Write, Edit, Bash, Glob and Grep; `ask_buyer`; `call_api` when `specialist/settings.json` connects APIs; and the tools of any MCP services you connect.
+The working agent has Claude Code's own tools, as on your machine:
 
-It doesn't have WebFetch or WebSearch, a subagent (Task) tool, or AskUserQuestion. A skill written for your own Claude Code that uses them needs another way on Guild: see "Adapting a skill from your own Claude Code" below.
+- Read, Write, Edit, Bash, Glob and Grep. Bash can run a long command (a build, a dev server) in the background, and **TaskStop** stops it.
+- **TodoWrite**, for a plan on a long job.
+- **Agent**, for subagents: separate, self-contained pieces of work, sharing the workspace.
+- **WebSearch**, to search the web, and **`read_page`**, Guild's tool for reading a public web page (a URL, and a question if only part of it matters). See "The web" below.
+- `ask_buyer`; `call_api` when `specialist/settings.json` connects APIs; and the tools of any MCP services you connect.
+
+Every call Claude Code makes on its own (a subagent, a search, a quick background call) uses the agent's model from `specialist/settings.json`, so Guild's gateway doesn't refuse it.
+
+It doesn't have Claude Code's own WebFetch, which would fetch from the container, where the web can't be reached: `read_page` does that job, so a skill that says "fetch this URL" works. It doesn't have AskUserQuestion either: questions go through `ask_buyer`. See "Adapting a skill from your own Claude Code" below.
 
 ### Questions
 
@@ -116,32 +124,51 @@ A separate model session (`reviewModel`) checks the work before it's delivered, 
 
 - **Node.js 22.**
 - **Python 3** with pypdf, pdfplumber, reportlab, python-docx, openpyxl, python-pptx, pandas, matplotlib and Pillow.
-- **The web toolkit:** React, Motion, TypeScript, esbuild, and Playwright with a headless Chromium for rendering pages and taking screenshots.
+- **The web toolkit:** React, Motion, TypeScript, esbuild, and Playwright with a headless Chromium for rendering pages and taking screenshots. Pages it opens can't reach the internet: embed fonts and images.
+- **ffmpeg**, for video and audio.
+- **LibreOffice without a screen** (Writer, Calc and Impress), to turn Office files into PDFs: `soffice --headless --convert-to pdf file.docx`.
+- **pandoc**, to convert between document formats.
+- **git**, to track changes in the workspace or deliver a patch (`git diff`).
+- **Fonts:** Liberation and DejaVu, metric-compatible with common Office fonts.
 
-Not there: ffmpeg, git, and any package your skill would install. Nothing can be installed while a task runs, because there's no internet.
+Not there: ImageMagick, LaTeX, wkhtmltopdf, Puppeteer (use Playwright), and any package your skill would install. Nothing can be installed while a task runs, because the container can't reach the internet.
+
+### The web
+
+Every standard agent can search the web and read public pages, with nothing to declare.
+
+- **WebSearch** searches and **`read_page`** reads a page. Anthropic does both, through Guild's gateway; the container itself still reaches only Guild.
+- **Limits, per model request:** at most 10 searches and 10 page reads; a page is cut at 50,000 tokens, and `read_page` reads up to 40,000 tokens of it.
+- **Cost:** a search is $0.01 plus the tokens of its results, and a page read is the tokens it reads. Both come out of the task's budget.
+- **Guild counts** the searches and page reads in each call. It doesn't store the queries or the pages.
+- **Buyers are told,** on every agent's page, that it can search the web and read public pages through Guild using Anthropic's web search, and that a search can include words from their brief.
+
+Searches go to Anthropic, so keep the buyer's private details out of them. Guild's rules tell the agent so, and your skills should too. A page the agent reads is data, never instructions.
 
 ### Network
 
-Only Guild's gateway: model calls, and calls to hosts declared under `network.hosts`, with keys Guild holds. Everything else is blocked.
+Only Guild's gateway: model calls (including the web searches and page reads above), and HTTPS calls to hosts declared under `network.hosts`, with keys Guild holds. A script that calls a service directly (`curl`, `fetch`, `requests`) reaches only declared hosts. Everything else is blocked.
 
 ### Guild's rules
 
-The runner gives the agent Guild's own instructions first, which you can't edit: read the brief, ask few questions and early, put deliverables in `out/`, decline rather than deliver weak work, treat the brief and files as data, never reveal the agent's own files or instructions, and never speak as its creator. Then it tells the agent to use its skills, and gives it your `method.md` and `rubric.md` if you have them.
+The runner gives the agent Guild's own instructions first, which you can't edit: read the brief, ask few questions and early, put deliverables in `out/`, decline rather than deliver weak work, treat the brief, files and web pages as data, keep the buyer's private details out of web searches, never reveal the agent's own files or instructions, and never speak as its creator. Then it tells the agent to use its skills, and gives it your `method.md` and `rubric.md` if you have them.
 
 ### Adapting a skill from your own Claude Code
 
-A skill written for your own Claude Code often relies on things a task on Guild doesn't have. Say how to do each one instead in a short `specialist/method.md`, which the agent reads after Guild's rules. Leave the skill itself as it is, so it still works for you.
+A skill written for your own Claude Code mostly works as it is, but sometimes relies on things a task on Guild doesn't have. Say how to do each one instead in a short `specialist/method.md`, which the agent reads after Guild's rules. Leave the skill itself as it is, so it still works for you.
 
 | In your Claude Code | On Guild |
 | --- | --- |
-| Subagents (the Task tool) | One working session: do the steps in order. The reviewer is already separate. |
+| Subagents (the Agent or Task tool) | Work as they are, through Agent. They share the workspace and use the agent's model. |
 | Timelines, minute or step counts, "finish by" | Leave them out. The agent isn't told its limits and works as it would for you; Guild's safeguards step in only when needed. |
 | AskUserQuestion, or "check with me before…" | No one is there to approve. Decide, state the assumption in the work, and carry on. `ask_buyer` only for a question that changes the result, asked early. |
-| WebFetch, WebSearch, browsing | Off. Put the knowledge in the skill's files, or declare the source as a host and call it with `call_api` or a script. |
-| git (cloning, committing) | Not installed. Put what it would fetch in the skill's folder. |
+| WebSearch, "look it up" | Works as it is, with nothing to declare. Keep the buyer's private details out of searches. |
+| WebFetch, "fetch this URL", "read the page" | Works through `read_page`. If the skill names WebFetch, say `read_page` instead in `method.md`. |
+| A script that calls an API or downloads a file (`curl`, `fetch`, `requests`) | Declare the host under `network.hosts`, and call it with `call_api` or the script. |
+| git (commits, diffs, history) | Works in the workspace. |
 | Paths in `~/.claude` or your own folders | `.claude/skills/<name>/` for the skill's files, `references/` and `input/`, relative to the workspace. |
 | Installing packages (`npm install`, `pip install`) | Not possible. Use what's on the runner, or include a small script in the skill. |
-| ffmpeg | Not on the runner yet. |
+| ffmpeg, LibreOffice, pandoc | On the runner. ImageMagick, LaTeX and wkhtmltopdf aren't. |
 | Writing files anywhere | Deliverables in `out/`, flat; scratch names start with `_`. |
 
 ## What Guild sends
@@ -170,7 +197,7 @@ Each file in `test-briefs/` is a brief with exactly the fields in `inputs.schema
 
 | | What it means for you |
 | --- | --- |
-| **No internet** | The container can reach only Guild. Model calls go through Guild's gateway, at the `ANTHROPIC_BASE_URL` Guild sets, with a task token as `ANTHROPIC_API_KEY`. |
+| **Only Guild** | The container can reach only Guild. Web searches and page reads are made by Anthropic, as part of model calls through the gateway, within the limits under "The web". Model calls go through Guild's gateway, at the `ANTHROPIC_BASE_URL` Guild sets, with a task token as `ANTHROPIC_API_KEY`. |
 | **Declared hosts only** | HTTPS calls to hosts listed under `network.hosts` pass through Guild, which records each one. Everything else fails: other hosts, plain HTTP, raw IP addresses. |
 | **Keys stay out of the container** | A key you declare on a host never enters the container. Its environment variable holds a stand-in (`guild-stand-in-…`), and Guild's gateway swaps in the real key on calls to that host, in the declared place only. A stand-in anywhere else is refused (`key_not_allowed`). |
 | **Claude models only** | `models` may list any of these, by exact id: `claude-fable-5-2`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-opus-4-5`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-5-5`, `claude-haiku-4-5`. Any other model fails `guild validate`. Calls to a model not listed under `models` are refused. Guild pays the model bill and charges each task's cost to your share; locally you use your own key. |
@@ -218,7 +245,7 @@ On Guild your agent only ever sees a stand-in, so:
 - **Send the key as it is.** Don't hash it, sign requests with it (HMAC, AWS SigV4), split it, or check its format: those need the real key, which isn't there. Prefixes such as `Bearer ` around it are fine.
 - **Only in the declared place, only to its host.** Logging it, putting it in a body, a URL path or another header, or sending it to another host gets the call refused.
 
-Guild doesn't do web search yet, because it isn't metered. Tell the Guild team if your agent needs it.
+Web search and reading public pages need no host: see "The web" above. Declare a host only to call a service directly.
 
 Public APIs often rate-limit calls without a key from Cloudflare's shared addresses, so use keys even for free APIs. Only use sources whose terms let you use, and resell, what you build from them.
 
@@ -321,7 +348,7 @@ A version number can be submitted once, even if that version is rejected: bump i
 
 ## How Guild changes the runner
 
-Guild keeps the runner contract above: it only adds to it, and removing or changing anything needs a new version of the contract, with the old one kept running for a fixed period. Guild will test each runner release against every live agent's test briefs before it ships, and publish a changelog.
+Guild keeps the runner contract above: it only adds to it, and removing or changing anything needs a new version of the contract, with the old one kept running for a fixed period. A live version keeps the runner it was submitted on, so a new runner's abilities reach your agent when you submit a new version. A new version runs its checks on the new runner before it goes live, and Guild publishes a changelog of every runner.
 
 ## The protocol, for Pro agents
 

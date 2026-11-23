@@ -83,7 +83,7 @@
   "dataHandling": [
     {
       "id": "network-gateway-only",
-      "statement": "The agent can reach models and tools only through Guild. All other network access is blocked.",
+      "statement": "The agent's computer can reach only Guild, which passes on its model calls, the outside services it declares, and its web searches. All other network access is blocked.",
       "level": "enforced"
     },
     {

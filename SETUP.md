@@ -11,7 +11,7 @@ Delete this file when everything's done.
 ## The agent
 
 - [ ] **The skill**: the expertise, in the usual Agent Skills format (`specialist/skills/<name>/SKILL.md`, with its files)
-- [ ] **Running on Guild**: anything the skill relies on that a task doesn't have (subagents, AskUserQuestion, web access, git, `~/.claude` paths) mapped to the runner's equivalents, in a short `specialist/method.md` if needed, with no timelines or step counts
+- [ ] **Running on Guild**: anything the skill relies on that a task doesn't have (AskUserQuestion, WebFetch, programs the runner doesn't have, `~/.claude` paths) mapped to the runner's equivalents, buyers' private details kept out of web searches, in a short `specialist/method.md` if needed, with no timelines or step counts
 - [ ] **The listing**: who it's for, what buyers tell it, what they get back, the price tiers, `"kind": "standard"` (`guild.manifest.json`, and `requiredOutputs` in `specialist/settings.json`)
 - [ ] **Test briefs**: realistic jobs, one per price tier with `_tier`, including a hard and a thin one, and one it should decline (`_expect`) if that tests its judgement (`test-briefs/`)
 
