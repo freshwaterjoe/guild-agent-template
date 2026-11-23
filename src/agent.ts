@@ -24,7 +24,7 @@ export interface WorkResult {
   temporary?: boolean;
 }
 
-/** The task's limits, for the agent's instructions, for progress and for wrapping up in time. */
+/** The task's safeguards (Guild decision 064): for the runner, never for the agent's instructions. */
 export interface WorkLimits {
   /** When the task started on this runner (ms). */
   startedAt: number;
@@ -35,17 +35,27 @@ export interface WorkLimits {
 }
 
 /**
- * When a working session stops to leave room for the checks and delivery (Guild decision 059):
- * at three quarters of the task's time, or four fifths of its budget.
+ * The safeguards (Guild decision 064). The agent is never told them: it does the job as it would
+ * in its creator's own Claude Code. The runner steps in only when one is reached, and hands what's
+ * in out/ to the creator with the reviewer's notes. Time: 10 minutes before the task's ceiling,
+ * to leave room to deliver. Cost: 95% of the ceiling, the rest held for the last calls in flight.
  */
-export const WRAP_UP = { time: 0.75, budget: 0.8 } as const;
+export const SAFEGUARD = { deliverMs: 10 * 60_000, budget: 0.95 } as const;
 
-/** Whether the task has passed a wrap-up point, and which. */
-export function wrapUpReason(limits: WorkLimits, now = Date.now()): "time" | "budget" | null {
-  if (now - limits.startedAt >= WRAP_UP.time * (limits.deadline - limits.startedAt)) return "time";
+/** Whether a safeguard has been reached, and which. */
+export function safeguardReason(limits: WorkLimits, now = Date.now()): "time" | "budget" | null {
+  if (now >= limits.deadline - SAFEGUARD.deliverMs) return "time";
   const budget = limits.budget();
-  if (budget && budget.limitMicros > 0 && budget.spentMicros >= WRAP_UP.budget * budget.limitMicros) return "budget";
+  if (budget && budget.limitMicros > 0 && budget.spentMicros >= SAFEGUARD.budget * budget.limitMicros) return "budget";
   return null;
+}
+
+/**
+ * How many steps one session runs before the runner starts the next round itself. A technical
+ * limit, set high, never told to the agent, and never the end of a task (Guild decision 064).
+ */
+export function sessionSteps(configured: number): number {
+  return Math.max(configured, 300);
 }
 
 /** Errors that pass: the provider overloaded or down for a moment, or the connection dropped. */
@@ -73,16 +83,12 @@ export function deliverablesPrompt(requiredOutputs: string[]): string {
   ].join("\n");
 }
 
-/** What the agent is told about its steps and time, so it delivers something before either runs out. */
-export function limitsPrompt(maxTurns: number, maxOutputTokens: number, limits: WorkLimits, now = Date.now()): string {
-  return [
-    "## Your limits",
-    "",
-    `- This session has ${maxTurns} steps (each reply you make counts as one) and about ${minutes(limits.deadline - now)} minutes before the job ends.`,
-    "- Write a complete first version of every deliverable in out/ early, by about a third of the way through, then improve it. When time or budget runs low, your session is stopped and what's in out/ is checked and delivered, so keep out/ in a state you'd be happy to hand over.",
-    "- Keep checks proportionate: verify the things that matter most, rather than every possible case.",
-    `- Each reply can be at most about ${Math.round(maxOutputTokens * 0.6).toLocaleString("en-GB")} words, tool calls included. Write a long file in parts: create it with its first section, then add the rest with further edits.`,
-  ].join("\n");
+/**
+ * Practical advice about replies, with no numbers in it: the agent isn't told its limits (Guild
+ * decision 064), but a very long file written in one reply can run past what one reply may hold.
+ */
+export function writingPrompt(): string {
+  return "Write a long file in parts: create it with its first section, then add the rest with further edits.";
 }
 
 /**
@@ -183,7 +189,7 @@ export async function work(options: {
   const skills = await readdir(join(workdir, ".claude", "skills")).catch(() => []);
 
   const prompt = carryOn
-    ? "A temporary error interrupted your work. Carry on from where you were: your files in out/ are as you left them."
+    ? "Carry on from where you were: your files in out/ are as you left them."
     : revision
     ? ["Review found these problems. Fix them in out/, check your work again, then summarise what changed.", "", ...revision.map((issue) => `- ${issue}`)].join("\n")
     : buyerRevision
@@ -201,7 +207,8 @@ export async function work(options: {
           "```",
         ].join("\n")
       : ["Here is the brief. Do the work.", "", "```json", JSON.stringify(brief, null, 2), "```"].join("\n");
-  const limitedPrompt = [prompt, deliverablesPrompt(settings.requiredOutputs), limitsPrompt(settings.maxTurns, settings.maxOutputTokens, limits)].filter(Boolean).join("\n\n");
+  const fullPrompt = [prompt, deliverablesPrompt(settings.requiredOutputs), writingPrompt()].filter(Boolean).join("\n\n");
+  const steps = sessionSteps(settings.maxTurns);
 
   const abort = new AbortController();
   signal.addEventListener("abort", () => abort.abort());
@@ -212,19 +219,19 @@ export async function work(options: {
   let lastProgress = Date.now();
   let sessionId = resume;
 
-  // Stop in time to leave room for the checks and delivery (decision 059).
+  // A safeguard stops the session (decision 064); nothing else does.
   let wrapUp: "time" | "budget" | null = null;
   const watch = setInterval(() => {
-    wrapUp = wrapUp ?? wrapUpReason(limits);
+    wrapUp = wrapUp ?? safeguardReason(limits);
     if (wrapUp) abort.abort();
   }, 10_000);
   try {
     for await (const message of query({
-      prompt: limitedPrompt,
+      prompt: fullPrompt,
       options: {
         cwd: workdir,
         model: settings.model,
-        maxTurns: settings.maxTurns,
+        maxTurns: steps,
         abortController: abort,
         ...(resume ? { resume } : {}),
         systemPrompt: { type: "preset", preset: "claude_code", append: await systemPrompt(specialist) },
@@ -264,8 +271,10 @@ export async function work(options: {
         if (Date.now() - lastProgress > 60_000) {
           lastProgress = Date.now();
           const now = Date.now();
-          const used = Math.min(1, Math.max(turns / settings.maxTurns, (now - limits.startedAt) / Math.max(1, limits.deadline - limits.startedAt)));
-          const label = `${revision ? "Revising" : "Working"}: step ${turns} of ${settings.maxTurns}, ${minutes(now - limits.startedAt)} of ${minutes(limits.deadline - limits.startedAt)} minutes`;
+          // No limits on the bar (decision 064): it eases towards the end of this stretch as time passes.
+          const elapsed = now - limits.startedAt;
+          const used = 1 - Math.exp(-elapsed / (20 * 60_000));
+          const label = `${revision ? "Fixing what review found" : "Working"}: ${minutes(elapsed)} minute${minutes(elapsed) === 1 ? "" : "s"} in`;
           await progress(label, Math.round(span[0] + (span[1] - span[0]) * used)).catch(() => {});
         }
       }
@@ -274,7 +283,7 @@ export async function work(options: {
         // A "success" result can still carry an API error (is_error): treat that as a failure.
         if (message.subtype === "success" && !message.is_error) return { ok: true, summary: message.result, sessionId, turns };
         if (message.subtype === "error_max_turns") {
-          return { ok: false, stopped: "steps", summary: `The agent used all ${settings.maxTurns} of its steps before it finished.`, sessionId, turns };
+          return { ok: false, stopped: "steps", summary: `The session used all ${steps} of its steps.`, sessionId, turns };
         }
         const detail = message.subtype === "success" ? message.result : message.subtype;
         if (TEMPORARY_ERROR.test(String(detail))) {
@@ -299,6 +308,6 @@ export async function work(options: {
   } finally {
     clearInterval(watch);
   }
-  if (wrapUp) return { ok: false, stopped: wrapUp, summary: wrapUp === "time" ? "The agent was nearly out of time." : "The agent was nearly at its budget.", sessionId, turns };
+  if (wrapUp) return { ok: false, stopped: wrapUp, summary: wrapUp === "time" ? "The task reached its time ceiling." : "The task reached its cost ceiling.", sessionId, turns };
   return { ok: false, summary: "The work ended without a result.", sessionId, turns };
 }

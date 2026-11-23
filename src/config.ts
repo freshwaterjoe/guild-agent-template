@@ -34,10 +34,19 @@ export interface Settings {
   model: string;
   /** Reviews the work against specialist/rubric.md before delivery. Also listed in the manifest. */
   reviewModel: string;
-  /** Most steps (model replies) in one working session. */
+  /**
+   * Steps (model replies) in one working session before the runner starts the next stretch itself.
+   * A technical limit, raised to at least 300, never told to the agent, and never the end of a task
+   * (Guild decision 064).
+   */
   maxTurns: number;
-  /** How many times the agent revises its own work after review finds problems. */
-  maxRevisions: number;
+  /** No longer read (Guild decision 064): rounds of fixes aren't counted. Kept so older settings stay valid. */
+  maxRevisions?: number;
+  /**
+   * Optional. The most rounds of fixes after review, if you want a bound below the cost and time
+   * ceilings. Leave it out and the agent fixes until the work passes (Guild decision 064).
+   */
+  maxFixRounds?: number;
   /**
    * The most a single model reply may write. Guild reserves each call's worst-case cost from the
    * task's budget before it runs, so an uncapped call can be refused once the budget runs low.
@@ -51,9 +60,8 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   model: "claude-opus-5-5",
   reviewModel: "claude-opus-5-5",
-  maxTurns: 60,
-  maxRevisions: 2,
-  maxOutputTokens: 16_000,
+  maxTurns: 300,
+  maxOutputTokens: 64_000,
   requiredOutputs: [],
   connections: { services: [], apis: [] },
 };

@@ -61,7 +61,8 @@ export function guildClient(taskId: string) {
       call("PUT", `${base}/deliverables/${encodeURIComponent(name)}`, content as BodyInit, contentType),
     complete: (summary: string, deliverables: string[], metadata: Record<string, string | number | boolean>) =>
       call("POST", `${base}/complete`, JSON.stringify({ summary, deliverables, metadata })),
-    fail: (reason: string, retryable: boolean) => call("POST", `${base}/fail`, JSON.stringify({ reason, retryable })),
+    /** Ends the task without a delivery. `declined`: the agent judged the job one it can't do well (decision 064). */
+    fail: (reason: string, retryable: boolean, declined = false) => call("POST", `${base}/fail`, JSON.stringify({ reason, retryable, ...(declined ? { declined: true } : {}) })),
     /** Sends the run trace (src/trace.ts); each upload replaces the last. */
     trace: (trace: unknown) => call("PUT", `${base}/trace`, JSON.stringify(trace)),
   };
