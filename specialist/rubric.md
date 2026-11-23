@@ -1,8 +1,12 @@
 <!--
-Judgement (docs/anatomy.md): the bar the work must clear before delivery. A
-separate reviewer reads the work against this (src/judgement.ts), and the agent
-revises until it passes. Write criteria a reviewer can check, not hopes.
-Replace the examples below.
+Optional quality checklist (docs/anatomy.md, "Judgement"). A separate reviewer
+reads the work against the brief, your skills' standards and Guild's bar, plus
+this file if you keep it, and the agent fixes what it finds if there's room.
+The reviewer can only read files: it can't run commands, unzip files, render
+pages or recompute figures. Anything it must measure has to be written in out/
+already, for example the output of a check script saved as out/_checks.md.
+Write criteria a reviewer can check by reading, not hopes. Replace the examples
+below, or delete this file. This comment is never shown to the reviewer.
 -->
 
 # Rubric

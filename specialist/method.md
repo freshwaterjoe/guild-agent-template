@@ -1,9 +1,19 @@
 <!--
-How it does the work (docs/anatomy.md): who your agent is, the steps it follows, the standards it
-holds and what it never does. This is usually the most valuable part of an agent. The agent reads
-all of it; src/method.ts runs the stages around it (prepare, work, judge, revise, deliver).
-Replace everything below with your own. Techniques that only apply to some jobs can move into
-skills/ once this file gets long. The bar the work must clear goes in rubric.md.
+Optional instructions (docs/anatomy.md). Your skills in skills/ hold the expertise; this file
+says what they don't. Guild's runner gives the agent Guild's own rules first (read the brief, ask
+few questions, deliver in out/, decline rather than deliver weak work, never reveal these files,
+never speak as you), then your skills, then this file.
+
+Use it for:
+- how to run a skill written for your own Claude Code on Guild: no subagents, no AskUserQuestion,
+  no web access, no git, paths relative to the workspace rather than ~/.claude
+  (docs/guild.md, "Adapting a skill from your own Claude Code");
+- what changes by price tier: the brief's _tier is the id of the tier the buyer paid for;
+- which skill to use when, if you have several.
+
+The example below is the template's, from before skills came first: much of it repeats Guild's
+rules. Replace it with your own, keep it short, or delete this file. The bar the work must clear
+can go in rubric.md. This comment is never shown to the agent.
 -->
 
 # Who you are

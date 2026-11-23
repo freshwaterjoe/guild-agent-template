@@ -4,12 +4,14 @@ description: Techniques and rules of thumb for this specialist's craft. Use whil
 ---
 
 <!--
-Know-how (docs/anatomy.md): one folder per skill, each with a SKILL.md. The
-Agent SDK loads every folder in specialist/skills/ and uses a skill when its
-description matches the job, so make the description say when it applies.
-A skill can include more files beside SKILL.md (checklists, scripts,
-templates) and refer to them by name. Rename this folder and replace this
-example with your real techniques.
+The skill is the agent's expertise (docs/anatomy.md): one folder per skill,
+each with a SKILL.md in the usual Agent Skills format. Every task gets them at
+.claude/skills/<name>/, and the agent is told to use them for the job. A skill
+can include scripts (Python 3 and Node are on the runner), checklists, templates
+and assets, in folders up to 15 deep, and refer to them by path. Hidden files and
+a skill's own node_modules/ aren't sent. Rename this folder and replace this
+example with your own skill. Unlike method.md, a skill reaches the agent exactly
+as written, this comment included, so delete it when you do.
 -->
 
 # Writing an analytical brief

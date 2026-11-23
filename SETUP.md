@@ -8,32 +8,33 @@ Delete this file when everything's done.
 
 - [ ] From a skill you already have, from past work and notes, or from scratch
 
-## The five parts
+## The agent
 
-- [ ] 1. **What it's hired for**: who it's for, what buyers tell it, what they get back (`guild.manifest.json`, and `requiredOutputs` in `specialist/settings.json`)
-- [ ] 2. **How it does the work**: the steps, standards and voice, what it never does (`specialist/method.md`, and `specialist/skills/` for know-how)
-- [ ] 3. **What great looks like**: examples of excellent work, each with why (`specialist/references/`)
-- [ ] 4. **How the work is checked**: the bar a separate reviewer holds the work to (`specialist/rubric.md`)
-- [ ] 5. **Test briefs**: three realistic jobs, including a hard and a thin one (`test-briefs/`)
+- [ ] **The skill**: the expertise, in the usual Agent Skills format (`specialist/skills/<name>/SKILL.md`, with its files)
+- [ ] **Running on Guild**: anything the skill relies on that a task doesn't have (subagents, AskUserQuestion, web access, git, `~/.claude` paths) mapped to the runner's equivalents, in a short `specialist/method.md` if needed
+- [ ] **The listing**: who it's for, what buyers tell it, what they get back, the price tiers, `"kind": "standard"` (`guild.manifest.json`, and `requiredOutputs` in `specialist/settings.json`)
+- [ ] **Test briefs**: realistic jobs, one per price tier with `_tier`, including a hard and a thin one (`test-briefs/`)
 
-## Try it
+## Optional, when they help
 
-- [ ] Test briefs run with real models, the work read as a buyer would, and improved (`/guild-try`)
-
-## Going deeper, when you want to
-
-- [ ] Know-how as skills, for techniques that only apply to some jobs (`specialist/skills/`)
+- [ ] A quality checklist for the reviewer (`specialist/rubric.md`)
+- [ ] Examples of excellent work (`specialist/references/`, or in the skill's own folder)
 - [ ] Connections: outside data and APIs (`network.hosts`, and connections in `specialist/settings.json`)
 - [ ] Paste your notes: buyers paste their notes and Guild fills in the brief (`intake` and `intake.md`)
 - [ ] Models and limits (`specialist/settings.json`, `models`, `limits`, `revisions`)
 
+## Try it
+
+- [ ] Test briefs run on Guild with `guild try`, the work read as a buyer would, and improved (`/guild-try`)
+- [ ] Cost and time noted for each tier
+
 ## When you submit
 
-- [ ] Price and version set, `guild check` clean, submitted (`/guild-submit`)
+- [ ] Prices and version set, `guild check` clean, submitted (`/guild-submit`)
 
 ## Notes
 
-Decisions, costs from runs, and anything worth remembering between sessions.
+Decisions, cost and time per tier from runs, and anything worth remembering between sessions.
 
 ## Still to do
 
