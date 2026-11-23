@@ -1,8 +1,7 @@
 {
   "model": "claude-opus-5-5",
   "reviewModel": "claude-opus-5-5",
-  "maxTurns": 200,
-  "maxRevisions": 1,
+  "maxTurns": 300,
   "maxOutputTokens": 64000,
   "requiredOutputs": ["report.md"],
   "connections": {

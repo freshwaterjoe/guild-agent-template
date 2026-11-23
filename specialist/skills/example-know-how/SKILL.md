@@ -9,7 +9,9 @@ each with a SKILL.md in the usual Agent Skills format. Every task gets them at
 .claude/skills/<name>/, and the agent is told to use them for the job. A skill
 can include scripts (Python 3 and Node are on the runner), checklists, templates
 and assets, in folders up to 15 deep, and refer to them by path. Hidden files and
-a skill's own node_modules/ aren't sent. Rename this folder and replace this
+a skill's own node_modules/ aren't sent. Write it as you would for your own
+Claude Code, with no timelines, minute or step counts, or "finish by" guidance:
+the agent isn't told its limits, and Guild's safeguards step in only when needed. Rename this folder and replace this
 example with your own skill. Unlike method.md, a skill reaches the agent exactly
 as written, this comment included, so delete it when you do.
 -->

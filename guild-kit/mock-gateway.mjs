@@ -1,4 +1,4 @@
-// Guild agent kit 2026-11-23 (0ee102b). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-23 (cc27fe9). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -16,6 +16,7 @@ import { pipeline } from "node:stream/promises";
 
 // src/protocol.ts
 var AGENT_PORT = 8080;
+var STANDARD_TIME_CEILING_SECONDS = 3 * 60 * 60;
 var guildPaths = {
   events: (taskId) => `/v1/tasks/${taskId}/events`,
   file: (taskId, name) => `/v1/tasks/${taskId}/files/${encodeURIComponent(name)}`,

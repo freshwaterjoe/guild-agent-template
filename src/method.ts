@@ -8,17 +8,20 @@
 //                done well, the agent writes out/_decline.md and the task fails with its reason
 //   3. Judge     checks in code, then a review against Guild's bar, your skills and, if you
 //                have one, specialist/rubric.md
-//   4. Revise    if the work falls short, the same session fixes what review found
+//   4. Fix       if the work falls short, the same session fixes what review found, round after
+//                round, until it passes (Guild decision 064)
 //   5. Deliver   everything in out/, with a summary
 //
-// A session that stops at a limit (all its steps, a reply longer than maxOutputTokens, or three
-// quarters of the time or four fifths of the budget) doesn't lose its work: whatever is in out/ is
-// judged as usual, and the task fails only if there's nothing there (Guild GLD-272, decision 059).
+// Safeguards, not targets (Guild decision 064): the agent isn't told its limits. The runner steps
+// in only when a safeguard is reached (the cost or time ceiling, or rounds that stop making
+// progress), and then delivers what's in out/ to the creator's sign-off with the reviewer's last
+// notes. Nothing is thrown away: the task fails only if nothing was made, the agent broke, or it
+// declined.
 import { cp, mkdir, readdir, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
-import { work, wrapUpReason, type WorkLimits, type WorkResult } from "./agent.ts";
+import { safeguardReason, work, type WorkLimits, type WorkResult } from "./agent.ts";
 import { guildClient, type Budget, type GuildClient, type StartTaskRequest } from "./guild.ts";
-import { checkOutputs, review } from "./judgement.ts";
+import { checkOutputs, review, type Verdict } from "./judgement.ts";
 import { loadSpecialist, type Specialist } from "./specialist.ts";
 import { TOOLKIT_MODULES } from "./guild-rules.ts";
 import { Tracer } from "./trace.ts";
@@ -33,9 +36,9 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
   const guild = guildClient(task.taskId);
   const workdir = `/work/${task.taskId}-${task.attempt}`;
   const signal = control.abort.signal;
-  // Guild replies to each progress report with the budget so far, which paces the work (decision 059).
+  // Guild replies to each progress report with the budget so far, for the cost safeguard (decision 064).
   let budget: Budget | null = null;
-  const limits: WorkLimits = { startedAt: Date.now(), deadline: Date.parse(task.deadline) || Date.now() + 30 * 60_000, budget: () => budget };
+  const limits: WorkLimits = { startedAt: Date.now(), deadline: Date.parse(task.deadline) || Date.now() + 3 * 60 * 60_000, budget: () => budget };
   // The bar only moves forward: a revision doesn't send it back.
   let shown = 0;
   const progress = async (message: string, percent: number) => {
@@ -61,7 +64,7 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
     let carryOns = 0;
     const steady = async (options: Parameters<typeof work>[0]): Promise<WorkResult> => {
       let result = await work(options);
-      while (!result.ok && result.temporary && carryOns < 2 && !signal.aborted && !wrapUpReason(limits)) {
+      while (!result.ok && result.temporary && carryOns < 2 && !signal.aborted && !safeguardReason(limits)) {
         carryOns += 1;
         await progress("A temporary error: carrying on in a moment", 0).catch(() => {});
         await new Promise((resolve) => setTimeout(resolve, 20_000));
@@ -85,58 +88,84 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
       trace: tracer,
     });
 
-    // 3 and 4. Judge, then revise until the work passes or revisions run out --
-    for (let revision = 0; ; revision++) {
+    // 3 and 4. Judge, then fix, round after round, until the work passes (decision 064) -----
+    let round = 0;
+    let stepCarryOns = 0;
+    let last: { issues: string[]; out: string } | null = null;
+    let outcome: { passed: true } | { passed: false; stoppedBy: "budget" | "time" | "no-progress" | "review" | "fix-rounds"; notes: string[] };
+    for (;;) {
       if (signal.aborted) return;
       // Files the agent put in folders inside out/ come up to out/ itself, so they're checked and delivered.
       await flattenOut(workdir);
-      // Stopped at a limit: judge what's in out/, if anything, rather than throw it away.
       tracer.stoppedAt(result.ok ? undefined : result.stopped);
-      const stopped = !result.ok && result.stopped && (await hasDeliverables(workdir)) ? result.stopped : undefined;
-      if (!result.ok && !stopped) {
-        const advice = result.stopped ? " Nothing was in out/ to check." : "";
-        await tracer.end();
-        await guild.fail(`${result.summary}${advice}`, true);
-        return;
-      }
       // The agent decided the job can't be done well: say why, rather than deliver weak work.
       const decline = await declineReason(workdir);
       if (decline) {
         await tracer.end();
-        await guild.fail(decline, false);
+        await guild.fail(decline, false, true);
         return;
       }
-      const checking = revision === 0 ? "Checking the work" : `Checking the revision (${revision})`;
-      const why = stopped ? { steps: "Out of steps", reply: "A reply was too long", time: "Nearly out of time", budget: "Nearly at the budget" }[stopped] : "";
-      await progress(why ? `${why}: ${checking.toLowerCase()} in out/` : checking, revision === 0 ? 75 : 91);
+      // A session that used its steps, or wrote one reply too long, isn't the end of the task: if
+      // no safeguard has been reached, it carries on in the same session (decision 064).
+      if (!result.ok && (result.stopped === "steps" || result.stopped === "reply") && !safeguardReason(limits) && stepCarryOns < 10) {
+        stepCarryOns += 1;
+        tracer.carriedOn();
+        result = await steady({ ...sessionOptions(), resume: result.sessionId, carryOn: true });
+        continue;
+      }
+      const made = await hasDeliverables(workdir);
+      if (!result.ok && !result.stopped && !made) {
+        await tracer.end();
+        await guild.fail(result.summary, true);
+        return;
+      }
+      if (!made) {
+        await tracer.end();
+        await guild.fail(`${result.summary} Nothing was in out/ to deliver.`, true);
+        return;
+      }
+      // A safeguard was reached while working: deliver what's there with the last review's notes.
+      const reached = safeguardReason(limits) ?? (result.stopped === "time" || result.stopped === "budget" ? result.stopped : null);
+      if (reached) {
+        outcome = { passed: false, stoppedBy: reached, notes: last?.issues ?? ["The work stopped before it was reviewed."] };
+        break;
+      }
+      await progress(round === 0 ? "Checking the work" : `Checking round ${round} of fixes`, round === 0 ? 75 : 85);
       tracer.stage("check");
       const problems = await checkOutputs(specialist, workdir);
       if (problems.length === 0) tracer.stage("review");
-      const verdict = problems.length > 0 ? { pass: false, issues: problems, summary: "" } : await review(specialist, workdir, task.brief, signal);
+      const verdict: Verdict = problems.length > 0 ? { pass: false, issues: problems, summary: "", reached: true } : await reviewTwice();
       tracer.checked(verdict.pass, verdict.issues);
-      if (verdict.pass) break;
-      // No revision without room for it and its check: the deadline and budget still hold.
-      if (revision >= specialist.settings.maxRevisions || wrapUpReason(limits)) {
-        await tracer.end();
-        await guild.fail(`The work didn't pass its checks: ${verdict.issues.join("; ").slice(0, 1500)}`, true);
-        return;
+      if (verdict.pass) {
+        outcome = { passed: true };
+        break;
       }
-      await progress(`Revising: ${verdict.issues.length} thing${verdict.issues.length === 1 ? "" : "s"} to fix`, 76);
+      if (!verdict.reached) {
+        outcome = { passed: false, stoppedBy: "review", notes: verdict.issues };
+        break;
+      }
+      // No progress: the same problems twice running, or a round of fixes that changed nothing.
+      const out = await outState(workdir);
+      if (last && (sameIssues(last.issues, verdict.issues) || last.out === out)) {
+        outcome = { passed: false, stoppedBy: "no-progress", notes: verdict.issues };
+        break;
+      }
+      // An optional upper bound a creator may set; by default the rounds aren't counted.
+      const most = specialist.settings.maxFixRounds;
+      if (typeof most === "number" && round >= most) {
+        outcome = { passed: false, stoppedBy: "fix-rounds", notes: verdict.issues };
+        break;
+      }
+      const stop = safeguardReason(limits);
+      if (stop) {
+        outcome = { passed: false, stoppedBy: stop, notes: verdict.issues };
+        break;
+      }
+      last = { issues: verdict.issues, out };
+      round += 1;
+      await progress(`Fixing ${verdict.issues.length} thing${verdict.issues.length === 1 ? "" : "s"} review found`, 76);
       tracer.stage("revise");
-      result = await steady({
-        specialist,
-        workdir,
-        brief: task.brief,
-        guild,
-        signal,
-        waitForAnswer: control.waitForAnswer,
-        resume: result.sessionId,
-        revision: verdict.issues,
-        limits,
-        span: [76, 90],
-        progress,
-        trace: tracer,
-      });
+      result = await steady({ ...sessionOptions(), resume: result.sessionId, revision: verdict.issues });
     }
 
     // 5. Deliver ---------------------------------------------------------------
@@ -144,10 +173,37 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
     tracer.stage("deliver");
     const delivered = await deliverOutputs(workdir, guild);
     control.finished = true;
-    // A session that stopped at a limit never wrote its summary for the buyer: name what's delivered.
-    const summary = result.ok ? result.summary : `Here is your work: ${delivered.join(", ")}.`;
+    // A session that stopped at a safeguard never wrote its summary for the buyer: name what's delivered.
+    const summary = result.ok ? result.summary : `Here is the work: ${delivered.join(", ")}.`;
     await tracer.end();
-    await guild.complete(summary.slice(0, 1800), delivered, { turns: result.turns });
+    await guild.complete(summary.slice(0, 1800), delivered, {
+      turns: result.turns,
+      fixRounds: round,
+      reviewPassed: outcome.passed,
+      ...(outcome.passed ? {} : { stoppedBy: outcome.stoppedBy, reviewNotes: JSON.stringify(outcome.notes.map((note) => note.slice(0, 1500))).slice(0, 12_000) }),
+    });
+
+    /** The options every session of this task shares. */
+    function sessionOptions(): Parameters<typeof work>[0] {
+      return {
+        specialist,
+        workdir,
+        brief: task.brief,
+        guild,
+        signal,
+        waitForAnswer: control.waitForAnswer,
+        limits,
+        span: [76, 90],
+        progress,
+        trace: tracer,
+      };
+    }
+
+    /** A review that couldn't reach a verdict is tried once more (decision 064). */
+    async function reviewTwice(): Promise<Verdict> {
+      const first = await review(specialist, workdir, task.brief, signal);
+      return first.reached ? first : review(specialist, workdir, task.brief, signal);
+    }
   } catch (error) {
     console.error(error);
     if (!signal.aborted && !control.finished) {
@@ -222,6 +278,29 @@ export async function flattenOut(workdir: string): Promise<void> {
   }
 }
 
+/** The same problems again: most of their words in common, in any order (decision 064). */
+export function sameIssues(before: string[], after: string[]): boolean {
+  const words = (issues: string[]) => new Set(issues.join(" ").toLowerCase().match(/[a-z0-9]{3,}/g) ?? []);
+  const a = words(before);
+  const b = words(after);
+  if (a.size === 0 || b.size === 0) return false;
+  let shared = 0;
+  for (const word of a) if (b.has(word)) shared++;
+  return shared / (a.size + b.size - shared) >= 0.8;
+}
+
+/** What's in out/ (names, sizes and modification times), to tell whether a round changed anything. */
+async function outState(workdir: string): Promise<string> {
+  const out = join(workdir, "out");
+  const names = (await readdir(out).catch(() => [] as string[])).sort();
+  const parts: string[] = [];
+  for (const name of names) {
+    const info = await stat(join(out, name)).catch(() => null);
+    if (info?.isFile()) parts.push(`${name}:${info.size}:${info.mtimeMs}`);
+  }
+  return parts.join("|");
+}
+
 /** Whether out/ has anything the buyer would get (names starting with "_" are scratch). */
 async function hasDeliverables(workdir: string): Promise<boolean> {
   const names = await readdir(join(workdir, "out")).catch(() => [] as string[]);
@@ -246,6 +325,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
   ".gif": "image/gif",
+  ".zip": "application/zip",
   ".svg": "image/svg+xml",
   ".mp4": "video/mp4",
   ".webm": "video/webm",

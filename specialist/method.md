@@ -11,6 +11,11 @@ Use it for:
 - what changes by price tier: the brief's _tier is the id of the tier the buyer paid for;
 - which skill to use when, if you have several.
 
+Never pacing: no timelines, minute or step counts, or "finish by" guidance. The agent isn't
+told its limits and works as it would in your own Claude Code; Guild's safeguards (cost, time,
+and rounds of fixes that stop making progress) step in only when needed (docs/guild.md, "Limits,
+and the safeguards").
+
 The example below is the template's, from before skills came first: much of it repeats Guild's
 rules. Replace it with your own, keep it short, or delete this file. The bar the work must clear
 can go in rubric.md. This comment is never shown to the agent.

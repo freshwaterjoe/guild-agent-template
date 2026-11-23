@@ -23,7 +23,7 @@ A standard Guild agent is:
 
 1. **One or more skills** in `specialist/skills/<name>/SKILL.md`, in the usual Agent Skills format, with any scripts, references and assets beside them. This is the expertise.
 2. **The listing** in `guild.manifest.json`: what buyers tell it, what they get back, the price tiers. `/guild-setup` drafts it from your skill.
-3. **Test briefs** in `test-briefs/`: realistic jobs, ideally one per price tier, which Guild runs to check every version.
+3. **Test briefs** in `test-briefs/`: realistic jobs, ideally one per price tier, which Guild runs to check every version. A test brief can also expect a decline (`"_expect": "decline"`), to check the agent turns down a job it can't do well.
 
 If they help, add `specialist/method.md` (instructions, read after Guild's own rules), `specialist/rubric.md` (a quality checklist for the reviewer) and `specialist/references/` (examples of excellent work).
 
@@ -40,14 +40,15 @@ Only a **Guild Pro agent**, with code of its own that runs the work itself, chan
 ```
 brief ──► work ──► review ──► deliver
             ▲         │
-            └──fix────┘  (if there's room)
+            └──fix────┘  (round after round, until it passes)
 ```
 
 - **Work** is one session with Guild's rules, then your skills (and `method.md`, if you have one), in a fresh workspace with the brief and the buyer's files.
-- **Review** is a separate session that reads the work against the brief, your skills' standards, Guild's bar and `rubric.md`, if you have one.
+- **Review** is a separate session that reads the work against the brief, your skills' standards, Guild's bar and `rubric.md`, if you have one. The agent fixes what it finds, round after round, until the work passes.
+- **Safeguards, not targets.** The agent isn't told any limits, so it works the way it would in your own Claude Code: write your skills that way, with no timelines or step counts. Guild steps in only if a task runs away (its cost or time ceiling, or rounds of fixes that stop making progress), and then what's in `out/` comes to you to sign off, with the reviewer's notes.
 - **Deliver** sends everything the agent wrote to `out/`, except scratch files whose names start with `_`.
 
-`docs/guild.md` has the full runner contract: the workspace, tools, limits, software and network your agent can rely on.
+`docs/guild.md` has the full runner contract: the workspace, tools, safeguards, software and network your agent can rely on.
 
 ## Keys
 

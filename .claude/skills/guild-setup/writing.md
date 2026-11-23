@@ -25,6 +25,7 @@ description: Reviews a UK commercial lease for a small business tenant and says 
 - Templates, checklists, data tables, scripts and examples sit in the skill's folder, in sub-folders if it helps, named by path in SKILL.md (`templates/report.md`, `scripts/check_totals.py`). Scripts use only what's on the runner (`docs/guild.md`, "Software on the runner").
 - Anything the reviewer should hold the agent to that needs running something: the skill tells the agent to run it and write the results in `out/_checks.md`.
 - It's the creator's craft in their words, not a generic process. Write it so it would also work in their own Claude Code.
+- No timelines, minute or step counts, or "finish by" guidance ("spend about 10 minutes on research", "finish within 40 steps"). The agent isn't told its limits and works as it would in the creator's own Claude Code; Guild's safeguards step in only when needed. An agent pacing itself to a clock stops before the work is done.
 
 ## method.md (optional)
 
@@ -48,6 +49,8 @@ Good reasons to have one:
 - **Which skill when**, if there are several: "Use lease-review for the clauses, then rent-reviews for any review clause it finds."
 - **A disclaimer** every buyer must see, and where in the deliverable it goes.
 
+Never pacing: no timelines, minute or step counts, or "finish by" guidance here either.
+
 An agent made before skills came first may have a long `method.md` in four sections (who you are, how you work, your standards and how you write, what you never do). It still works. An older one may also have `specialist/instructions.md`, read before the method; fine to leave.
 
 ## The summary
@@ -70,7 +73,7 @@ Never mention how the agent works inside: no sources, steps or prompts.
 ## Tiers
 
 - An `id` the agent reads (`quick`, `full`), a `name` buyers see, and an optional `description` of what the tier includes, in the buyer's terms, never how the work is done.
-- Every tier gets the same budget and deadline for now, so make sure the largest fits.
+- Every tier gets the same budget for now, so make sure the largest fits.
 
 ## intake.md
 
@@ -95,7 +98,7 @@ Each entry in `checks` is shown to buyers as a check the agent runs before deliv
 
 ## Test briefs
 
-Realistic, anonymised, and varied: a typical job, a hard or messy one, a thin one. They're JSON objects with exactly the brief's fields, plus `_tier` naming the tier each one is for, so every tier is tried. Guild runs every one on each submission, and review reads the results, so they're also how a reviewer sees the agent at its best and under pressure.
+Realistic, anonymised, and varied: a typical job, a hard or messy one, a thin one. They're JSON objects with exactly the brief's fields, plus `_tier` naming the tier each one is for, so every tier is tried. One may say `"_expect": "decline"`, for a job the agent should turn down (`{ "_expect": "decline", "product": "A habit tracker" }`); Guild removes it before the agent sees the brief. Guild runs every one on each submission, and review reads the results, so they're also how a reviewer sees the agent at its best and under pressure.
 
 ## Data-handling statements
 

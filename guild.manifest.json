@@ -64,7 +64,7 @@
   },
   "limits": {
     "budgetMicros": 3000000,
-    "deadlineSeconds": 3600,
+    "deadlineSeconds": 10800,
     "instance": "standard-4"
   },
   "models": [
@@ -99,7 +99,7 @@
     },
     {
       "id": "rubric-review",
-      "description": "A separate reviewer checks the work against the brief, the skills' standards and the quality checklist, and the agent gets a round of fixes if it falls short."
+      "description": "A separate reviewer checks the work against the brief, the skills' standards and the quality checklist, and the agent fixes what it finds until the work passes."
     }
   ]
 }

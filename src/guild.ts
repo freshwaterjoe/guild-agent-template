@@ -44,7 +44,7 @@ export interface Budget {
 export function guildClient(taskId: string) {
   const base = `/v1/tasks/${taskId}`;
   return {
-    /** Reports progress. Guild replies with the attempt's budget so far, for pacing (Guild GLD-272). */
+    /** Reports progress. Guild replies with the attempt's budget so far, for the cost safeguard (Guild decision 064). */
     progress: async (message: string, percent?: number): Promise<Budget | null> => {
       const response = await call("POST", `${base}/events`, JSON.stringify({ state: "working", message, percent }));
       const reply = (await response.json().catch(() => null)) as { budget?: Budget } | null;
@@ -61,7 +61,8 @@ export function guildClient(taskId: string) {
       call("PUT", `${base}/deliverables/${encodeURIComponent(name)}`, content as BodyInit, contentType),
     complete: (summary: string, deliverables: string[], metadata: Record<string, string | number | boolean>) =>
       call("POST", `${base}/complete`, JSON.stringify({ summary, deliverables, metadata })),
-    fail: (reason: string, retryable: boolean) => call("POST", `${base}/fail`, JSON.stringify({ reason, retryable })),
+    /** Ends the task without a delivery. `declined`: the agent judged the job one it can't do well (decision 064). */
+    fail: (reason: string, retryable: boolean, declined = false) => call("POST", `${base}/fail`, JSON.stringify({ reason, retryable, ...(declined ? { declined: true } : {}) })),
     /** Sends the run trace (src/trace.ts); each upload replaces the last. */
     trace: (trace: unknown) => call("PUT", `${base}/trace`, JSON.stringify(trace)),
   };

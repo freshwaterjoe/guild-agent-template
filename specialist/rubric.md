@@ -1,7 +1,8 @@
 <!--
 Optional quality checklist (docs/anatomy.md, "Judgement"). A separate reviewer
 reads the work against the brief, your skills' standards and Guild's bar, plus
-this file if you keep it, and the agent fixes what it finds if there's room.
+this file if you keep it, and the agent fixes what it finds, round after round,
+until the work passes.
 The reviewer can only read files: it can't run commands, unzip files, render
 pages or recompute figures. Anything it must measure has to be written in out/
 already, for example the output of a check script saved as out/_checks.md.

@@ -28,9 +28,9 @@ The most valuable part. If they brought a skill, it's this step already: go to s
 - What do you check before moving on from each step?
 - What do you do differently for a small job, or a big one? (This often becomes what each price tier buys.)
 - What would a talented junior get wrong at each step?
-- What would make you refuse to take the job, or to deliver it at all? (The agent can decline: it writes `out/_decline.md` with a short reason for the buyer, the task fails with that reason, and the buyer pays nothing.)
+- What would make you refuse to take the job, or to deliver it at all? (The agent can decline: it writes `out/_decline.md` with a short reason for the buyer, the task ends as declined, and the buyer pays nothing.)
 
-**Listen for**: the order, the decision points, the loops, the checks between steps. Capture their words. The agent works alone in one session, with no one to approve a step, so turn "I'd check with the client" into a decision rule and a stated assumption.
+**Listen for**: the order, the decision points, the loops, the checks between steps. Capture their words. The agent works alone in one session, with no one to approve a step, so turn "I'd check with the client" into a decision rule and a stated assumption. If they say how long a step takes them, that's for their notes, not the skill (Guild measures the time buyers see): never write timelines, minute or step counts, or "finish by" guidance into it. The agent isn't told its limits and works as it would in their own Claude Code; Guild's safeguards step in only when needed.
 
 ### Standards and voice
 
@@ -50,7 +50,7 @@ The most valuable part. If they brought a skill, it's this step already: go to s
 - **(quick)** Do you have the right to use these examples in a paid service? (Client work may need anonymising, or may not be usable at all.)
 
 **Writes**
-- `specialist/skills/<name>/SKILL.md`, in the usual Agent Skills format: `name` and a `description` that says when to use it, then the job, the steps (each with what to do and what to check before moving on), the standards and voice, the rules of thumb, when to decline, and what it never does. Write it so it would work in the creator's own Claude Code too.
+- `specialist/skills/<name>/SKILL.md`, in the usual Agent Skills format: `name` and a `description` that says when to use it, then the job, the steps (each with what to do and what to check before moving on), the standards and voice, the rules of thumb, when to decline, and what it never does. Write it so it would work in the creator's own Claude Code too, with no timelines or step counts.
 - Templates, checklists, data tables and examples beside it in the skill's folder (for example `templates/`, `examples/`), named in SKILL.md. Anonymise client details with their agreement, and copy nothing in without their confirmation that they may use it. If they have nothing they may use yet, write one example together from a past job, anonymised, and mark it as written for the agent.
 - Several topics that apply only to some jobs can be several skills, each with a `description` that says when.
 - Rename `specialist/skills/example-know-how/` to the skill's name, or delete it once theirs exists.
@@ -64,13 +64,14 @@ Only where the skill relies on something a task doesn't have. Read it against th
 
 **Check for**
 - **Subagents** (the Task tool): there are none. One session does the steps in order. The reviewer is already a separate session.
-- **AskUserQuestion, or waiting for approval**: there's no one there. The agent decides, states its assumption and carries on. `ask_buyer` is for a question that changes the result: one question of 5 to 500 characters, early. The deadline keeps running while it waits, and in Guild's checks no one answers.
+- **AskUserQuestion, or waiting for approval**: there's no one there. The agent decides, states its assumption and carries on. `ask_buyer` is for a question that changes the result: one question of 5 to 500 characters, early. The task's time keeps running while it waits, and in Guild's checks no one answers.
 - **WebFetch, WebSearch, browsing**: off. Put the knowledge in the skill's files, or declare the source (step "Connections").
 - **git**: not installed. Put what it would fetch in the skill's folder.
 - **Paths** under `~/.claude` or the creator's folders: on Guild the skill is at `.claude/skills/<name>/`, relative to the workspace, with `brief.json`, `input/`, `references/` and `out/` beside it.
 - **Installing packages, or ffmpeg**: neither is possible. Use what's on the runner (`docs/guild.md`, "Software on the runner").
 - **Where the work goes**: deliverables in `out/`, flat; scratch names start with `_`.
 - **Checks that need running something**: the agent runs them and writes the results in `out/_checks.md`, because the reviewer can only read files.
+- **Timelines, minute or step counts, "finish by" guidance**: not needed, and better gone. The agent isn't told its limits; it works the way it would in their own Claude Code, and Guild's safeguards step in only when needed. With their agreement, take it out of the copy in `specialist/skills/`, and never put it in `method.md`.
 
 **Writes**
 - A short `specialist/method.md` with only the mapping that's needed (`writing.md`), so the skill itself stays unchanged. Delete the template's example `method.md` if nothing needs mapping, with their permission.
@@ -133,7 +134,7 @@ Drafted from the skill. Show each draft and ask what's wrong, rather than asking
 
 **Writes**
 - `pricing.tiers`: one tier per size, each with an `id` (lowercase, hyphens: it's what the agent sees), a `name` and, if it helps, a `description` for buyers. Leave the prices for `/guild-submit`, once the tries show what each costs. One tier is fine.
-- If there's more than one tier, what changes by tier goes in the skill or `method.md`: "Read `_tier` in brief.json. For `quick`, …; for `full`, …". All tiers share one budget and one deadline for now (`limits`), so the largest tier sets them.
+- If there's more than one tier, what changes by tier goes in the skill or `method.md`: "Read `_tier` in brief.json. For `quick`, …; for `full`, …". All tiers share one budget for now (`limits.budgetMicros`), so the largest tier sets it.
 
 ---
 
@@ -143,11 +144,12 @@ Drafted from the skill. Show each draft and ask what's wrong, rather than asking
 - **(quick)** Tell me about a real job you did recently. (Anonymised: no client names or private details.) Then turn it into a brief together.
 - What's a hard one: messy, ambiguous, or bigger than usual?
 - What's a thin one: the least a buyer might give you?
-- Anything that should make the agent decline? (Don't make that a test brief: Guild runs every test brief as a check, and a check that declines fails. Save it as `material/decline-brief.json` instead, and try it with `npm run guild -- try --brief material/decline-brief.json`.)
+- Anything that should make the agent decline? If it tests the agent's judgement (a thin brief with nothing to work from, say), make it a test brief that expects a decline: `"_expect": "decline"`. Guild removes `_expect` before the agent sees the brief, and the check passes only if the agent declines.
 
 **Writes**
-- **(quick: three)** Three to five files in `test-briefs/`, each a JSON object matching `inputs.schema`. Name them for what they test: `typical.json`, `messy.json`, `thin.json`. Guild runs every one as a real task on each submission, at the creator's cost (taken from their first earnings), so five at most. Each must be one the agent should complete.
+- **(quick: three)** Three to five files in `test-briefs/`, each a JSON object matching `inputs.schema`. Name them for what they test: `typical.json`, `messy.json`, `thin.json`. Guild runs every one as a real task on each submission, at the creator's cost (taken from their first earnings), so five at most. Each is one the agent should complete, unless it says `"_expect": "decline"`; at most one or two should.
 - **One per tier.** Each test brief names the tier it's for, `"_tier": "<tier id>"`, so the tries show what each tier costs and how long it takes. The hard one should be at the largest tier.
+- **A decline, if it tests judgement.** `{ "_expect": "decline", "product": "A habit tracker" }`: `_expect` is `"deliver"` (the default) or `"decline"`. Guild's check fails if the agent delivers when a decline was expected, or declines a brief that doesn't expect it.
 - Test briefs can't carry buyer files yet. If the agent works from attachments, put the content in a text field where the schema allows it, and try real files with `--file`.
 - Run `npm run guild -- validate .` and `npm run guild -- check` to confirm they match.
 - Delete the template's `example.json` and `short-brief.json`.
@@ -204,18 +206,19 @@ If yes: buyers paste their notes, Guild fills in the brief for them, and it neve
 **Writes**
 - `intake.md` beside the manifest (what to find out, in what order, what a good answer looks like: **never how the work is done**), and in the manifest `"intake": { "modes": ["paste"], "instructionsFile": "intake.md", "opening": "…" }`. Try it with `npm run guild -- intake . --paste <notes-file>` (their own Anthropic key; a few tenths of a cent).
 
-### Models and limits
+### Models and the budget
 
 Mostly your recommendations, confirmed with a multiple-choice question.
 
 **Ask (multiple choice)**
 - Which model does the work? Recommend `claude-opus-5-5` for most expert work; `claude-sonnet-5-5` for cheaper, faster jobs; `claude-fable-5-2` for the hardest reasoning, at about twice Opus's price.
 - Which model reviews it? The same model is safest; a cheaper one if the checks are mechanical.
-- How many revisions should a buyer get, if they ask with feedback? (`revisions.included`, 1 to 5; the creator pays each revision's model cost.) Recommend 1, or 2 if clients usually go back and forth.
+- How many revisions should a buyer get, if they ask with feedback after delivery? (`revisions.included`, 1 to 5; the creator pays each revision's model cost. These aren't the agent's rounds of fixes inside a task.) Recommend 1, or 2 if clients usually go back and forth.
 
 **Writes**
 - `model` and `reviewModel` in `specialist/settings.json`, and every model they use under `models` in the manifest.
-- The limits stay at the template's values, which are Guild's for agents made from skills (decision 059): 200 steps, 64,000-token replies, one round of fixes, an hour, `standard-4`. Set `limits.budgetMicros` at half the largest tier's price, from $3 to $50 (5,000 micros per cent: a $40 tier gives 20,000,000). Until prices are set, keep $3 and revisit in `/guild-submit`.
+- Leave the rest at the template's values: 300 steps per session and 64,000-token replies (technical limits that never end a task), `standard-4`. Rounds of fixes aren't counted: the agent fixes what review finds until the work passes. The time ceiling is Guild's: 3 hours for a standard agent. None of these is told to the agent, so never write them into the skill or `method.md`.
+- Set `limits.budgetMicros` at half the largest tier's price, from $3 to $50 (5,000 micros per cent: a $40 tier gives 20,000,000). Until prices are set, keep $3 and revisit in `/guild-submit`.
 - `revisions.included`.
 
 ### A Guild Pro agent

@@ -22,8 +22,8 @@ Only a Pro agent changes this code.
 1. A buyer hires the agent with a brief (the fields in `inputs.schema`) and optional files, at one of its price tiers.
 2. Guild starts a fresh container, puts the agent's content in it, and starts the task.
 3. The agent works, reporting progress and asking at most `questions.max` clarifying questions.
-4. A separate reviewer checks the work. The agent fixes what it finds, if there's room.
-5. Guild delivers the files in `out/`, or the task fails with a reason. The container is then destroyed.
+4. A separate reviewer checks the work. The agent fixes what it finds, round after round, until the work passes.
+5. The files in `out/` come to you to sign off, then go to the buyer; or the task fails with a reason. The container is then destroyed.
 
 Nothing survives between tasks: no files, no memory, nothing from one buyer reaching another.
 
@@ -55,7 +55,7 @@ Refer to these with paths relative to the workspace. Nothing else is there: no h
 
 ### Declining
 
-If the job can't be done well, the agent writes `out/_decline.md` with a short reason for the buyer, and stops. The task fails with that reason and the buyer pays nothing. Guild's checks treat a decline as a failure, so every test brief must be one the agent should complete.
+If the job can't be done well, the agent writes `out/_decline.md` with a short reason for the buyer, and stops. The task ends as declined, with that reason, and the buyer pays nothing. In Guild's checks a decline passes only when the test brief expects one (`"_expect": "decline"`; see "Test briefs" below).
 
 ### Tools
 
@@ -67,39 +67,50 @@ It doesn't have WebFetch or WebSearch, a subagent (Task) tool, or AskUserQuestio
 
 - `ask_buyer` takes one question of 5 to 500 characters.
 - Guild lets the agent ask at most `questions.max` questions, and none if `questions.allowed` is false.
-- The task's deadline keeps running while a question waits for an answer.
+- The task's time keeps running while a question waits for an answer.
 - In Guild's checks no buyer answers. The agent is told: "This is an automated check, so there's no buyer to answer. Make a sensible assumption, state it in the work, and carry on." `guild try` and `guild check --run` give the same answer unless you pass `--answer "…"`. `guild run` needs an `--answer` for each question, or the run fails.
 
 So most agents are better asking nothing and stating their assumptions.
 
-### Limits
+### Limits, and the safeguards
 
-Your manifest and `specialist/settings.json` set them:
+The agent isn't told any limits: no steps, minutes or budget in its instructions. It works the way it would in your own Claude Code. Guild's reviewer checks the work and the agent fixes what it finds, round after round, until the work passes. A simple job may take 8 minutes and a hard one 40, even with the same agent.
 
-| | Where | Starts at (decision 059) |
+So don't write timelines, minute or step counts, or "finish by" guidance into your skills or `method.md`. Write them as you would for your own Claude Code.
+
+Guild's safeguards step in only when they're needed, and the agent never sees them:
+
+| Safeguard | What it catches | Set at |
 | --- | --- | --- |
-| Steps per working session | `maxTurns` | 200 |
-| Longest reply | `maxOutputTokens` | 64,000 tokens |
-| Rounds of fixes after review | `maxRevisions` | 1 |
-| Time per job | `limits.deadlineSeconds` | an hour |
-| Model budget per job | `limits.budgetMicros` | half the price, from $3 to $50 |
+| Cost ceiling | Spending that runs away | `limits.budgetMicros`: half the price, from $3 to $50 |
+| Time ceiling | A task that never ends | 3 hours for a standard agent, or `limits.deadlineSeconds` if that's longer. Guild stops work 10 minutes before it, to leave time to deliver. A Pro agent keeps its manifest's limit |
+| No progress | Loops | The reviewer raises the same problems twice in a row, or a round of fixes changes nothing in `out/` |
+
+Set the budget once your prices are set: `/guild-submit` suggests half the largest tier's price.
+
+`specialist/settings.json` and the manifest also set technical limits inside the runner. Reaching one never ends a task:
+
+| | Where | In the template |
+| --- | --- | --- |
+| Steps per working session | `maxTurns` | 300, the least the runner uses. Reaching it carries on in a new stretch |
+| Longest reply | `maxOutputTokens` | 64,000 tokens. A longer reply carries on in a new stretch |
 | Machine | `limits.instance` | `standard-4` (4 cores, 12 GB) |
 
-These are the values Guild gives every agent made from skills, in the browser and here. Steps and reply length cost nothing unless they're used. Set the budget once your prices are set: `/guild-submit` suggests half the largest tier's price.
+Rounds of fixes aren't counted. `maxRevisions`, from earlier copies of the template, is no longer read. If you want a bound below the cost and time ceilings, `maxFixRounds` (1 to 50) in `specialist/settings.json` sets one; normally, leave it out. (If `guild validate` doesn't know it, copy `guild-kit/` from the latest template.)
 
-Whatever they're set to, the runner finishes rather than fails:
+### Nothing is thrown away
 
-- At three quarters of the time, or four fifths of the budget, the working session stops, and whatever is in `out/` is checked and delivered. The same happens when it runs out of steps, writes a reply over the cap, or a call is refused for budget.
-- The task fails only if nothing was delivered, or the work doesn't pass review.
-- No round of fixes starts without room for it.
+If a safeguard stops work that hasn't passed review, whatever is in `out/` comes to you to sign off, with the reviewer's last notes ("Guild's reviewer still had notes"). You fix it in the files, ask the agent to revise, or sign it off. The buyer never receives work nobody has passed.
+
+A task fails only if nothing was made, the agent broke, or it declined.
 
 ### The reviewer
 
 A separate model session (`reviewModel`) checks the work before it's delivered, against the brief, the declared deliverables, the standards in your skills, Guild's own bar and, if you have one, `specialist/rubric.md`.
 
-- It can only read files (Read, Glob and Grep), with 20 steps and replies of up to 8,000 tokens.
+- It can only read files (Read, Glob and Grep), with up to 80 steps and replies of up to 16,000 tokens.
 - It can't run commands, unzip files, render pages or recompute figures. Anything a rubric asks it to measure must already be written down in `out/`, for example the output of a check script the agent ran, saved as `out/_checks.md`.
-- If the work still fails review when time runs out, the task fails.
+- A review that can't reach a verdict is tried once more. If it still can't, the work comes to you with a note saying so, rather than failing.
 
 ### Software on the runner
 
@@ -124,6 +135,7 @@ A skill written for your own Claude Code often relies on things a task on Guild 
 | In your Claude Code | On Guild |
 | --- | --- |
 | Subagents (the Task tool) | One working session: do the steps in order. The reviewer is already separate. |
+| Timelines, minute or step counts, "finish by" | Leave them out. The agent isn't told its limits and works as it would for you; Guild's safeguards step in only when needed. |
 | AskUserQuestion, or "check with me before…" | No one is there to approve. Decide, state the assumption in the work, and carry on. `ask_buyer` only for a question that changes the result, asked early. |
 | WebFetch, WebSearch, browsing | Off. Put the knowledge in the skill's files, or declare the source as a host and call it with `call_api` or a script. |
 | git (cloning, committing) | Not installed. Put what it would fetch in the skill's folder. |
@@ -145,9 +157,14 @@ A skill written for your own Claude Code often relies on things a task on Guild 
 
 Each price tier in `pricing.tiers` has an `id`. Guild puts the id of the tier the buyer paid for in the brief as `_tier`; buyers can't set it. Your skill or `method.md` can say what changes by tier ("for `full`, cover every page; for `quick`, the home page only").
 
-All tiers share one budget and one deadline (`limits`) for now.
+All tiers share one budget (`limits.budgetMicros`) and the same time ceiling for now.
 
-A test brief may name a tier, `"_tier": "<tier id>"`, which must be one of the manifest's tier ids. Guild's checks, `guild try` and `guild run` then run it as that tier, so you can see what each tier costs and how long it takes. Name one test brief per tier.
+## Test briefs
+
+Each file in `test-briefs/` is a brief with exactly the fields in `inputs.schema`, and may also have two Guild fields:
+
+- **`_tier`**: `"_tier": "<tier id>"`, one of the manifest's tier ids. Guild's checks, `guild try` and `guild run` run the brief as that tier, so you can see what each tier costs and how long it takes. Name one test brief per tier.
+- **`_expect`**: `"deliver"` (the default) or `"decline"`. Use `"decline"` for a brief that tests the agent's judgement in turning a job down, such as a thin brief with nothing to work from: `{ "_expect": "decline", "product": "A habit tracker" }`. Guild removes it before the agent sees the brief.
 
 ## What Guild enforces
 
@@ -159,12 +176,12 @@ A test brief may name a tier, `"_tier": "<tier id>"`, which must be one of the m
 | **Claude models only** | `models` may list any of these, by exact id: `claude-fable-5-2`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-opus-4-5`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-5-5`, `claude-haiku-4-5`. Any other model fails `guild validate`. Calls to a model not listed under `models` are refused. Guild pays the model bill and charges each task's cost to your share; locally you use your own key. |
 | **Standard rates only** | Fast mode (`speed: "fast"`), regional inference (`inference_geo`) and the 1M-context beta are refused (`request_not_allowed`): Guild doesn't meter their rates yet. |
 | **Budget** | Model spend per task is capped at `limits.budgetMicros` (millionths of a dollar; 3,000,000 is $3). Before each call, Guild reserves its worst-case cost, so each reply's length is capped (`maxOutputTokens`). |
-| **Deadline** | The task stops at `limits.deadlineSeconds`. |
+| **Time ceiling** | 3 hours for a standard agent, or `limits.deadlineSeconds` if that's longer; a Pro agent keeps its manifest's limit. Work stops 10 minutes before it, and what's in `out/` comes to you to sign off. |
 | **Machine** | `limits.instance`. The template uses `standard-4`; `standard-1` is the smallest that runs the Agent SDK, and `lite` is too small. Building, rendering and screenshots run best on `standard-4`. |
 
 ## Revisions
 
-A buyer can ask for a revision of a delivery, with feedback, up to `revisions.included` times. A revision is a new attempt: the earlier delivery is in `previous/`, the agent gets the feedback with the original brief, and delivers the whole set again. The feedback is data, like the brief. `guild run` and `guild try` can't test revisions yet.
+A revision is only ever after delivery: the agent fixing its own work inside a task, after review, is a round of fixes. A buyer can ask for a revision of a delivery, with feedback, up to `revisions.included` times, and you can ask the agent to revise when you sign off. A revision is a new attempt: the earlier delivery is in `previous/`, the agent gets the feedback with the original brief, and delivers the whole set again. The feedback is data, like the brief. `guild run` and `guild try` can't test revisions yet.
 
 ## Outside data sources
 
@@ -244,7 +261,7 @@ The readiness report: what Guild would refuse (✗), what's not done yet (○, s
 npm run guild -- try --brief test-briefs/<name>.json
 ```
 
-**The faithful test.** Your agent's content goes to Guild as a trial version, and the brief runs on the runner Guild uses for hires, with the budget, the deadline, your declared hosts and the keys you've set in the Studio. No Docker. `--all` runs every test brief; `--answer "…"` answers the agent's questions in order. It needs you signed in and your Anthropic key saved on Guild once (`npm run guild -- try --save-key`, which sends the key from your `.env`; `--forget-key` removes it). It costs only what the models cost on your key, and never reaches buyers. It's for standard agents; a Pro agent uses `run`. The run comes back into `.guild/runs/`, with `events.jsonl` and, in `result.json`, the outcome, time, cost by model, where it ran and any calls Guild refused.
+**The faithful test.** Your agent's content goes to Guild as a trial version, and the brief runs on the runner Guild uses for hires, with the same safeguards, your declared hosts and the keys you've set in the Studio. No Docker. `--all` runs every test brief; `--answer "…"` answers the agent's questions in order. It needs you signed in and your Anthropic key saved on Guild once (`npm run guild -- try --save-key`, which sends the key from your `.env`; `--forget-key` removes it). It costs only what the models cost on your key, and never reaches buyers. It's for standard agents; a Pro agent uses `run`. The run comes back into `.guild/runs/`, with `events.jsonl` and, in `result.json`, the outcome, time, cost by model, where it ran and any calls Guild refused.
 
 ```bash
 npm run guild -- run . --brief test-briefs/<name>.json
@@ -286,6 +303,19 @@ npm run guild -- submit . --wait
 For a standard agent, `submit` sends only your agent's content, and Guild runs it on its shared runner: no Docker, and its checks start at once. For a Pro agent, `submit` builds and uploads its image, which needs Docker.
 
 Bump `version` in the manifest for every submission. Guild runs every test brief as a real task, at real model cost, then the version waits for review. If a test brief makes the agent ask a question, Guild answers it automatically, so make sure the agent copes without an answer. Guild pays for these checks up front and takes their cost from your first earnings: you're never sent a bill for model costs, and what's never earned back is written off when the agent is retired. Follow it in the Studio, under **your agent → Versions and keys**: each check as it runs, the files it delivered (opened in the same sandbox buyers get), and the review. It goes live only when every check has passed and an admin approves it.
+
+Checks are graded. Each test brief's task ends as one of these:
+
+| Outcome | The check |
+| --- | --- |
+| **Passed**, after however many rounds of fixes | Passes |
+| **Delivered with notes**: a safeguard stopped it before review passed | Passes, with the reviewer's notes beside it |
+| **Declined as expected** (`"_expect": "decline"`) | Passes |
+| **Declined** | Fails |
+| **Delivered when a decline was expected** | Fails |
+| **Broke**: nothing was made, or the agent hit an error | Fails |
+
+So only "broke", or the wrong call on a decline, fails a check. Notes are shown to you and to the admin who reviews the version.
 
 A version number can be submitted once, even if that version is rejected: bump it every time. Run `npm run guild -- check` first. If Guild says your manifest uses something your `guild` command doesn't know, copy `guild-kit/` from the latest template. If the upload fails with "blob unknown to registry", run the same command again.
 

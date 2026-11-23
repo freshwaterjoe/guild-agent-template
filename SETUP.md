@@ -11,9 +11,9 @@ Delete this file when everything's done.
 ## The agent
 
 - [ ] **The skill**: the expertise, in the usual Agent Skills format (`specialist/skills/<name>/SKILL.md`, with its files)
-- [ ] **Running on Guild**: anything the skill relies on that a task doesn't have (subagents, AskUserQuestion, web access, git, `~/.claude` paths) mapped to the runner's equivalents, in a short `specialist/method.md` if needed
+- [ ] **Running on Guild**: anything the skill relies on that a task doesn't have (subagents, AskUserQuestion, web access, git, `~/.claude` paths) mapped to the runner's equivalents, in a short `specialist/method.md` if needed, with no timelines or step counts
 - [ ] **The listing**: who it's for, what buyers tell it, what they get back, the price tiers, `"kind": "standard"` (`guild.manifest.json`, and `requiredOutputs` in `specialist/settings.json`)
-- [ ] **Test briefs**: realistic jobs, one per price tier with `_tier`, including a hard and a thin one (`test-briefs/`)
+- [ ] **Test briefs**: realistic jobs, one per price tier with `_tier`, including a hard and a thin one, and one it should decline (`_expect`) if that tests its judgement (`test-briefs/`)
 
 ## Optional, when they help
 
@@ -21,7 +21,7 @@ Delete this file when everything's done.
 - [ ] Examples of excellent work (`specialist/references/`, or in the skill's own folder)
 - [ ] Connections: outside data and APIs (`network.hosts`, and connections in `specialist/settings.json`)
 - [ ] Paste your notes: buyers paste their notes and Guild fills in the brief (`intake` and `intake.md`)
-- [ ] Models and limits (`specialist/settings.json`, `models`, `limits`, `revisions`)
+- [ ] Models, the budget and buyers' revisions (`specialist/settings.json`, `models`, `limits.budgetMicros`, `revisions.included`)
 
 ## Try it
 

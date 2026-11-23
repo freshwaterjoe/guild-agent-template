@@ -9,7 +9,7 @@ The point of a try is to see the work as a buyer would, to see what each tier co
 
 ## Two ways to run
 
-- **On Guild, with `guild try` (the usual way, and the faithful test).** The agent's content goes to Guild and each brief runs on the runner Guild uses for hires, with the real budget, deadline, declared hosts and the keys set in the Studio. No Docker. It's for standard agents. It needs the creator signed in (`npm run guild -- connect <code>` or `npm run guild -- login`) and their Anthropic key saved on Guild once.
+- **On Guild, with `guild try` (the usual way, and the faithful test).** The agent's content goes to Guild and each brief runs on the runner Guild uses for hires, with the same safeguards, declared hosts and the keys set in the Studio. No Docker. It's for standard agents. It needs the creator signed in (`npm run guild -- connect <code>` or `npm run guild -- login`) and their Anthropic key saved on Guild once.
 - **On this machine, with `guild run`.** To work offline, to test the plumbing for free with `--mock-models`, or for a Guild Pro agent. It needs Docker. It builds the runner code in this folder, which may be older than the runner Guild uses, so a standard agent can behave a little differently than on Guild. Declared outside hosts aren't reachable locally.
 
 Prefer `guild try`. If a `guild run` result looks wrong, try the same brief on Guild before changing anything.
@@ -38,7 +38,19 @@ On this machine:
 - One brief: `npm run guild -- run . --brief test-briefs/<name>.json`. If the agent asks a question, pass `--answer "<text>"`, or the run fails.
 - Every brief, with the readiness report updated after: `npm run guild -- check --run`.
 
-Runs take minutes. Run them in the background where you can, and tell the creator what's happening. The output shows each step and what it cost. Each run's files are in `.guild/runs/<run>/`, whichever way it ran: `task.json` (the brief), `result.json` (outcome, time, cost) and `deliverables/` (what the buyer would get). A run on Guild also has `events.jsonl` (each step), and `result.json` says where it ran (`onGuild`, with its page) and lists any calls Guild refused (`refused`).
+Runs take minutes, and how many depends on the job: the agent fixes what review finds, round after round, until the work passes, so a simple brief may take 8 minutes and a hard one 40. Run them in the background where you can, and tell the creator what's happening. The output shows each step and what it cost. Each run's files are in `.guild/runs/<run>/`, whichever way it ran: `task.json` (the brief), `result.json` (outcome, time, cost) and `deliverables/` (what the buyer would get). A run on Guild also has `events.jsonl` (each step), and `result.json` says where it ran (`onGuild`, with its page) and lists any calls Guild refused (`refused`).
+
+## If a run was delivered with notes
+
+The agent isn't told any limits. If one of Guild's safeguards stopped the work before review passed (the cost ceiling, the time ceiling, or rounds of fixes that stopped making progress), what was in `out/` is still delivered, with the reviewer's last notes. On a hire it goes to the creator's sign-off; in Guild's checks it still passes, with the notes beside it. The run report on its page on Guild (`onGuild` in `result.json`) shows the last review's notes.
+
+Read the notes with the creator, against the work:
+
+- **A real gap** (a step the skill doesn't cover, a standard it doesn't state, a check the agent should have run): fix the skill, or the rubric, and run the brief again.
+- **The reviewer couldn't check it** (it only reads files): have the agent write the result of the check to `out/_checks.md`.
+- **Notes the creator disagrees with**: say so, and tighten the skill's standards or the rubric so the reviewer judges as they would.
+
+Never fix it by adding a timeline, a step count or "finish by" guidance to the skill or `method.md`, and never suggest it. The agent works the way it would in the creator's own Claude Code; Guild's safeguards step in only when needed. If a run reached the cost ceiling, the budget may be low for the job (`limits.budgetMicros`, set when submitting), or the skill may send the agent round in circles.
 
 ## If a run fails or falls short
 
@@ -47,8 +59,9 @@ Read why (the output, `result.json`, `events.jsonl`), explain it in a sentence, 
 - **A file missing in `out/`**, or named differently from `requiredOutputs`: names are matched exactly. Say the exact names in the skill or `method.md`.
 - **A refused call** (in `refused`): a host not declared, or a key not set.
 - **A brief that doesn't match** the fields, or a `_tier` that isn't one of the manifest's tier ids.
-- **Stopped at a limit** (out of steps, a reply over the cap, three quarters of the time, four fifths of the budget): what was in `out/` was checked and delivered. Suggest writing a complete first version early, and if the limits are still the template's, the Studio's values (`interview.md`, "Models and limits").
-- **Waited on a question**: the deadline keeps running while a question waits, and in checks no one answers. Prefer stated assumptions.
+- **Nothing in `out/`**: the agent broke, or a safeguard stopped it before it wrote anything. Read `events.jsonl` for where it got to.
+- **Declined**: read `out/_decline.md`'s reason. If the agent should have done the job, make the skill clearer about when to decline; if it was right, and the brief tests that judgement, add `"_expect": "decline"` to it.
+- **Waited on a question**: the task's time keeps running while a question waits, and in checks no one answers. Prefer stated assumptions.
 - **Failed review on something the reviewer couldn't check**: it can only read files. Have the agent run the check and write the result to `out/_checks.md`.
 - **A tool or program that isn't there**: no subagents, AskUserQuestion, web access, git or ffmpeg, and nothing can be installed. Map it in `specialist/method.md` (`/guild-setup`, "Starting from a skill").
 
@@ -71,7 +84,7 @@ This is the part that matters.
 
 ## Afterwards
 
-- **Cost and time per tier.** Note in SETUP.md's notes, for each tier, what its test brief cost and how long it took, from `result.json` or `guild check`. Note too if a run came close to the budget or deadline: every tier shares them, so the largest sets them.
+- **Cost and time per tier.** Note in SETUP.md's notes, for each tier, what its test brief cost and how long it took, from `result.json` or `guild check`. Note too if a run came close to the budget: every tier shares it, so the largest sets it. This is for the creator and the price, never for the skill: don't turn it into a timeline.
 - Tick "Try it" once they've read the work and are happy with it.
 - Mention each tier's cost against the price they have in mind: `npm run guild -- check` shows each tier's share after Guild's 25% and the costliest run. That's what `/guild-submit` prices from.
 - When it's good across the test briefs, offer `/guild-submit`.

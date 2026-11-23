@@ -24,8 +24,8 @@ A standard agent is content, run on Guild's shared runner:
 | | Where it lives | |
 | --- | --- | --- |
 | **The skill** (one or more): the expertise | `specialist/skills/<name>/SKILL.md`, with its scripts, references and assets | Required |
-| **The listing**: who it's for, the brief, the deliverables, price tiers, limits | `guild.manifest.json`; `requiredOutputs` in `specialist/settings.json` | Required, drafted from the skill |
-| **Test briefs**: realistic jobs, ideally one per tier (`_tier`) | `test-briefs/` | At least one; three to five is better |
+| **The listing**: who it's for, the brief, the deliverables, price tiers, the budget | `guild.manifest.json`; `requiredOutputs` in `specialist/settings.json` | Required, drafted from the skill |
+| **Test briefs**: realistic jobs, ideally one per tier (`_tier`), and a decline if it tests the agent's judgement (`_expect`) | `test-briefs/` | At least one; three to five is better |
 | **Instructions**: how to run the skill on Guild, what changes by tier, anything the skill doesn't say | `specialist/method.md` | Optional |
 | **Quality checklist**: must-haves the reviewer holds the work to | `specialist/rubric.md` | Optional |
 | **Examples** of excellent work | `specialist/references/` | Optional |
@@ -43,12 +43,13 @@ Going deeper, when it helps: connections to outside data (`network.hosts`, conne
 
 The runner contract is in `docs/guild.md` ("The runner contract"). Read it before writing or adapting a skill. In short:
 
-- **Workspace:** `brief.json` (with `_tier`), `input/`, `out/`, skills at `.claude/skills/<name>/`, `references/`, `previous/` for revisions. Paths are relative to the workspace; there's no `~/.claude`.
+- **Workspace:** `brief.json` (with `_tier`), `input/`, `out/`, skills at `.claude/skills/<name>/`, `references/`, `previous/` for a buyer's revision. Paths are relative to the workspace; there's no `~/.claude`.
 - **Delivering:** every deliverable is a file in `out/`, flat. Names starting `_` are scratch and not delivered. `out/_decline.md` declines the job, and the buyer pays nothing.
+- **Work until it passes:** the reviewer checks the work and the agent fixes what it finds, round after round, until it passes. These are rounds of fixes; "revision" means only a buyer's (or the creator's at sign-off) after delivery.
 - **Tools:** Read, Write, Edit, Bash, Glob, Grep, `ask_buyer`, `call_api` for connected APIs, and connected MCP services. No WebFetch, WebSearch, subagents (Task) or AskUserQuestion.
-- **Questions:** `ask_buyer`, one question of 5 to 500 characters, at most `questions.max`. The deadline keeps running while it waits, and in Guild's checks no one answers.
-- **Limits:** steps, reply length, rounds of fixes, time, budget and machine, from `specialist/settings.json` and the manifest. At three quarters of the time or four fifths of the budget the session stops and what's in `out/` is checked and delivered.
-- **Reviewer:** a separate session that can only read files (Read, Glob, Grep). It can't run commands, unzip files, render pages or recompute figures, so anything a rubric asks it to measure must already be written in `out/`.
+- **Questions:** `ask_buyer`, one question of 5 to 500 characters, at most `questions.max`. The task's time keeps running while it waits, and in Guild's checks no one answers.
+- **Safeguards, not targets:** the agent isn't told its limits and works as it would in the creator's own Claude Code. Guild's safeguards step in only when needed: a cost ceiling (`limits.budgetMicros`, half the price), a time ceiling (3 hours for a standard agent) and no progress (the same problems twice in a row, or a round of fixes that changes nothing). Then what's in `out/` goes to the creator's sign-off with the reviewer's last notes; nothing is thrown away. Steps per session (`maxTurns`) and reply length (`maxOutputTokens`) are technical limits that never end a task. **Never write timelines, minute or step counts, or "finish by" guidance into a skill or `method.md`.**
+- **Reviewer:** a separate session that can only read files (Read, Glob, Grep), with up to 80 steps. It can't run commands, unzip files, render pages or recompute figures, so anything a rubric asks it to measure must already be written in `out/`.
 - **Software:** Node 22; Python 3 with pypdf, pdfplumber, reportlab, python-docx, openpyxl, python-pptx, pandas, matplotlib and Pillow; React, Motion, TypeScript, esbuild and Playwright with headless Chromium. No ffmpeg, no git, and nothing can be installed.
 - **Network:** only Guild's gateway: model calls, and hosts declared under `network.hosts`.
 
@@ -61,7 +62,7 @@ The runner contract is in `docs/guild.md` ("The runner contract"). Read it befor
 | `specialist/method.md` | Optional instructions, read after Guild's own rules |
 | `specialist/rubric.md` | Optional must-haves for the reviewer |
 | `specialist/references/` | Optional examples of excellent work, templates, house styles |
-| `specialist/settings.json` | Models, steps, rounds of fixes, reply cap, required output files, and connections: remote MCP services and APIs (`docs/guild.md`) |
+| `specialist/settings.json` | Models, steps per session, reply cap, required output files, and connections: remote MCP services and APIs (`docs/guild.md`) |
 | `test-briefs/` | Realistic briefs; Guild runs every one as a check on each submission |
 | `intake.md` | Optional: what Guild's intake should find out when buyers paste their notes (never how the work is done) |
 | `research/` | The creator's research and planning notes. Committed, never part of the agent |
@@ -85,7 +86,7 @@ An older agent may also have `specialist/instructions.md`, its standards and voi
 - **The agent isn't the creator.** It never claims the creator's qualifications or speaks as them.
 - **Ask few questions, early.** Respect `questions.max`; most agents should ask none and state their assumptions.
 - **Use `standard-1` or a larger machine.** `lite` is too small.
-- **Keep test briefs valid.** Every file in `test-briefs/` must match `inputs.schema`, and a `_tier` in one must be one of the manifest's tier ids.
+- **Keep test briefs valid.** Every file in `test-briefs/` must match `inputs.schema`, a `_tier` in one must be one of the manifest's tier ids, and `_expect`, if there, is `"deliver"` or `"decline"`.
 - **Everything the agent needs is sent.** Keep content within 500 files, 10 MB a file and 25 MB together. Hidden files and a skill's own `node_modules/` aren't sent; `guild validate` and `check` list anything that won't be.
 - **HTML deliverables stand alone.** Buyers see them in a sandbox with no scripts and no outside requests: inline CSS, fonts and images embedded as `data:` URLs, outside links with `target="_blank" rel="noopener noreferrer"`, and anything that needs a script hidden when scripts can't run (`<noscript><style>… { display: none !important }</style></noscript>`).
 - **Data-handling statements must be true.** If one depends on the model's behaviour, put the matching rule in the skill or `method.md`.
@@ -102,7 +103,7 @@ An older agent may also have `specialist/instructions.md`, its standards and voi
 - Sign in, submit and follow the checks: `npm run guild -- login`, `npm run guild -- submit . --wait`, `npm run guild -- status <version-id>` (`/guild-submit` walks through them).
 - All the commands: `npm run guild -- help`.
 
-When you change the brief fields, the deliverables, the tiers or the checks, update the manifest and the test briefs in the same change. Track what each tier costs and how long it takes (`guild check` shows each test brief's run, and each run's `.guild/runs/*/result.json` has the detail by model); it sets the budget and informs the price.
+When you change the brief fields, the deliverables, the tiers or the checks, update the manifest and the test briefs in the same change. Track what each tier costs and how long it takes (`guild check` shows each test brief's run, and each run's `.guild/runs/*/result.json` has the detail by model); it sets the budget and informs the price. How long it takes is for the creator and the listing, never for the agent's instructions.
 
 ## Writing
 
