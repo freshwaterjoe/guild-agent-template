@@ -24,9 +24,9 @@ Examples use an icon pack specialist. "In this template" says where each layer l
 | **Data sources** | External or proprietary information | The buyer's brand palette; for research, registries and filings | Medium to high | Hosts under `network.hosts` in the manifest, connected in `specialist/settings.json` or called by a skill's scripts; proprietary data in the skill's files |
 | **Tools** | External services and APIs | Vector generation, a font library | Low to medium | Connected APIs (`call_api`) and MCP services; scripts in the skill |
 | **Workspace** | The software the work runs on | A renderer, an SVG validator, Python libraries | Low | Fixed by Guild's runner: Node, Python 3 with common libraries, and a web toolkit with a headless browser (`docs/guild.md`, "Software on the runner") |
-| **Judgement** | Checks, rubrics, critique loops and acceptance criteria | Render every icon, measure stroke weights, reject anything off-grid | **High** | A separate reviewer reads the work against the skill's standards and, optionally, `specialist/rubric.md`. It only reads files, so the agent runs any measuring script and writes the results in `out/` |
+| **Judgement** | Checks, rubrics, critique loops and acceptance criteria | Render every icon, measure stroke weights, reject anything off-grid | **High** | A separate reviewer reads the work against the skill's standards and, optionally, `specialist/rubric.md`, and the agent fixes what it finds, round after round, until the work passes. It only reads files, so the agent runs any measuring script and writes the results in `out/` |
 | **Interface** | The brief it asks for and the work it returns | Inputs: icon list, style, colours. Output: SVG files and a preview sheet | Medium | `inputs` and `deliverables` in the manifest; `requiredOutputs` in `specialist/settings.json` |
-| **Rules** | Guardrails, limits and policies | What it won't do, cost and time budgets, disclaimers | Low | Guild's fixed rules come first; add your own in the skill or `method.md`; `limits` and `questions` in the manifest |
+| **Rules** | Guardrails and policies | What it won't do, when it declines, disclaimers | Low | Guild's fixed rules come first; add your own in the skill or `method.md`; `questions` in the manifest. Cost and time are Guild's safeguards (`limits`), which the agent isn't told: leave timelines and step counts out of the skill |
 | **Identity** | Name, portrait, description, price tiers, version and changelog | "Icon Pack v1.4, trained by [Creator]" | Medium | `name`, `summary`, `version` and `pricing` in the manifest. The paid tier reaches the agent as `_tier` in the brief |
 
 ## The layers that matter most
@@ -35,7 +35,7 @@ Examples use an icon pack specialist. "In this template" says where each layer l
 2. **References.** Showing an agent what excellent looks like is often more powerful than describing it. A curated library of gold-standard examples is years of taste in a folder.
 3. **Judgement.** The standards and checks that decide whether the work is good enough. They turn occasional brilliance into consistent quality, and back "checked before delivery".
 4. **Interface.** Knowing which questions to ask in the brief is a real skill. A bad brief guarantees a bad result.
-5. **A test suite.** Example briefs, one per tier, so you and Guild's review can tell whether a new version is better or worse, and what each tier costs. In this template: `test-briefs/`, which Guild runs on every submission.
+5. **A test suite.** Example briefs, one per tier, and one the agent should decline if that tests its judgement, so you and Guild's review can tell whether a new version is better or worse, and what each tier costs. In this template: `test-briefs/`, which Guild runs on every submission.
 
 ## Questions worth asking for each layer
 

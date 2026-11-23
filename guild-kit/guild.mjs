@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-23 (0ee102b). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-23 (cc27fe9). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -1123,10 +1123,15 @@ var Validator = class {
 
 // src/brief.ts
 var TIER_FIELD = "_tier";
+var EXPECT_FIELD = "_expect";
+var EXPECTED_OUTCOMES = ["deliver", "decline"];
 function splitTier(brief) {
-  if (!(TIER_FIELD in brief)) return { brief, tier: null };
-  const { [TIER_FIELD]: tier, ...rest } = brief;
-  return { brief: rest, tier: typeof tier === "string" ? tier : null };
+  const { [TIER_FIELD]: tier, [EXPECT_FIELD]: expect, ...rest } = brief;
+  return {
+    brief: rest,
+    tier: typeof tier === "string" ? tier : null,
+    expect: expect === "decline" ? "decline" : "deliver"
+  };
 }
 function findTier(manifest, id) {
   const tier = id ? manifest.pricing.tiers.find((entry) => entry.id === id) : void 0;
@@ -1145,6 +1150,10 @@ function validateBrief(manifest, brief) {
   if (TIER_FIELD in brief) {
     const ids = manifest.pricing.tiers.map((entry) => entry.id);
     if (tier === null || !ids.includes(tier)) issues.push(`${TIER_FIELD}: name one of this agent's tiers (${ids.join(", ")}).`);
+  }
+  const expect = brief[EXPECT_FIELD];
+  if (expect !== void 0 && !EXPECTED_OUTCOMES.includes(expect)) {
+    issues.push(`${EXPECT_FIELD}: "deliver" or "decline", what a test brief expects the agent to do.`);
   }
   const result = new Validator(manifest.inputs.schema, "2020-12", false).validate(proper);
   if (!result.valid) {
@@ -21141,12 +21150,21 @@ var settingsSchema = external_exports.object({
   model: external_exports.enum(ALLOWED_MODELS).default("claude-opus-5-5"),
   /** Reviews the work against the rubric before delivery. Also listed in the manifest. */
   reviewModel: external_exports.enum(ALLOWED_MODELS).default("claude-opus-5-5"),
-  /** Most steps (model replies) in one working session. */
-  maxTurns: external_exports.int().min(5).max(300).default(60),
-  /** How many times the agent revises its own work after review finds problems (not the buyer's revisions). */
-  maxRevisions: external_exports.int().min(0).max(5).default(2),
+  /**
+   * Steps (model replies) in one working session before the runner starts the next stretch
+   * itself. A technical limit the shared runner raises to at least 300 and never tells the agent;
+   * it never ends a task (decision 064).
+   */
+  maxTurns: external_exports.int().min(5).max(300).default(300),
+  /** No longer read by the shared runner (decision 064): rounds of fixes aren't counted. Still accepted. */
+  maxRevisions: external_exports.int().min(0).max(5).optional(),
+  /**
+   * Optional: the most rounds of fixes after review, as a bound below the cost and time ceilings.
+   * Leave it out and the agent fixes until the work passes (decision 064).
+   */
+  maxFixRounds: external_exports.int().min(1).max(50).optional(),
   /** The most one model reply may write. Guild reserves each call's worst case from the budget. */
-  maxOutputTokens: external_exports.int().min(1e3).max(64e3).default(16e3),
+  maxOutputTokens: external_exports.int().min(1e3).max(64e3).default(64e3),
   /** Files the agent must write to out/ for the work to count as done. */
   requiredOutputs: external_exports.array(fileName).max(20).default([]),
   connections: external_exports.object({
@@ -21372,7 +21390,9 @@ var TEMPLATE_CODE = /* @__PURE__ */ new Map([
   ["1cc21a7229d54e1a46cd09086627755524fcb532f1b2ab77cc32bfa3e40f58eb", "e71056f 2026-11-20"],
   ["0050cdac867ae19090c3f4521ab725aaed5c447eebd429d1c940ea7478e2a06e", "bedbe79 2026-11-20"],
   ["27da284ae11e0968550b2477c228e444afb42380291a722f1f987add8181929b", "2727dd8 2026-11-22"],
-  ["7a11cb8d649ba90a89a1227699230d2ea9a5dd72b1dbca0468f9ec91d0e1aaab", "067d8e7 2026-11-22"]
+  ["7a11cb8d649ba90a89a1227699230d2ea9a5dd72b1dbca0468f9ec91d0e1aaab", "067d8e7 2026-11-22"],
+  ["b3c03664eae6d4b1572c3353617b0104941047c0b82b2ef0f35abb5804811056", "02bd9ff 2026-11-23"],
+  ["a2016ba0c052753669fb5dc494e5d204f9b200599cb05ef8d33fd31db5cf009b", "b182026 2026-11-23"]
 ]);
 
 // src/content-files.ts
@@ -21636,6 +21656,15 @@ var GUILD_COMMISSION_BPS = 2500;
 function formatMicros(micros) {
   const dollars = micros / 1e6;
   return `$${dollars >= 1 ? dollars.toFixed(2) : dollars.toFixed(4)}`;
+}
+
+// src/protocol.ts
+var GUILD_HOST = "guild.internal";
+var AGENT_NODE_OPTIONS = "--report-exclude-network";
+var CHECK_ANSWER = "This is an automated check, so there's no buyer to answer. Make a sensible assumption, state it in the work, and carry on.";
+var STANDARD_TIME_CEILING_SECONDS = 3 * 60 * 60;
+function isSafeFileName(name) {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) && !name.includes("..");
 }
 
 // src/secrets.ts
@@ -22251,8 +22280,9 @@ function checkRuns(ctx, runs) {
     if (run.costMicros !== null) facts.push(`model cost ${formatMicros(run.costMicros)}`);
     ctx.add("pass", "Runs and cost", `${label} completed${facts.length ? `: ${facts.join(", ")}` : ""}.`);
     if (run.costMicros === null) ctx.add("warn", "Runs and cost", `${label} was run before \`guild run\` measured cost. Run it again to see what it costs.`);
-    if (m && run.seconds !== null && run.seconds > m.limits.deadlineSeconds * 0.8) {
-      ctx.add("warn", "Runs and cost", `${label} took ${seconds(run.seconds)}, close to the ${seconds(m.limits.deadlineSeconds)} deadline. Raise \`limits.deadlineSeconds\` or make the work faster.`);
+    const ceiling = m ? ctx.kind?.kind === "pro" ? m.limits.deadlineSeconds : Math.max(m.limits.deadlineSeconds, STANDARD_TIME_CEILING_SECONDS) : 0;
+    if (m && run.seconds !== null && run.seconds > ceiling * 0.8) {
+      ctx.add("warn", "Runs and cost", `${label} took ${seconds(run.seconds)}, close to the ${seconds(ceiling)} time ceiling. Check for a step that loops or waits, or have the work do less per job.`);
     }
     if (m && run.costMicros !== null) {
       if (run.costMicros > m.limits.budgetMicros) {
@@ -22856,16 +22886,6 @@ function modelKey(fromFile) {
 import { randomBytes } from "node:crypto";
 import { appendFileSync, existsSync as existsSync8, mkdirSync as mkdirSync3, readdirSync as readdirSync4, readFileSync as readFileSync8, statSync as statSync3, writeFileSync as writeFileSync3 } from "node:fs";
 import { basename, join as join8, relative as relative3, resolve } from "node:path";
-
-// src/protocol.ts
-var GUILD_HOST = "guild.internal";
-var AGENT_NODE_OPTIONS = "--report-exclude-network";
-var CHECK_ANSWER = "This is an automated check, so there's no buyer to answer. Make a sensible assumption, state it in the work, and carry on.";
-function isSafeFileName(name) {
-  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) && !name.includes("..");
-}
-
-// src/try.ts
 var TryError = class extends Error {
 };
 function fail2(message) {
@@ -22904,6 +22924,21 @@ function summaryOf(view) {
   const delivered = [...view.events].reverse().find((event) => event.type === "delivered" || event.type === "completed");
   return typeof delivered?.payload.summary === "string" ? delivered.payload.summary : null;
 }
+function reviewOf(view) {
+  const delivered = [...view.events].reverse().find((event) => event.type === "delivered" || event.type === "completed");
+  const metadata = delivered?.payload?.metadata;
+  if (!metadata || typeof metadata.reviewPassed !== "boolean") return null;
+  const fixRounds = typeof metadata.fixRounds === "number" ? metadata.fixRounds : null;
+  if (metadata.reviewPassed) return { passed: true, fixRounds };
+  let notes = [];
+  try {
+    const parsed2 = JSON.parse(String(metadata.reviewNotes ?? "[]"));
+    if (Array.isArray(parsed2)) notes = parsed2.filter((note) => typeof note === "string");
+  } catch {
+    notes = [String(metadata.reviewNotes)];
+  }
+  return { passed: false, fixRounds, ...typeof metadata.stoppedBy === "string" ? { stoppedBy: metadata.stoppedBy } : {}, notes };
+}
 function tryResult(view, allEvents, url2) {
   const outcome = outcomeOf(view.status);
   const reason = outcome === "completed" ? null : reasonOf({ events: allEvents });
@@ -22912,6 +22947,7 @@ function tryResult(view, allEvents, url2) {
     ...reason ? { reason } : {},
     ...summaryOf({ events: allEvents }) ? { summary: summaryOf({ events: allEvents }) } : {},
     deliverables: view.deliverables.map((file2) => file2.filename),
+    ...reviewOf({ events: allEvents }) ? { review: reviewOf({ events: allEvents }) } : {},
     seconds: view.seconds,
     cost: { costMicros: view.costMicros, mocked: false, paidWith: "your own Anthropic key" },
     refused: view.refused,
@@ -23076,6 +23112,13 @@ async function tryOne(login, agentDir2, input2) {
   const time4 = view.seconds !== null ? `${view.seconds} s` : "";
   const mark = { completed: "\u2713", failed: "\u2717", cancelled: "\u25A0" }[result.outcome];
   console.log(`${mark} ${result.outcome}${"reason" in result && result.reason ? `: ${result.reason}` : ""} (${[time4, cost].filter(Boolean).join(", ")})`);
+  const review = "review" in result ? result.review : void 0;
+  if (review && !review.passed) {
+    console.log(`! Delivered with the reviewer's notes${review.stoppedBy ? ` (stopped: ${review.stoppedBy})` : ""}. On Guild this goes to your sign-off. The notes:`);
+    for (const note of review.notes ?? []) console.log(`  - ${note}`);
+  } else if (review?.passed && review.fixRounds) {
+    console.log(`\xB7 Passed review after ${review.fixRounds} round${review.fixRounds === 1 ? "" : "s"} of fixes.`);
+  }
   console.log(`Run files: ${runDir}`);
   await report(agentDir2, "run", {
     brief: briefName,
@@ -23136,7 +23179,7 @@ ${outcomes.filter((outcome) => outcome === "completed").length} of ${briefs.leng
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
 var GATEWAY_FILE = existsSync9(join9(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-23 (0ee102b)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-23 (cc27fe9)" : "development (run from the Guild repository)";
 function fail3(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
@@ -23295,7 +23338,8 @@ async function runCommand(agentDir2, options) {
     ...tier ? { tier } : {},
     files,
     budgetMicros: manifest.limits.budgetMicros,
-    deadline: new Date(Date.now() + manifest.limits.deadlineSeconds * 1e3).toISOString()
+    // Guild's 3-hour ceiling for a standard agent, as on Guild (decision 064); a Pro agent keeps its own.
+    deadline: new Date(Date.now() + (manifest.kind === "pro" ? manifest.limits.deadlineSeconds : Math.max(manifest.limits.deadlineSeconds, STANDARD_TIME_CEILING_SECONDS)) * 1e3).toISOString()
   };
   writeFileSync4(join9(runDir, "task.json"), JSON.stringify(task, null, 2));
   if (options.content) {
