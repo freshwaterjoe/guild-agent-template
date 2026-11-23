@@ -38,10 +38,10 @@ Good reasons to have one:
   ```markdown
   # Running on Guild
 
-  - Where the skill says to use a subagent, do that step yourself, then carry on.
   - Where it says to ask me, or to wait for approval, don't: choose, and say in the work what you chose and why.
   - The brand templates are in .claude/skills/brand-kit/templates/, not ~/.claude/.
-  - There's no web access. Use the type specimens in .claude/skills/brand-kit/fonts/.
+  - Where the skill says WebFetch, use read_page.
+  - Search for the category and competitors, never the buyer's product name or anything from their files.
   - Deliver the files in out/, flat. Put drafts in out/_drafts/.
   ```
 

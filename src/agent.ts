@@ -243,15 +243,37 @@ export async function work(options: {
           // on a host declared in guild.manifest.json (docs/guild.md, "MCP servers").
           ...serviceServers(specialist),
         },
-        allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", ...toolNames(specialist).map((name) => `mcp__specialist__${name}`), ...serviceTools(specialist)],
-        // WebFetch would fetch from the container, where only hosts declared in
-        // the manifest are reachable; WebSearch isn't metered by Guild yet. Add
-        // outside sources as connections in specialist/settings.json instead (docs/guild.md).
-        disallowedTools: ["WebFetch", "WebSearch"],
+        // Claude Code's own tools (Guild decision 065): files and the shell; a plan (TodoWrite);
+        // subagents (Agent); stopping background work (TaskStop); and web search, run by Anthropic
+        // through Guild's gateway. Web pages are read with read_page: Claude Code's WebFetch
+        // fetches from this container, which can't reach the web.
+        allowedTools: [
+          "Read",
+          "Write",
+          "Edit",
+          "Bash",
+          "Glob",
+          "Grep",
+          "TodoWrite",
+          "Agent",
+          "TaskStop",
+          "WebSearch",
+          ...toolNames(specialist).map((name) => `mcp__specialist__${name}`),
+          ...serviceTools(specialist),
+        ],
+        // WebFetch would fetch from the container, where only declared hosts are reachable.
+        disallowedTools: ["WebFetch"],
         permissionMode: "dontAsk",
         env: {
           ...process.env,
           CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(settings.maxOutputTokens),
+          // Every call Claude Code makes on its own (subagents, web search, quick background
+          // calls) uses the agent's model, which its manifest declares: Guild refuses any other.
+          ANTHROPIC_DEFAULT_OPUS_MODEL: settings.model,
+          ANTHROPIC_DEFAULT_SONNET_MODEL: settings.model,
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: settings.model,
+          ANTHROPIC_SMALL_FAST_MODEL: settings.model,
+          CLAUDE_CODE_SUBAGENT_MODEL: settings.model,
           // Nothing to update or report to from inside a sealed container.
           CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
         },

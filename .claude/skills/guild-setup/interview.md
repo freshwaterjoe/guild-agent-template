@@ -63,12 +63,14 @@ The most valuable part. If they brought a skill, it's this step already: go to s
 Only where the skill relies on something a task doesn't have. Read it against the runner contract (`docs/guild.md`), and tell the creator what you found in a few lines.
 
 **Check for**
-- **Subagents** (the Task tool): there are none. One session does the steps in order. The reviewer is already a separate session.
+- **Subagents** (Agent or Task), TodoWrite and background commands: work as they are. Subagents share the workspace and use the agent's model.
 - **AskUserQuestion, or waiting for approval**: there's no one there. The agent decides, states its assumption and carries on. `ask_buyer` is for a question that changes the result: one question of 5 to 500 characters, early. The task's time keeps running while it waits, and in Guild's checks no one answers.
-- **WebFetch, WebSearch, browsing**: off. Put the knowledge in the skill's files, or declare the source (step "Connections").
-- **git**: not installed. Put what it would fetch in the skill's folder.
+- **WebSearch, "look it up"**: works, with nothing to declare. Searches go to Anthropic, so the skill should keep the buyer's private details out of them.
+- **WebFetch, "fetch this URL"**: Claude Code's WebFetch is off; `read_page` does the same through Guild. If the skill names WebFetch, map it in `method.md`.
+- **A script that calls a service or downloads a file** (`curl`, `fetch`, `requests`): declare the host (step "Connections").
+- **git**: works in the workspace.
 - **Paths** under `~/.claude` or the creator's folders: on Guild the skill is at `.claude/skills/<name>/`, relative to the workspace, with `brief.json`, `input/`, `references/` and `out/` beside it.
-- **Installing packages, or ffmpeg**: neither is possible. Use what's on the runner (`docs/guild.md`, "Software on the runner").
+- **Installing packages**: not possible. ffmpeg, LibreOffice, pandoc and git are there; ImageMagick, LaTeX and wkhtmltopdf aren't. Use what's on the runner (`docs/guild.md`, "Software on the runner").
 - **Where the work goes**: deliverables in `out/`, flat; scratch names start with `_`.
 - **Checks that need running something**: the agent runs them and writes the results in `out/_checks.md`, because the reviewer can only read files.
 - **Timelines, minute or step counts, "finish by" guidance**: not needed, and better gone. The agent isn't told its limits; it works the way it would in their own Claude Code, and Guild's safeguards step in only when needed. With their agreement, take it out of the copy in `specialist/skills/`, and never put it in `method.md`.
@@ -124,7 +126,7 @@ Drafted from the skill. Show each draft and ask what's wrong, rather than asking
 - `deliverables`: one entry per kind of file, each with a `name` (lowercase, hyphens), a `description` written for the buyer, and its `contentTypes`. The `name` describes the kind; the agent delivers every file it writes to `out/` (except names starting with `_`), whatever it's called. Keep it simple: name the file after the deliverable (`lease-review` becomes `out/lease-review.md`).
 - `requiredOutputs` in `specialist/settings.json`: the file names in `out/` that must exist for the work to count as done (for example `["lease-review.md"]`), matched exactly. Use the same file names in the skill (or `method.md`) and `rubric.md`, and change them together.
 - If a deliverable is HTML, explain the sandbox rules briefly (`docs/guild.md`, "HTML deliverables") and note them for the skill.
-- PDFs, spreadsheets, slide decks, charts and images can be made with the runner's Python libraries (reportlab, openpyxl, python-pptx, matplotlib, Pillow) or rendered with Playwright. Video and audio processing needs ffmpeg, which isn't there yet.
+- PDFs, spreadsheets, slide decks, charts and images can be made with the runner's Python libraries (reportlab, openpyxl, python-pptx, matplotlib, Pillow) or rendered with Playwright. Word, Excel and PowerPoint files can be turned into PDFs with LibreOffice (`soffice --headless --convert-to pdf`) to check how they look; pandoc converts between document formats; ffmpeg handles video and audio.
 - At most 50 files per attempt, 50 MB a file, 250 MB together.
 
 ### Tiers
@@ -184,7 +186,7 @@ If the skill doesn't carry its own: files in `specialist/references/`, small and
 ### Connections
 
 **Ask**
-- Does the work need information a model doesn't have: a database, an API, registries, prices, your own data?
+- Does the work need information a model doesn't have: a database, an API, registries, prices, your own data? (Public web pages need no connection: the agent can search and read them.)
 - For each: which service, do you have an account and key, and may you use and resell what you build from it?
 - Could the agent do without it if the key isn't set (an optional key)?
 
@@ -194,7 +196,7 @@ If they want to explore what a service can do first, read its documentation toge
 - Each outside service under `network.hosts`: the `host`, a plain `purpose` (buyers and reviewers see it), and if it needs a key, `key` with `secret` (the environment variable's name), `in` (`header`, `query` or `basic`), `name` (the header or parameter), **`maxCallsPerTask`** set to about what one task needs (it defaults to 1,000; a low limit stops a brief from talking the agent into spending the creator's credit), and `"required": false` if the agent can do without it.
 - Either a connection in `specialist/settings.json` (an API under `connections.apis` with `docs` saying how to use it, called with `call_api`; or a remote MCP server under `connections.services`; `docs/guild.md`, "Outside data sources"), or a script in the skill that calls the declared host, sending the key's environment variable as it is, in the declared place. Neither makes the agent Pro.
 - Explain the key rules in a sentence: keys never go in the repository; locally they're kept in `.env` (which git ignores) or passed with `--agent-env NAME=value`; on Guild they set them in the Studio after submitting, and the agent only ever sees a stand-in.
-- Web search isn't available on Guild yet. If the skill depends on it, say so and note it in SETUP.md.
+- Web search and reading public pages need no host. Declare a host only for a service the agent or a script calls directly.
 
 ### Paste your notes (intake)
 
