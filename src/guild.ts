@@ -44,7 +44,7 @@ export interface Budget {
 export function guildClient(taskId: string) {
   const base = `/v1/tasks/${taskId}`;
   return {
-    /** Reports progress. Guild replies with the attempt's budget so far, for pacing (Guild GLD-272). */
+    /** Reports progress. Guild replies with the attempt's budget so far, for the cost safeguard (Guild decision 064). */
     progress: async (message: string, percent?: number): Promise<Budget | null> => {
       const response = await call("POST", `${base}/events`, JSON.stringify({ state: "working", message, percent }));
       const reply = (await response.json().catch(() => null)) as { budget?: Budget } | null;

@@ -36,7 +36,7 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
   const guild = guildClient(task.taskId);
   const workdir = `/work/${task.taskId}-${task.attempt}`;
   const signal = control.abort.signal;
-  // Guild replies to each progress report with the budget so far, which paces the work (decision 059).
+  // Guild replies to each progress report with the budget so far, for the cost safeguard (decision 064).
   let budget: Budget | null = null;
   const limits: WorkLimits = { startedAt: Date.now(), deadline: Date.parse(task.deadline) || Date.now() + 3 * 60 * 60_000, budget: () => budget };
   // The bar only moves forward: a revision doesn't send it back.
