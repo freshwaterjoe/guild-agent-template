@@ -1,10 +1,9 @@
 // The container's entry point: Guild's task protocol (version 1). Guild pushes
 // a task in; this hands it to the method (src/method.ts) and passes on the
 // buyer's answers and cancellations. You shouldn't need to change this file.
-import { execFile } from "node:child_process";
 import { createServer, type IncomingMessage } from "node:http";
-import { join } from "node:path";
 import { guildClient, type StartTaskRequest } from "./guild.ts";
+import { loadHarness } from "./harness.ts";
 import { runSpecialist, type TaskControl } from "./method.ts";
 
 const PORT = 8080;
@@ -16,19 +15,10 @@ interface TaskState extends TaskControl {
 
 const tasks = new Map<string, TaskState>();
 
-// Start the Agent SDK's Claude Code binary once at boot, so its first launch
-// overlaps with task setup. Its first start in a container can be slow.
-execFile(
-  join(
-    process.cwd(),
-    "node_modules/@anthropic-ai",
-    `claude-agent-sdk-linux-${process.arch === "arm64" ? "arm64" : "x64"}`,
-    "claude",
-  ),
-  ["--version"],
-  { timeout: 300_000 },
-  () => {},
-);
+// Start the harness's own program once at boot, so its first launch overlaps with task setup.
+// GUILD_HARNESS is set in Guild's runner images (the Dockerfile), which hold one harness each; a
+// copy of this template with both installed warms up Claude's, the template's default.
+void loadHarness(process.env.GUILD_HARNESS === "codex" ? "codex" : "claude").then((harness) => harness.warmUp(), () => {});
 
 async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
   let data = "";

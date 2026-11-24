@@ -40,8 +40,17 @@ RUN cd /opt/guild-toolkit \
   && chmod -R a+rX /opt/guild-toolkit
 ENV PATH=/opt/guild-toolkit/node_modules/.bin:$PATH
 
+# The harness that drives the model (Guild decision 067): the Claude Agent SDK for Claude models,
+# OpenAI's Codex SDK for OpenAI's. Left empty, both are installed, so your agent runs on whichever
+# provider its settings name. Guild builds its shared runners with one each (HARNESS=claude or
+# HARNESS=codex) and leaves the other's packages out: each carries a program of a few hundred MB.
+ARG HARNESS=""
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --no-audit --no-fund && rm -rf /root/.npm
+RUN npm ci --omit=dev --no-audit --no-fund \
+  && if [ "$HARNESS" = "codex" ]; then rm -rf node_modules/@anthropic-ai; fi \
+  && if [ "$HARNESS" = "claude" ]; then rm -rf node_modules/@openai; fi \
+  && rm -rf /root/.npm
+ENV GUILD_HARNESS=$HARNESS
 COPY src ./src
 COPY specialist ./specialist
 COPY guild.manifest.json ./
