@@ -44,8 +44,8 @@ function clip(value: string, max = 500): string {
 /** A step's tool, as Guild names it: the Agent SDK's own tools, an MCP tool, or "other". */
 function toolName(name: string): string {
   if (TOOLS.has(name)) return name;
-  if (name === "mcp__specialist__ask_buyer") return "ask_buyer";
-  if (name === "mcp__specialist__call_api") return "call_api";
+  if (name === "mcp__specialist__ask_buyer" || name === "ask_buyer") return "ask_buyer";
+  if (name === "mcp__specialist__call_api" || name === "call_api") return "call_api";
   return MCP_TOOL.test(name) ? name : "other";
 }
 
@@ -164,34 +164,50 @@ export class Tracer {
     this.check = { passed, problems: issues.length, ...(this.full ? { issues: issues.slice(0, 30).map((issue) => clip(issue)) } : {}) };
   }
 
+  /** A model reply, counted once by its id. */
+  reply(id: string): void {
+    this.replies.add(id);
+  }
+
+  /**
+   * A step began: a tool the agent called. `name` is the tool as the trace names it (the Agent
+   * SDK's own names; a harness maps its tools onto them), `input` what it was given.
+   */
+  stepStarted(id: string, name: string, input: Record<string, unknown>): void {
+    if (this.steps.length >= MAX_STEPS) return;
+    const where = targetOf(this.workdir, input);
+    const said = typeof input.command === "string" ? input.command : [input.file_path, input.path, input.pattern].find((v) => typeof v === "string");
+    const step: StepRecord = { tool: toolName(name), target: where.target, start: Date.now(), ...(where.file ? { file: where.file } : {}) };
+    if (this.full && typeof said === "string") step.text = clip(String(said).split("\n")[0] ?? "");
+    this.steps.push(step);
+    this.open.set(id, step);
+  }
+
+  /** A step ended. `error` is what it said, if it failed. */
+  stepEnded(id: string, error?: string): void {
+    const step = this.open.get(id);
+    if (!step) return;
+    this.open.delete(id);
+    step.end = Date.now();
+    if (error !== undefined) {
+      step.error = errorKind(error);
+      if (this.full && error) step.errorText = clip(error);
+    }
+  }
+
   /** Reads one Agent SDK message: model replies, tool calls and their results. */
   observe(message: { type: string; message?: { id?: string; content?: unknown } }): void {
     const content = Array.isArray(message.message?.content) ? (message.message!.content as Array<Record<string, unknown>>) : [];
     if (message.type === "assistant") {
-      if (message.message?.id) this.replies.add(message.message.id);
+      if (message.message?.id) this.reply(message.message.id);
       for (const block of content) {
         if (block.type !== "tool_use" || typeof block.id !== "string" || typeof block.name !== "string") continue;
-        if (this.steps.length >= MAX_STEPS) return;
-        const input = (block.input && typeof block.input === "object" ? block.input : {}) as Record<string, unknown>;
-        const where = targetOf(this.workdir, input);
-        const said = typeof input.command === "string" ? input.command : [input.file_path, input.path, input.pattern].find((v) => typeof v === "string");
-        const step: StepRecord = { tool: toolName(block.name), target: where.target, start: Date.now(), ...(where.file ? { file: where.file } : {}) };
-        if (this.full && typeof said === "string") step.text = clip(String(said).split("\n")[0] ?? "");
-        this.steps.push(step);
-        this.open.set(block.id, step);
+        this.stepStarted(block.id, block.name, (block.input && typeof block.input === "object" ? block.input : {}) as Record<string, unknown>);
       }
     } else if (message.type === "user") {
       for (const block of content) {
         if (block.type !== "tool_result" || typeof block.tool_use_id !== "string") continue;
-        const step = this.open.get(block.tool_use_id);
-        if (!step) continue;
-        this.open.delete(block.tool_use_id);
-        step.end = Date.now();
-        if (block.is_error === true) {
-          const said = resultText(block.content);
-          step.error = errorKind(said);
-          if (this.full && said) step.errorText = clip(said);
-        }
+        this.stepEnded(block.tool_use_id, block.is_error === true ? resultText(block.content) : undefined);
       }
     }
   }

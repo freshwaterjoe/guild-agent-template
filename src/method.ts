@@ -3,7 +3,8 @@
 //
 //   1. Prepare   a fresh workspace: the brief, the buyer's files, your skills and references
 //                (and, for a buyer's revision, the earlier delivery in previous/)
-//   2. Work      one Agent SDK session: Guild's rules, then your skills (and specialist/method.md,
+//   2. Work      one session of the agent's harness (the Claude Agent SDK for Claude models,
+//                the Codex SDK for OpenAI's; src/harness.ts): Guild's rules, then your skills (and specialist/method.md,
 //                if you have one; Guild decision 058). If the job can't be
 //                done well, the agent writes out/_decline.md and the task fails with its reason
 //   3. Judge     checks in code, then a review against Guild's bar, your skills and, if you
@@ -19,9 +20,9 @@
 // declined.
 import { cp, mkdir, readdir, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
-import { safeguardReason, work, type WorkLimits, type WorkResult } from "./agent.ts";
 import { guildClient, type Budget, type GuildClient, type StartTaskRequest } from "./guild.ts";
-import { checkOutputs, review, type Verdict } from "./judgement.ts";
+import { harnessFor, loadHarness, safeguardReason, type WorkLimits, type WorkOptions, type WorkResult } from "./harness.ts";
+import { checkOutputs, type Verdict } from "./judgement.ts";
 import { loadSpecialist, type Specialist } from "./specialist.ts";
 import { TOOLKIT_MODULES } from "./guild-rules.ts";
 import { Tracer } from "./trace.ts";
@@ -54,6 +55,8 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
     tracer.stage("prepare");
     await progress("Reading the brief", 5);
     const specialist = await loadSpecialist(task.taskId, guild);
+    // The agent's model decides its harness (decision 067): one provider per agent.
+    const harness = await loadHarness(harnessFor(specialist.settings.model));
     await prepareWorkspace(specialist, workdir, task, guild);
 
     // 2. Work ----------------------------------------------------------------
@@ -62,14 +65,14 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
     // A temporary error from the provider or the network doesn't end the job: pause, then carry on
     // in the same session, up to twice in a task (decision 059).
     let carryOns = 0;
-    const steady = async (options: Parameters<typeof work>[0]): Promise<WorkResult> => {
-      let result = await work(options);
+    const steady = async (options: WorkOptions): Promise<WorkResult> => {
+      let result = await harness.work(options);
       while (!result.ok && result.temporary && carryOns < 2 && !signal.aborted && !safeguardReason(limits)) {
         carryOns += 1;
         await progress("A temporary error: carrying on in a moment", 0).catch(() => {});
         await new Promise((resolve) => setTimeout(resolve, 20_000));
         tracer.carriedOn();
-        result = await work({ ...options, ...(result.sessionId ? { resume: result.sessionId, carryOn: true, revision: undefined, buyerRevision: undefined } : {}) });
+        result = await harness.work({ ...options, ...(result.sessionId ? { resume: result.sessionId, carryOn: true, revision: undefined, buyerRevision: undefined } : {}) });
       }
       return result;
     };
@@ -184,7 +187,7 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
     });
 
     /** The options every session of this task shares. */
-    function sessionOptions(): Parameters<typeof work>[0] {
+    function sessionOptions(): WorkOptions {
       return {
         specialist,
         workdir,
@@ -201,8 +204,8 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
 
     /** A review that couldn't reach a verdict is tried once more (decision 064). */
     async function reviewTwice(): Promise<Verdict> {
-      const first = await review(specialist, workdir, task.brief, signal);
-      return first.reached ? first : review(specialist, workdir, task.brief, signal);
+      const first = await harness.review({ specialist, workdir, brief: task.brief, signal });
+      return first.reached ? first : harness.review({ specialist, workdir, brief: task.brief, signal });
     }
   } catch (error) {
     console.error(error);
@@ -221,7 +224,8 @@ export async function runSpecialist(task: StartTaskRequest, control: TaskControl
  *   input/              the buyer's files
  *   previous/           for a buyer's revision: the delivery being revised
  *   references/         your reference library (specialist/references)
- *   .claude/skills/     your skills (specialist/skills), loaded by the Agent SDK
+ *   .claude/skills/     your skills (specialist/skills), loaded by the harness
+ *   .agents/skills      the same folder, where Codex looks for skills
  *   out/                what the agent delivers
  */
 async function prepareWorkspace(specialist: Specialist, workdir: string, task: StartTaskRequest, guild: GuildClient): Promise<void> {
@@ -235,6 +239,9 @@ async function prepareWorkspace(specialist: Specialist, workdir: string, task: S
     await mkdir(join(specialist.dir, from), { recursive: true });
     await cp(join(specialist.dir, from), join(workdir, to), { recursive: true });
   }
+  // Codex looks for skills in .agents/skills: the same folder, under its name too (decision 067).
+  await mkdir(join(workdir, ".agents"), { recursive: true });
+  await symlink(join("..", ".claude", "skills"), join(workdir, ".agents", "skills")).catch(() => {});
   for (const file of task.files) {
     await writeFile(join(workdir, "input", file.name), await guild.readFile(file.name));
   }
