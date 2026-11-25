@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-25 (907e1e0b). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-25 (129ec9dd). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -23236,6 +23236,13 @@ import { appendFileSync, existsSync as existsSync8, mkdirSync as mkdirSync3, rea
 import { basename, join as join8, relative as relative3, resolve } from "node:path";
 var TryError = class extends Error {
 };
+var PROVIDERS = {
+  anthropic: { name: "Anthropic", where: "console.anthropic.com" },
+  openai: { name: "OpenAI", where: "platform.openai.com" }
+};
+function keyPath(provider) {
+  return provider === "anthropic" ? "/api/cli/anthropic-key" : `/api/cli/anthropic-key?provider=${provider}`;
+}
 function fail2(message) {
   throw new TryError(message);
 }
@@ -23287,7 +23294,7 @@ function reviewOf(view) {
   }
   return { passed: false, fixRounds, ...typeof metadata.stoppedBy === "string" ? { stoppedBy: metadata.stoppedBy } : {}, notes };
 }
-function tryResult(view, allEvents, url2) {
+function tryResult(view, allEvents, url2, provider = "anthropic") {
   const outcome = outcomeOf(view.status);
   const reason = outcome === "completed" ? null : reasonOf({ events: allEvents });
   return {
@@ -23297,7 +23304,7 @@ function tryResult(view, allEvents, url2) {
     deliverables: view.deliverables.map((file2) => file2.filename),
     ...reviewOf({ events: allEvents }) ? { review: reviewOf({ events: allEvents }) } : {},
     seconds: view.seconds,
-    cost: { costMicros: view.costMicros, mocked: false, paidWith: "your own Anthropic key" },
+    cost: { costMicros: view.costMicros, mocked: false, paidWith: `your own ${PROVIDERS[provider].name} key` },
     refused: view.refused,
     onGuild: { taskId: view.taskId, version: view.version, status: view.status, url: url2 }
   };
@@ -23329,23 +23336,27 @@ async function patiently(attempt) {
     await new Promise((resolveWait) => setTimeout(resolveWait, 15e3));
   }
 }
-async function saveKey(login, agentDir2) {
+async function saveKey(login, agentDir2, provider) {
   let fromFile = {};
   try {
     fromFile = dotEnv(agentDir2);
   } catch (error62) {
     fail2(error62.message);
   }
-  const key = modelKey(fromFile);
-  if (!key) fail2("Put your Anthropic key in this agent's .env file as ANTHROPIC_API_KEY (or set it in your shell), then run this again.");
-  const saved = await request(login, "POST", "/api/cli/anthropic-key", JSON.stringify({ key }));
+  const { name, where } = PROVIDERS[provider];
+  const key = modelKey(fromFile, provider);
+  if (!key) {
+    fail2(`This agent uses ${name}'s models, so its trial runs use your ${name} key. Find it at ${where}, under API keys, put it in this agent's .env file as ${MODEL_KEY_NAMES[provider]} (or set it in your shell), then run this again.`);
+  }
+  const saved = await request(login, "POST", keyPath(provider), JSON.stringify({ key }));
   if (saved.status !== 200) fail2(saved.body.error ?? `Guild couldn't save your key (${saved.status}).`);
-  console.log(`\u2713 Saved your Anthropic key (ending ${saved.body.lastFour}) for trial runs. Guild sealed it, uses it only for your trial runs, and never shows it again.`);
+  console.log(`\u2713 Saved your ${name} key (ending ${saved.body.lastFour}) for trial runs. Guild sealed it, uses it only for your trial runs, and never shows it again.`);
 }
-async function forgetKey(login) {
-  const removed = await request(login, "DELETE", "/api/cli/anthropic-key");
+async function forgetKey(login, provider) {
+  const { name } = PROVIDERS[provider];
+  const removed = await request(login, "DELETE", keyPath(provider));
   if (removed.status !== 200) fail2(removed.body.error ?? `Guild couldn't remove your key (${removed.status}).`);
-  console.log("\u2713 Removed your Anthropic key from Guild. Trial runs need it again before they can start.");
+  console.log(`\u2713 Removed your ${name} key from Guild. Trial runs of agents on ${name}'s models need it again before they can start.`);
 }
 function loadManifest(agentDir2) {
   let raw;
@@ -23388,11 +23399,12 @@ async function tryOne(login, agentDir2, input2) {
   }
   console.log(`
 \u25B6 Trying ${input2.manifest.name} on Guild with ${shown}`);
+  const provider = manifestProvider(input2.manifest);
   const started = await request(login, "POST", "/api/cli/tries", form, false);
   if (started.status !== 201 || !started.body.taskId) {
     if (started.body.needsKey) {
       fail2(`${started.body.error}
-  Put your key in this agent's .env file as ANTHROPIC_API_KEY, then run \`npm run guild -- try --save-key\` once.`);
+  Put your key in this agent's .env file as ${MODEL_KEY_NAMES[provider]}, then run \`npm run guild -- try --save-key\` once.`);
     }
     fail2(started.body.error ?? `Guild couldn't start the try (${started.status}).`);
   }
@@ -23453,10 +23465,10 @@ async function tryOne(login, agentDir2, input2) {
     writeFileSync3(join8(runDir, "deliverables", safeName(file2.filename)), Buffer.from(await download.response.arrayBuffer()));
     console.log(`\u2193 ${file2.filename}`);
   }
-  const result = tryResult(view, allEvents, url2);
+  const result = tryResult(view, allEvents, url2, provider);
   writeFileSync3(join8(runDir, "result.json"), JSON.stringify(result, null, 2));
   for (const call of view.refused) console.log(`\u2298 Guild refused ${call.endpoint}${call.reason ? ` (${call.reason})` : ""}`);
-  const cost = `$${(view.costMicros / 1e6).toFixed(4)} on your Anthropic key`;
+  const cost = `$${(view.costMicros / 1e6).toFixed(4)} on your ${PROVIDERS[provider].name} key`;
   const time4 = view.seconds !== null ? `${view.seconds} s` : "";
   const mark = { completed: "\u2713", failed: "\u2717", cancelled: "\u25A0" }[result.outcome];
   console.log(`${mark} ${result.outcome}${"reason" in result && result.reason ? `: ${result.reason}` : ""} (${[time4, cost].filter(Boolean).join(", ")})`);
@@ -23482,14 +23494,14 @@ async function tryCommand(agentDir2, options) {
   try {
     const login = requireLogin(options.env);
     if (options.forgetKey) {
-      await forgetKey(login);
+      await forgetKey(login, manifestProvider(loadManifest(agentDir2).manifest));
       return;
     }
+    const { manifest } = loadManifest(agentDir2);
     if (options.saveKey) {
-      await saveKey(login, agentDir2);
+      await saveKey(login, agentDir2, manifestProvider(manifest));
       if (!options.brief && !options.all) return;
     }
-    const { manifest } = loadManifest(agentDir2);
     const briefs = chooseBriefs(agentDir2, options);
     if (briefs.length > 1 && options.files.length > 0) fail2("--file goes with --brief: test briefs carry no files.");
     const kind = await agentKind(agentDir2, manifest.kind, await runnerFingerprints(login));
@@ -23527,7 +23539,7 @@ ${outcomes.filter((outcome) => outcome === "completed").length} of ${briefs.leng
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
 var GATEWAY_FILE = existsSync9(join9(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-25 (907e1e0b)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-25 (129ec9dd)" : "development (run from the Guild repository)";
 function fail3(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
@@ -23955,7 +23967,7 @@ Summary for the agent: ${draft.summary}`);
   console.log(`
 ${body.usage?.input_tokens ?? 0} input and ${body.usage?.output_tokens ?? 0} output tokens.`);
 }
-var USAGE = "Usage:\n  guild validate [agent-dir]\n  guild check [agent-dir] [--run [--mock-models] [--answer <text>]... [--agent-env NAME=value]...] [--json]\n  guild run [agent-dir] --brief <file> [--file <path>]... [--answer <text>]... [--mock-models [--mock-tool-call <json>]] [--content]\n  guild try [agent-dir] [--brief <file> [--file <path>]... | --all] [--answer <text>]... [--env staging]\n  guild try --save-key | --forget-key [--env staging]\n  guild intake [agent-dir] --paste <notes-file>\n  guild connect <code> [agent-dir] [--env staging]\n  guild login | whoami | logout [--env staging]\n  guild submit [agent-dir] [--env staging] [--wait] [--image] [--upload-with-wrangler]\n  guild status <version-id> [--env staging] [--wait]\n  guild version\n  guild help";
+var USAGE = "Usage:\n  guild validate [agent-dir]\n  guild check [agent-dir] [--run [--mock-models] [--answer <text>]... [--agent-env NAME=value]...] [--json]\n  guild run [agent-dir] --brief <file> [--file <path>]... [--answer <text>]... [--mock-models [--mock-tool-call <json>]] [--content]\n  guild try [agent-dir] [--brief <file> [--file <path>]... | --all] [--answer <text>]... [--env staging]\n  guild try [agent-dir] --save-key | --forget-key [--env staging]\n  guild intake [agent-dir] --paste <notes-file>\n  guild connect <code> [agent-dir] [--env staging]\n  guild login | whoami | logout [--env staging]\n  guild submit [agent-dir] [--env staging] [--wait] [--image] [--upload-with-wrangler]\n  guild status <version-id> [--env staging] [--wait]\n  guild version\n  guild help";
 function argumentProblem(error62) {
   const code = error62?.code;
   if (typeof code !== "string" || !code.startsWith("ERR_PARSE_ARGS_")) return null;

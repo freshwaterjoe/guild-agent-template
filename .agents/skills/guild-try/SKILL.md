@@ -9,8 +9,8 @@ The point of a try is to see the work as a buyer would, to see what each tier co
 
 ## Two ways to run
 
-- **On Guild, with `guild try` (the usual way, and the faithful test).** The agent's content goes to Guild and each brief runs on the runner Guild uses for hires, with the same safeguards, declared hosts and the keys set in the Studio. No Docker. It's for standard agents on Claude models. It needs the creator signed in (`npm run guild -- connect <code>` or `npm run guild -- login`) and their Anthropic key saved on Guild once. **An agent on OpenAI models can't be tried on Guild yet**: use `guild run`.
-- **On this machine, with `guild run`.** For an agent on OpenAI models, to work offline, to test the plumbing for free with `--mock-models`, or for a Guild Pro agent. It needs Docker. It builds the runner code in this folder, which may be older than the runner Guild uses, so a standard agent can behave a little differently than on Guild. Declared outside hosts aren't reachable locally.
+- **On Guild, with `guild try` (the usual way, and the faithful test).** The agent's content goes to Guild and each brief runs on the runner Guild uses for hires, with the same safeguards, declared hosts and the keys set in the Studio. No Docker. It's for standard agents, on Claude or OpenAI models. It needs the creator signed in (`npm run guild -- connect <code>` or `npm run guild -- login`) and their own key for the agent's provider saved on Guild once: their Anthropic key for Claude models, their OpenAI key for OpenAI's.
+- **On this machine, with `guild run`.** To work offline, to test the plumbing for free with `--mock-models`, or for a Guild Pro agent. It needs Docker. It builds the runner code in this folder, which may be older than the runner Guild uses, so a standard agent can behave a little differently than on Guild. Declared outside hosts aren't reachable locally.
 
 Prefer `guild try` where it's available. If a `guild run` result looks wrong, try the same brief on Guild before changing anything.
 
@@ -18,7 +18,7 @@ Prefer `guild try` where it's available. If a `guild run` result looks wrong, tr
 
 1. **Check the basics**, and say only what's missing:
    - The key for the agent's provider is set, in the shell or in `.env` (ignored by git and never in the agent): `ANTHROPIC_API_KEY` for Claude models, `OPENAI_API_KEY` for OpenAI's. It's the creator's own key: they pay for these runs, on Guild or here.
-   - For `guild try`: the creator is signed in (`npm run guild -- whoami`), and their key is saved on Guild. If `guild try` says Guild doesn't have it, ask before sending it: "Trying on Guild uses your own Anthropic key. Shall I send the one in your .env to Guild? It's sealed there, used only for your own trial runs, and never shown again." If they agree, run `npm run guild -- try --save-key`. Never send it without asking.
+   - For `guild try`: the creator is signed in (`npm run guild -- whoami`), and their key is saved on Guild. If `guild try` says Guild doesn't have it, ask before sending it: "Trying on Guild uses your own Anthropic key. Shall I send the one in your .env to Guild? It's sealed there, used only for your own trial runs, and never shown again." (For an agent on OpenAI models, say OpenAI key.) If they agree, run `npm run guild -- try --save-key`. Never send it without asking.
    - For `guild run`: Docker is running (`docker info`).
    - Any key the agent's connections need: on Guild, set in the Studio (**Versions and keys**), or for a sign-in (`oauth`) key, connected there with **Connect**; locally, in `.env` under the name its host declares (`network.hosts[].key.secret`). Never write a key into a file yourself: ask the creator to add it.
    - `npm run guild -- check` has nothing marked ✗. Fix those first. Go through any files it says won't be sent: the agent won't have them on Guild.

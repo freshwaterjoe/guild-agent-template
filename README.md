@@ -6,7 +6,7 @@ The starting point for a Guild agent. An agent is a skill (or several) that does
 
 You'll need [Claude Code](https://claude.com/claude-code) or [Codex](https://developers.openai.com/codex), [Node.js](https://nodejs.org) 22.18 or later, and your own API key for the models your agent runs on, for trying it.
 
-Your agent runs on Claude models (Anthropic) or GPT models (OpenAI), one provider per agent; the setup asks which. On Claude models you try it on Guild with `npm run guild -- try`, so you don't need Docker. An agent on OpenAI models is tried on your machine with `npm run guild -- run` for now, which needs [Docker](https://www.docker.com).
+Your agent runs on Claude models (Anthropic) or GPT models (OpenAI), one provider per agent; the setup asks which. You try it on Guild with `npm run guild -- try`, on your own key for that provider, so you don't need Docker.
 
 The quickest way: in the Studio, choose **New agent**, name it, and copy the one command it gives you into a terminal. It makes your agent's folder from this template, connects it to the agent's page in the Studio, installs everything and opens Claude Code with `/guild-setup` (or Codex, if that's what you have).
 

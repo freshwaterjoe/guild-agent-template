@@ -26,7 +26,7 @@ Delete this file when everything's done.
 
 ## Try it
 
-- [ ] Test briefs run on Guild with `guild try` (or with `guild run`, for an agent on OpenAI models), the work read as a buyer would, and improved (`/guild-try`)
+- [ ] Test briefs run on Guild with `guild try`, the work read as a buyer would, and improved (`/guild-try`)
 - [ ] Cost and time noted for each tier
 
 ## When you submit
