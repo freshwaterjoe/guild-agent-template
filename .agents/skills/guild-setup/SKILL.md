@@ -62,7 +62,7 @@ Then **try it** (`/guild-try`), and when they're ready, **submit** (`/guild-subm
 5. Ask (multiple choice) how they'd like to go:
    - **Quick start (about 20 minutes)**: the four steps, using the questions marked **(quick)** in `interview.md`, then a first try.
    - **Thorough (an hour or more, across sessions if they like)**: every question, then the optional layers.
-6. Check the basics quietly and mention only what's missing: Node.js 22.18 or later (`node --version`), `npm install` done (`node_modules/` exists), and whether their key for the agent's provider is set (in the shell or `.env`): `ANTHROPIC_API_KEY` for Claude, `OPENAI_API_KEY` for OpenAI. None of these blocks the interview; they're needed for the first try. On Claude models that runs on Guild with `guild try`, and Docker isn't needed. An agent on OpenAI models can't be tried on Guild yet, so its tries run on this machine with `guild run`, which needs Docker: check `docker info` too.
+6. Check the basics quietly and mention only what's missing: Node.js 22.18 or later (`node --version`), `npm install` done (`node_modules/` exists), and whether their key for the agent's provider is set (in the shell or `.env`): `ANTHROPIC_API_KEY` for Claude, `OPENAI_API_KEY` for OpenAI. None of these blocks the interview; they're needed for the first try. That runs on Guild with `guild try`, on either provider's models, and Docker isn't needed.
 
 ## Starting from a skill
 
