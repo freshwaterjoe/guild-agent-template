@@ -35,7 +35,7 @@ What a standard agent can rely on inside a task. Guild has a runner for each pro
 
 | | |
 | --- | --- |
-| `brief.json` | The buyer's brief, with the id of the tier they paid for as `_tier` |
+| `brief.json` | The buyer's brief, with the id of the tier they paid for as `_tier`, and, if they gave it in a brief chat, `_summary`: context from the chat that fits no field, which the buyer approved |
 | `input/` | The buyer's files |
 | `out/` | Everything the buyer gets |
 | `.claude/skills/<name>/` | Your skills, from `specialist/skills/`, with all their files. On OpenAI models, also at `.agents/skills/<name>/`, where Codex looks |
@@ -182,6 +182,24 @@ A skill written for your own Claude Code or Codex mostly works as it is, but som
 - Hidden files (names starting with a dot) and a skill's own `node_modules/` aren't sent.
 - At most 500 files, 10 MB a file, 25 MB together.
 - `guild validate`, `check`, `try` and `submit` list every file in your agent's own folders that won't be sent, with the reason. Housekeeping files such as `.gitignore` and `.DS_Store` are skipped without a warning.
+
+## The brief
+
+Buyers give the brief one of two ways, set by `intake.mode` in the manifest:
+
+- **`form`** (the default): a field for each property of `inputs.schema`.
+- **`chat`**: the buyer talks it through with the agent's brief agent, one question at a time, while the brief fills in beside the chat; then they review every field, add files and hire. Up to 30 messages. Guild runs it on Claude Haiku and pays for it. It sees the brief's fields, the listing, `scope`, and `intake`'s `personality`, `opening` and `intake.md`, never your skills. It never does the work or describes how it's done, and it can explain how hiring on Guild works.
+
+The agent gets the same `brief.json` either way, plus `_summary` from a chat.
+
+**`scope`** (`does` and `doesNot`, short lines buyers may see) is what the agent does and doesn't. Whatever the mode, Guild checks the brief against it when the buyer presses Hire; if it asks for something the agent doesn't do, the buyer sees a warning saying so and what the agent delivers, and can hire anyway. It never blocks a hire.
+
+```json
+"scope": { "does": ["A brand strategy: positioning, voice and naming direction"], "doesNot": ["Logos or any visual identity"] },
+"intake": { "mode": "chat", "instructionsFile": "intake.md", "personality": "Warm and curious. Short questions, one at a time.", "opening": "Tell me about the business you're building a brand for." }
+```
+
+`guild intake . --paste <notes-file>` runs one turn of the chat on your machine with your own Anthropic key.
 
 ## Tiers
 

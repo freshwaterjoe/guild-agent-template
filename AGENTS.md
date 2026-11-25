@@ -32,7 +32,7 @@ A standard agent is content, run on Guild's shared runner:
 
 **Which models.** An agent runs on Claude models (Anthropic) or GPT models (OpenAI): one provider per agent, never both. The folder is the same either way; Guild runs it on its runner for that provider. The setup asks early, because a skill written and tested on one provider's models is best run on them. It's `model` and `reviewModel` in `specialist/settings.json`, each listed under `models` in the manifest.
 
-Going deeper, when it helps: connections to outside data (`network.hosts`, connections in `specialist/settings.json`), paste your notes (`intake.md`), and models and limits. `docs/anatomy.md` explains every layer, and which matter most.
+Going deeper, when it helps: connections to outside data (`network.hosts`, connections in `specialist/settings.json`), what the brief chat asks about (`intake.md`), and models and limits. `docs/anatomy.md` explains every layer, and which matter most.
 
 ## Two kinds of agent, and the code in this folder
 
@@ -45,7 +45,7 @@ Going deeper, when it helps: connections to outside data (`network.hosts`, conne
 
 The runner contract is in `docs/guild.md` ("The runner contract"). Read it before writing or adapting a skill. In short:
 
-- **Workspace:** `brief.json` (with `_tier`), `input/`, `out/`, skills at `.claude/skills/<name>/` (on the OpenAI runner, also at `.agents/skills/<name>/`), `references/`, `previous/` for a buyer's revision. Paths are relative to the workspace; there's no `~/.claude`.
+- **Workspace:** `brief.json` (with `_tier`, and `_summary` from a brief chat), `input/`, `out/`, skills at `.claude/skills/<name>/` (on the OpenAI runner, also at `.agents/skills/<name>/`), `references/`, `previous/` for a buyer's revision. Paths are relative to the workspace; there's no `~/.claude`.
 - **Delivering:** every deliverable is a file in `out/`, flat. Names starting `_` are scratch and not delivered. `out/_decline.md` declines the job, and the buyer pays nothing.
 - **Work until it passes:** the reviewer checks the work and the agent fixes what it finds, round after round, until it passes. These are rounds of fixes; "revision" means only a buyer's (or the creator's at sign-off) after delivery.
 - **Tools, on Claude models:** Claude Code's own: Read, Write, Edit, Bash (with background commands, stopped by TaskStop), Glob, Grep, TodoWrite, Agent (subagents sharing the workspace) and WebSearch. No WebFetch (use `read_page`) and no AskUserQuestion (use `ask_buyer`). Every call Claude Code makes on its own uses the agent's model.
@@ -69,7 +69,7 @@ The runner contract is in `docs/guild.md` ("The runner contract"). Read it befor
 | `specialist/references/` | Optional examples of excellent work, templates, house styles |
 | `specialist/settings.json` | Models, steps per session, reply cap, required output files, and connections: remote MCP services and APIs (`docs/guild.md`) |
 | `test-briefs/` | Realistic briefs; Guild runs every one as a check on each submission |
-| `intake.md` | Optional: what Guild's intake should find out when buyers paste their notes (never how the work is done) |
+| `intake.md` | Optional, for an agent with the brief chat: what it should find out from buyers (never how the work is done) |
 | `research/` | The creator's research and planning notes. Committed, never part of the agent |
 | `material/` | The creator's raw material for the setup to read: past work, checklists, skills, notes. Ignored by git and never in the agent |
 | `src/`, `Dockerfile`, `package.json`, `toolkit/` | Guild's runner. Not the creator's to change for a standard agent, and ignored on Guild |
@@ -105,7 +105,7 @@ An older agent may also have `specialist/instructions.md`, its standards and voi
 - Check the manifest and test briefs: `npm run guild -- validate .`
 - **Try a test brief on Guild**, the faithful test, on the runner Guild uses for hires, without Docker: `npm run guild -- try --brief test-briefs/<name>.json`, or `npm run guild -- try --all` for every one. For standard agents on Claude models. It uses the creator's own Anthropic key, saved on Guild once with `npm run guild -- try --save-key` (ask before sending it). An agent on OpenAI models can't be tried on Guild yet: use `guild run` below. The run comes back into `.guild/runs/<run>/`.
 - Run one test brief in a sealed container on this machine, to work offline or for a Pro agent (needs Docker): `npm run guild -- run . --brief test-briefs/<name>.json`. It builds this folder's copy of the runner, which may be older than Guild's. Every brief, with the report updated: `npm run guild -- check --run`. These use the creator's own key for the agent's provider (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`), so ask first (`/guild-try` does); `run --mock-models` tests the plumbing for free.
-- Try intake, if the agent has it: `npm run guild -- intake . --paste <notes-file>`.
+- Try the brief chat, if the agent has it: `npm run guild -- intake . --paste <notes-file>` runs one turn with the notes as the buyer's first message.
 - Connect this copy to its agent on Guild, with the code from the agent's page in the Studio: `npm run guild -- connect <code>`. It signs in and remembers the agent in `.guild/connection.json`. From then on `check` and `run` report how the agent is getting on to its Studio page (which parts are done, runs, time and cost; never the skill's text), so the creator can follow along there. Set `GUILD_NO_REPORTS=1` to stop that.
 - Sign in, submit and follow the checks: `npm run guild -- login`, `npm run guild -- submit . --wait`, `npm run guild -- status <version-id>` (`/guild-submit` walks through them).
 - All the commands: `npm run guild -- help`.

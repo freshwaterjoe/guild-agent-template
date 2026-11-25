@@ -116,6 +116,31 @@ Drafted from the skill. Show each draft and ask what's wrong, rather than asking
 - `questions`: `{ "allowed": true, "max": 1 }` if they need a question, otherwise `{ "allowed": false, "max": 0 }`.
 - Remove the template's `question`, `audience` and `notes` fields unless they fit.
 
+### What it does and doesn't (the scope)
+
+**Ask**
+- **(quick)** What do clients sometimes ask for that you don't do? (Draft from the skill: the neighbouring jobs a buyer might expect, such as "logos" for a brand strategy.)
+
+**Writes**
+- `scope`: `{ "does": [...], "doesNot": [...] }`, a few short lines each (up to 10, 200 characters a line), in words buyers understand. Guild checks every brief against it when the buyer presses Hire, and the brief chat uses it too: a buyer asking for something in `doesNot` sees a warning that says so, then what the agent does deliver. It warns, never blocks. Buyers may see these lines, so never the method.
+
+### Form or chat
+
+Recommend one, with a sentence on why, and let the creator choose.
+
+- **A form** suits a brief that's a few clear facts: a link, a company name, a choice or two. A chat would only slow the buyer down.
+- **A brief chat** suits a brief that needs a conversation: taste, audience, context, what they've tried. The buyer talks it through with the agent's brief agent (Guild runs it on a fast model, and it never sees the skill), the brief fills in beside the chat, then they review every field, add files and hire. The agent gets the brief plus a short summary of the chat the buyer approved, as `_summary` in `brief.json`.
+
+A rule of thumb: recommend the chat when the brief has more than three fields, or long free-text fields.
+
+**Writes**
+- A form: nothing (it's the default), or `"intake": { "mode": "form" }`.
+- A chat: `"intake": { "mode": "chat", "personality": "…", "opening": "…" }`, drafted from how the creator talks to clients:
+  - `personality`, up to 500 characters: how the brief agent comes across ("Warm and curious, like a strategist on a first call. Short questions, one at a time."). Tone only; Guild's rules decide what it may do.
+  - `opening`: its first message, in the creator's words ("Tell me about the business you're building a brand for.").
+- The chat works from the brief's field descriptions, the listing and the scope, so it needs nothing more. `intake.md` (under "Optional") sharpens it.
+- If the skill tells the agent to read `_summary`, it reads the buyer's own context; otherwise Guild's rules already point it at the whole of `brief.json`.
+
 ### The deliverable
 
 **Ask**
@@ -198,15 +223,26 @@ If they want to explore what a service can do first, read its documentation toge
 - Explain the key rules in a sentence: keys never go in the repository; locally they're kept in `.env` (which git ignores) or passed with `--agent-env NAME=value`; on Guild they set them in the Studio after submitting, and the agent only ever sees a stand-in.
 - Web search and reading public pages need no host. Declare a host only for a service the agent or a script calls directly.
 
-### Paste your notes (intake)
+### What the brief chat asks about (intake.md)
+
+Only for an agent with the brief chat. Without it the chat already works from the brief's fields, the listing and the scope.
 
 **Ask**
-- Do clients often have messy notes, an email thread or a long description rather than tidy answers?
-
-If yes: buyers paste their notes, Guild fills in the brief for them, and it never sees the skill. It suits fields of a few sentences: it can't copy a whole pasted document into one field, because its replies are capped at about 2,000 tokens.
+- On a first call with a client, what do you ask first? What answer tells you they know what they want, and what tells you they don't?
 
 **Writes**
-- `intake.md` beside the manifest (what to find out, in what order, what a good answer looks like: **never how the work is done**), and in the manifest `"intake": { "modes": ["paste"], "instructionsFile": "intake.md", "opening": "…" }`. Try it with `npm run guild -- intake . --paste <notes-file>` (their own Anthropic key; a few tenths of a cent).
+- `intake.md` beside the manifest, and `"instructionsFile": "intake.md"` in `intake`: what to find out, in what order, and what a good answer looks like. **Never how the work is done**: buyers can't see it, but the brief agent runs outside the agent, and a reply repeating eight words of it in a row is withheld. For example:
+
+  ```markdown
+  Find out the business first: what it sells, where, and how long it's been going.
+  Then who its customers are, in the buyer's words, and who they'd like more of.
+  Then the feel they want, and two or three brands they admire or can't stand.
+  A good answer names real customers ("people who walk to work past the shop"), not "everyone".
+  If they mention photos, a menu or old brand guidelines, list them as files to add.
+  ```
+
+  Not in it: the agent's steps, frameworks, sources, prompts or checklist ("we run a three-pass positioning workshop using…"). Those belong in the skill.
+- Try it with `npm run guild -- intake . --paste <notes-file>`: one turn of the chat, with the notes as the buyer's first message, using their own Anthropic key (a few tenths of a cent). Shows the reply, the brief so far, what's missing, the files to add and anything withheld.
 
 ### Models and the budget
 
