@@ -9,21 +9,21 @@ The point of a try is to see the work as a buyer would, to see what each tier co
 
 ## Two ways to run
 
-- **On Guild, with `guild try` (the usual way, and the faithful test).** The agent's content goes to Guild and each brief runs on the runner Guild uses for hires, with the same safeguards, declared hosts and the keys set in the Studio. No Docker. It's for standard agents. It needs the creator signed in (`npm run guild -- connect <code>` or `npm run guild -- login`) and their Anthropic key saved on Guild once.
-- **On this machine, with `guild run`.** To work offline, to test the plumbing for free with `--mock-models`, or for a Guild Pro agent. It needs Docker. It builds the runner code in this folder, which may be older than the runner Guild uses, so a standard agent can behave a little differently than on Guild. Declared outside hosts aren't reachable locally.
+- **On Guild, with `guild try` (the usual way, and the faithful test).** The agent's content goes to Guild and each brief runs on the runner Guild uses for hires, with the same safeguards, declared hosts and the keys set in the Studio. No Docker. It's for standard agents on Claude models. It needs the creator signed in (`npm run guild -- connect <code>` or `npm run guild -- login`) and their Anthropic key saved on Guild once. **An agent on OpenAI models can't be tried on Guild yet**: use `guild run`.
+- **On this machine, with `guild run`.** For an agent on OpenAI models, to work offline, to test the plumbing for free with `--mock-models`, or for a Guild Pro agent. It needs Docker. It builds the runner code in this folder, which may be older than the runner Guild uses, so a standard agent can behave a little differently than on Guild. Declared outside hosts aren't reachable locally.
 
-Prefer `guild try`. If a `guild run` result looks wrong, try the same brief on Guild before changing anything.
+Prefer `guild try` where it's available. If a `guild run` result looks wrong, try the same brief on Guild before changing anything.
 
 ## Before running
 
 1. **Check the basics**, and say only what's missing:
-   - `ANTHROPIC_API_KEY` is set, in the shell or in `.env` (ignored by git and never in the agent). It's the creator's own key: they pay for these runs, on Guild or here.
+   - The key for the agent's provider is set, in the shell or in `.env` (ignored by git and never in the agent): `ANTHROPIC_API_KEY` for Claude models, `OPENAI_API_KEY` for OpenAI's. It's the creator's own key: they pay for these runs, on Guild or here.
    - For `guild try`: the creator is signed in (`npm run guild -- whoami`), and their key is saved on Guild. If `guild try` says Guild doesn't have it, ask before sending it: "Trying on Guild uses your own Anthropic key. Shall I send the one in your .env to Guild? It's sealed there, used only for your own trial runs, and never shown again." If they agree, run `npm run guild -- try --save-key`. Never send it without asking.
    - For `guild run`: Docker is running (`docker info`).
    - Any key the agent's connections need: on Guild, set in the Studio (**Versions and keys**); locally, in `.env` under the name its host declares (`network.hosts[].key.secret`). Never write a key into a file yourself: ask the creator to add it.
    - `npm run guild -- check` has nothing marked ✗. Fix those first. Go through any files it says won't be sent: the agent won't have them on Guild.
 2. **One test brief per tier.** If the manifest has more than one tier and the test briefs don't each name one, suggest adding `"_tier": "<tier id>"` to each, so every tier is tried (`npm run guild -- validate .` after). Without it, a run doesn't show what a particular tier costs.
-3. **Ask before spending.** Say which briefs you'll run and roughly what it costs: at most the manifest's `limits.budgetMicros` per brief, usually much less, and what earlier runs cost if there are any (`.guild/readiness.md`, "Runs and cost"). Offer one brief first if they'd rather. Use AskUserQuestion: run one, run all, or check the plumbing for free (`guild run` with `--mock-models`, which tests that the agent starts and delivers, not the work, and needs Docker).
+3. **Ask before spending.** Say which briefs you'll run and roughly what it costs: at most the manifest's `limits.budgetMicros` per brief, usually much less, and what earlier runs cost if there are any (`.guild/readiness.md`, "Runs and cost"). Offer one brief first if they'd rather. Ask (multiple choice): run one, run all, or check the plumbing for free (`guild run` with `--mock-models`, which tests that the agent starts and delivers, not the work, and needs Docker).
 
 ## Running
 
@@ -50,7 +50,7 @@ Read the notes with the creator, against the work:
 - **The reviewer couldn't check it** (it only reads files): have the agent write the result of the check to `out/_checks.md`.
 - **Notes the creator disagrees with**: say so, and tighten the skill's standards or the rubric so the reviewer judges as they would.
 
-Never fix it by adding a timeline, a step count or "finish by" guidance to the skill or `method.md`, and never suggest it. The agent works the way it would in the creator's own Claude Code; Guild's safeguards step in only when needed. If a run reached the cost ceiling, the budget may be low for the job (`limits.budgetMicros`, set when submitting), or the skill may send the agent round in circles.
+Never fix it by adding a timeline, a step count or "finish by" guidance to the skill or `method.md`, and never suggest it. The agent works the way it would in the creator's own Claude Code or Codex; Guild's safeguards step in only when needed. If a run reached the cost ceiling, the budget may be low for the job (`limits.budgetMicros`, set when submitting), or the skill may send the agent round in circles.
 
 ## If a run fails or falls short
 
@@ -76,7 +76,7 @@ This is the part that matters.
 3. **Read it against the skill's standards and the rubric, if there is one, yourself**, and say plainly where it falls short, and anything the reviewer let through that it shouldn't have.
 4. **Turn each piece of feedback into a specific change**, in the right place:
    - wrong order, missed step, bad judgement call, not the standard they'd expect: **the skill** (or a better example in it);
-   - something from their own Claude Code that doesn't work on Guild, or a tier doing too much or too little: **`method.md`**;
+   - something from their own Claude Code or Codex that doesn't work on Guild, or a tier doing too much or too little: **`method.md`**;
    - something bad got through: a must-have in **`rubric.md`**, or a check the agent runs and writes to `out/_checks.md`;
    - the brief didn't ask for something it needed: **the listing** (a field).
    Propose each change in a line, let them agree or reword it, then make it. Never make the agent generic to make it pass: the fix should sound like the creator.

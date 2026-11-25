@@ -7,7 +7,7 @@ description: Sets up a new Guild agent from this template, starting from a skill
 
 You're helping an expert turn what they know into a Guild agent: one that does one job far better than a general model, for a buyer who pays for the finished work. **They know the job. You know Guild and this template.** Draw their expertise out, put it in the right files, and keep everything valid, so they never have to learn the manifest unless they want to.
 
-Read these before you start, if you haven't this session: `CLAUDE.md` (what must hold), `SETUP.md` (where this creator has got to) and `docs/guild.md`, "The runner contract" (what the agent can rely on inside a task). The questions for each step are in `interview.md` beside this file, and how to write each file well is in `writing.md`. Read each when you reach the step that needs it. `docs/anatomy.md` explains every layer in depth: use it for going deeper, not to start.
+Read these before you start, if you haven't this session: `AGENTS.md` (what must hold), `SETUP.md` (where this creator has got to) and `docs/guild.md`, "The runner contract" (what the agent can rely on inside a task). The questions for each step are in `interview.md` beside this file, and how to write each file well is in `writing.md`. Read each when you reach the step that needs it. `docs/anatomy.md` explains every layer in depth: use it for going deeper, not to start.
 
 ## What you're building
 
@@ -31,7 +31,7 @@ Then **try it** (`/guild-try`), and when they're ready, **submit** (`/guild-subm
 ## How to run the interview
 
 - **One question at a time.** Short, plain questions in British English. Never send a list of ten questions.
-- **Use multiple-choice questions for choices** (the AskUserQuestion tool): how they're starting, quick or thorough, a model, yes or no. Put your recommendation first. Ask open questions in plain text, because expertise doesn't fit in options.
+- **Use multiple-choice questions for choices** (in Claude Code, the AskUserQuestion tool; in Codex, short numbered options): how they're starting, quick or thorough, a model, yes or no. Put your recommendation first. Ask open questions in plain text, because expertise doesn't fit in options.
 - **Ask for real examples, not abstractions.** "Walk me through the last job like this you did" gets a method. "What's your method?" gets a vague list. Ask what a talented junior gets wrong, what makes them send work back, what clients forget to tell them.
 - **Take material in any form.** They can paste text, point you at files or folders on their machine, or drop things into `material/` (ignored by git, never in the agent). Ask before reading anything outside this repository.
 - **Research and planning are welcome.** If they want to research before deciding (an API's documentation, a data source, the market, what others deliver), do it with them in this session, and keep what you find in `research/`: committed, so it lasts, but never part of the agent. Use it to draft, and say where an idea came from.
@@ -41,10 +41,10 @@ Then **try it** (`/guild-try`), and when they're ready, **submit** (`/guild-subm
 - **Keep it valid.** After any change to `guild.manifest.json`, `test-briefs/` or a skill's files, run `npm run guild -- validate .` and fix what it reports before moving on. It also lists any file in the agent's folders that won't be sent, with the reason: go through those with them.
 - **Tick SETUP.md as you go.** Mark each step done, note decisions worth remembering, and list open TODOs. That's how the next session picks up where this one stopped. When they want to stop: "Everything's saved. Run /guild-setup next time and we'll carry on from the next step."
 - **Explain Guild only when it matters.** Mention a rule of the runner when the creator's answer runs into it (questions, keys, outside hosts, software, the budget, HTML), in a sentence, not a lecture.
-- **No pacing, ever.** Never suggest or write timelines, minute or step counts, "finish by" or "spend no more than" guidance in a skill or `method.md`. The agent isn't told its limits: it works the way it would in the creator's own Claude Code, and Guild's safeguards (a cost ceiling, a time ceiling, and stopping rounds of fixes that make no progress) step in only when needed. If the creator asks how long the agent has, or wants to add a timeline, say that in a sentence, and that an agent pacing itself to a clock tends to stop before the work is done.
+- **No pacing, ever.** Never suggest or write timelines, minute or step counts, "finish by" or "spend no more than" guidance in a skill or `method.md`. The agent isn't told its limits: it works the way it would in the creator's own Claude Code or Codex, and Guild's safeguards (a cost ceiling, a time ceiling, and stopping rounds of fixes that make no progress) step in only when needed. If the creator asks how long the agent has, or wants to add a timeline, say that in a sentence, and that an agent pacing itself to a clock tends to stop before the work is done.
 - **Protect the skill.** Their skills, instructions, references and rubric stay on Guild's servers and buyers never see them. Never put how the work is done in anything buyers see: the summary, brief field descriptions, deliverable descriptions, tier names and descriptions, questions to the buyer, or the intake instructions.
 - **The agent isn't the creator.** It's built on their expertise, and the listing says who built it, but it never claims their qualifications or speaks as them ("as a chartered surveyor, I…"), and its work isn't a professional's personal advice. Guild's rules already say so; add any disclaimer the creator's profession needs to the skill or `method.md`.
-- **Don't spend their money without asking.** Running briefs calls real models with their own `ANTHROPIC_API_KEY`. That's `/guild-try`'s job, and it asks first.
+- **Don't spend their money without asking.** Running briefs calls real models with their own key (`ANTHROPIC_API_KEY`, or `OPENAI_API_KEY` for OpenAI models). That's `/guild-try`'s job, and it asks first.
 - **Never submit for them** unless they ask. That's `/guild-submit`'s job.
 
 ## Starting
@@ -55,10 +55,14 @@ Then **try it** (`/guild-try`), and when they're ready, **submit** (`/guild-subm
    - **From a skill I already have**: a `SKILL.md`, or a folder of them. See "Starting from a skill" below.
    - **From past work and notes**: reports, checklists, templates, client briefs. Ask them to drop them in `material/` or say where they are, read them, and write a skill from them with the interview.
    - **From scratch**: the interview, written up as a skill.
-4. Ask (multiple choice) how they'd like to go:
+4. Ask (multiple choice) **which models the agent runs on**. It's one provider per agent, and the folder is the same either way:
+   - **Claude (Anthropic)**: recommend it when their skill was written and tested in Claude Code, or when they have no preference.
+   - **GPT (OpenAI)**: recommend it when their skill was written and tested in Codex or ChatGPT, or when they've found GPT models do this work better.
+   Then write the choice straight away, so every check uses it: for Claude, keep the template's `claude-opus-5-5`; for OpenAI, set `model` and `reviewModel` in `specialist/settings.json` to `gpt-6.2-sol` (the recommendation; see `interview.md`, "Models and the budget"), and `models` in the manifest to `[{ "provider": "openai", "model": "gpt-6.2-sol" }]`. Run `npm run guild -- validate .`. Note the choice in SETUP.md. They can change it later, but test briefs must then be tried again.
+5. Ask (multiple choice) how they'd like to go:
    - **Quick start (about 20 minutes)**: the four steps, using the questions marked **(quick)** in `interview.md`, then a first try.
    - **Thorough (an hour or more, across sessions if they like)**: every question, then the optional layers.
-5. Check the basics quietly and mention only what's missing: Node.js 22.18 or later (`node --version`), `npm install` done (`node_modules/` exists), and whether `ANTHROPIC_API_KEY` is set (in the shell or `.env`). None of these blocks the interview; they're needed for the first try, which runs on Guild with `guild try`. Docker isn't needed for a standard agent.
+6. Check the basics quietly and mention only what's missing: Node.js 22.18 or later (`node --version`), `npm install` done (`node_modules/` exists), and whether their key for the agent's provider is set (in the shell or `.env`): `ANTHROPIC_API_KEY` for Claude, `OPENAI_API_KEY` for OpenAI. None of these blocks the interview; they're needed for the first try. On Claude models that runs on Guild with `guild try`, and Docker isn't needed. An agent on OpenAI models can't be tried on Guild yet, so its tries run on this machine with `guild run`, which needs Docker: check `docker info` too.
 
 ## Starting from a skill
 
@@ -66,14 +70,14 @@ A skill tells an agent how to do something. A Guild agent is a job someone can h
 
 1. **Bring it in.** Ask where it is (a folder with a `SKILL.md`, or several). Copy each into `specialist/skills/<name>/` unchanged, with all its files and folders. Check it has a `name` and a `description` between `---` lines at the top; if not, write them with the creator. Run `npm run guild -- validate .` and go through any file it says won't be sent (for example hidden files, or a `node_modules/` inside the skill).
 2. **Read it all, and check it against the runner contract** (`docs/guild.md`). Say what you find, briefly:
-   - **Claude Code features a task doesn't have.** AskUserQuestion or "check with me before…", WebFetch by name, paths under `~/.claude` or the creator's own folders, installing packages. Each needs another way on Guild: see step 3. Subagents (Agent or Task), TodoWrite, background commands, WebSearch, and reading pages (through `read_page`) all work as they are.
+   - **Features of their own coding agent a task doesn't have.** AskUserQuestion or "check with me before…", WebFetch by name, paths under `~/.claude`, `~/.codex` or the creator's own folders, installing packages. Each needs another way on Guild: see step 3. On Claude models, subagents (Agent or Task), TodoWrite, background commands, WebSearch, and reading pages (through `read_page`) all work as they are. On OpenAI models there are no subagents (the agent does that work itself), and web search is `search_web`.
    - **Scripts.** Python 3 with pypdf, pdfplumber, reportlab, python-docx, openpyxl, python-pptx, pandas, matplotlib and Pillow, Node 22, the web toolkit (React, Motion, TypeScript, esbuild, Playwright with headless Chromium), ffmpeg, LibreOffice without a screen, pandoc and git are on the runner. Anything else isn't, and can't be installed: ImageMagick, LaTeX, wkhtmltopdf and Puppeteer aren't there. Ask whether a script that needs something missing can be done another way.
    - **Web searches.** Searching the web and reading public pages work with nothing to declare, but searches go to Anthropic. If the skill searches, check it keeps the buyer's private details out of queries, and suggest a line in `method.md` if it doesn't.
    - **Outside calls.** Anything the skill calls directly (an API, a file a script downloads with `curl` or `fetch`, an MCP server) must become a declared host (`interview.md`, "Connections"), or Guild blocks it.
    - **Checks it asks for.** If the skill's own quality checks need running something (rendering, measuring, recomputing), the agent must run them and write the results in `out/` (for example `out/_checks.md`): the reviewer can only read files.
    - **Pacing.** Timelines, minute or step counts, "finish by" or "spend no more than" guidance. Suggest taking it out of the copy in `specialist/skills/` (their own copy is untouched): on Guild the agent isn't told its limits and works as it would for them, and Guild's safeguards step in only when needed.
    - **Rights and hidden instructions.** Only a skill they wrote, or one they may use to sell work. A skill from a public directory may hide instructions: point out anything that tells the agent to fetch, send or hide something.
-3. **Map what it relies on to the runner, in a short `specialist/method.md`.** Leave the skill itself unchanged, so it still works in their own Claude Code. Write only what's needed (`writing.md`, "method.md"), for example:
+3. **Map what it relies on to the runner, in a short `specialist/method.md`.** Leave the skill itself unchanged, so it still works in their own Claude Code or Codex. Write only what's needed (`writing.md`, "method.md"), for example:
    - AskUserQuestion: "Don't wait for approval. Choose, and say what you chose and why in the work";
    - WebFetch: "Where the skill says WebFetch, use read_page";
    - web searches: "Search for the market and the category, never the buyer's own unreleased product or names";
@@ -98,4 +102,4 @@ When the four steps are done, run `npm run guild -- check` and go through it wit
 - suggest committing their work to git (offer to write the commit message);
 - offer to try it now (`/guild-try`), one test brief per tier, and to go deeper on anything they'd like.
 
-Once everything in SETUP.md is ticked, ask whether to delete SETUP.md. Then CLAUDE.md stops offering the setup.
+Once everything in SETUP.md is ticked, ask whether to delete SETUP.md. Then AGENTS.md stops offering the setup.

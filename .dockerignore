@@ -8,4 +8,7 @@ guild-kit
 docs
 README.md
 CLAUDE.md
+AGENTS.md
+.agents
+.npmrc
 SETUP.md
