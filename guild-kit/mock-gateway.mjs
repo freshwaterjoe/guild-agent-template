@@ -1,4 +1,4 @@
-// Guild agent kit 2026-11-23 (32b0d14). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-25 (9cadf304). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -30,14 +30,54 @@ var guildPaths = {
   trace: (taskId) => `/v1/tasks/${taskId}/trace`,
   complete: (taskId) => `/v1/tasks/${taskId}/complete`,
   fail: (taskId) => `/v1/tasks/${taskId}/fail`,
-  anthropicMessages: "/v1/anthropic/v1/messages"
+  anthropicMessages: "/v1/anthropic/v1/messages",
+  /** OpenAI's Responses API (decision 067). The only OpenAI endpoint Guild forwards. */
+  openaiResponses: "/v1/openai/v1/responses"
 };
 function isSafeFileName(name) {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) && !name.includes("..");
 }
 
+// src/models.ts
+var ANTHROPIC_MODELS = [
+  "claude-fable-5-2",
+  "claude-fable-5-1",
+  "claude-fable-5",
+  "claude-opus-5-5",
+  "claude-opus-5",
+  "claude-opus-4-8",
+  "claude-opus-4-7",
+  "claude-opus-4-6",
+  "claude-opus-4-5",
+  "claude-sonnet-5-5",
+  "claude-sonnet-5",
+  "claude-sonnet-4-6",
+  "claude-sonnet-4-5",
+  "claude-haiku-5-5",
+  "claude-haiku-4-5"
+];
+var OPENAI_MODELS = [
+  "gpt-6.2-astra",
+  "gpt-6-astra",
+  "gpt-6.2-sol",
+  "gpt-6.1-sol",
+  "gpt-6-sol",
+  "gpt-6.1-terra",
+  "gpt-6-luna"
+];
+var ALLOWED_MODELS = [...ANTHROPIC_MODELS, ...OPENAI_MODELS];
+function providerOfModel(model) {
+  if (ANTHROPIC_MODELS.includes(model)) return "anthropic";
+  if (OPENAI_MODELS.includes(model)) return "openai";
+  return null;
+}
+
 // src/prices.ts
-var PRICE_VERSION = "2026-11-10";
+var PRICE_VERSION = "2026-11-24";
+var OPENAI_LONG_CONTEXT_TOKENS = 272e3;
+function openaiPrice(input2, output2, cacheRead) {
+  return { input: input2, output: output2, cacheRead, longContextThreshold: OPENAI_LONG_CONTEXT_TOKENS, longContextInput: input2 * 2, longContextOutput: output2 * 1.5 };
+}
 var PRICES = {
   "claude-fable-5-2": { input: 8e6, output: 4e7, cacheRead: 2e5 },
   "claude-fable-5-1": { input: 1e7, output: 5e7, cacheRead: 25e4 },
@@ -60,7 +100,14 @@ var PRICES = {
     longContextInput: 5e5,
     longContextOutput: 25e5
   },
-  "claude-haiku-4-5": { input: 1e6, output: 5e6, cacheRead: 1e5 }
+  "claude-haiku-4-5": { input: 1e6, output: 5e6, cacheRead: 1e5 },
+  "gpt-6.2-astra": openaiPrice(8e6, 4e7, 4e5),
+  "gpt-6-astra": openaiPrice(1e7, 5e7, 1e6),
+  "gpt-6.2-sol": openaiPrice(2e6, 1e7, 1e5),
+  "gpt-6.1-sol": openaiPrice(2e6, 1e7, 1e5),
+  "gpt-6-sol": openaiPrice(2e6, 1e7, 2e5),
+  "gpt-6.1-terra": openaiPrice(1e6, 5e6, 5e4),
+  "gpt-6-luna": openaiPrice(1e5, 5e5, 1e4)
 };
 var WEB_SEARCH_MICROS = 1e4;
 var perToken = (tokens, microsPerMillion) => tokens * microsPerMillion / 1e6;
@@ -81,6 +128,58 @@ function costFromUsage(model, usage) {
   return Math.ceil(
     perToken(input2, inputRate) + perToken(cacheWrite5m, inputRate * 1.25) + perToken(cacheWrite1h, inputRate * 2) + perToken(cacheRead, cacheReadRate) + perToken(output2, outputRate) + (usage.server_tool_use?.web_search_requests ?? 0) * WEB_SEARCH_MICROS
   );
+}
+var OPENAI_CACHE_WRITE = { ttl30m: 1.25, ttl12h: 2.5 };
+function openaiTokens(usage) {
+  const prompt = Math.max(0, usage.input_tokens ?? 0);
+  const details = usage.input_tokens_details ?? {};
+  const cacheRead = Math.min(prompt, Math.max(0, details.cached_tokens ?? 0));
+  const cacheWrite = Math.min(prompt - cacheRead, Math.max(0, details.cache_write_tokens ?? 0));
+  const cacheWrite12h = Math.min(cacheWrite, Math.max(0, details.cache_write_tokens_details?.ttl_12h_tokens ?? 0));
+  return { input: prompt - cacheRead - cacheWrite, cacheRead, cacheWrite, cacheWrite12h, output: Math.max(0, usage.output_tokens ?? 0), prompt };
+}
+function costFromOpenAIUsage(model, usage, webSearches = 0) {
+  const price = PRICES[model];
+  if (!price) throw new Error(`No price for model ${model}`);
+  const tokens = openaiTokens(usage);
+  const long = price.longContextThreshold !== void 0 && tokens.prompt > price.longContextThreshold;
+  const inputRate = long ? price.longContextInput : price.input;
+  const outputRate = long ? price.longContextOutput : price.output;
+  const cacheReadRate = long ? price.cacheRead * price.longContextInput / price.input : price.cacheRead;
+  return Math.ceil(
+    perToken(tokens.input, inputRate) + perToken(tokens.cacheWrite - tokens.cacheWrite12h, inputRate * OPENAI_CACHE_WRITE.ttl30m) + perToken(tokens.cacheWrite12h, inputRate * OPENAI_CACHE_WRITE.ttl12h) + perToken(tokens.cacheRead, cacheReadRate) + perToken(tokens.output, outputRate) + Math.max(0, webSearches) * WEB_SEARCH_MICROS
+  );
+}
+function openaiWebSearches(response) {
+  const count = response?.tool_usage?.web_search?.num_requests;
+  return typeof count === "number" && Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+}
+function openaiResultFromResponse(text2, streamed) {
+  if (!streamed) {
+    try {
+      const response = JSON.parse(text2);
+      return response.usage ? { usage: response.usage, webSearches: openaiWebSearches(response) } : null;
+    } catch {
+      return null;
+    }
+  }
+  let result = null;
+  for (const raw of text2.split("\n")) {
+    const line = raw.trim();
+    if (!line.startsWith("data:")) continue;
+    const last = openaiUsageFromEvent(line.slice(5));
+    if (last?.usage) result = { usage: last.usage, webSearches: last.webSearches };
+  }
+  return result;
+}
+function openaiUsageFromEvent(data) {
+  try {
+    const event = JSON.parse(data);
+    const ending = event.type === "response.completed" ? "completed" : event.type === "response.incomplete" ? "incomplete" : event.type === "response.failed" || event.type === "error" ? "failed" : null;
+    return ending ? { ending, usage: event.response?.usage ?? null, webSearches: openaiWebSearches(event.response) } : null;
+  } catch {
+    return null;
+  }
 }
 function usageFromResponse(text2, streamed) {
   if (!streamed) {
@@ -20058,7 +20157,7 @@ function summariseAnswers(fields, answers, how = "buyer") {
 // src/mock-gateway.ts
 var RUN_DIR = process.env.GUILD_RUN_DIR ?? "/run/guild";
 var TOKEN = required2("GUILD_TASK_TOKEN");
-var ALLOWED_MODELS = required2("GUILD_ALLOWED_MODELS").split(",");
+var ALLOWED_MODELS2 = required2("GUILD_ALLOWED_MODELS").split(",");
 var MOCK_MODELS = process.env.GUILD_MOCK_MODELS === "1";
 var MOCK_TOOL_CALL = process.env.GUILD_MOCK_TOOL_CALL ? JSON.parse(process.env.GUILD_MOCK_TOOL_CALL) : null;
 var ANSWERS = JSON.parse(process.env.GUILD_ANSWERS ?? "[]");
@@ -20075,23 +20174,36 @@ var tokensUsed = { input: 0, output: 0, calls: 0 };
 var byModel = {};
 var costSoFar = 0;
 var overBudgetLogged = false;
-function record2(model, usage) {
-  const cost = PRICES[model] ? costFromUsage(model, usage) : 0;
+function addCall(model, tokens, cost) {
   const entry = byModel[model] ??= {
     calls: 0,
     usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
     costMicros: 0
   };
   entry.calls += 1;
-  entry.usage.input_tokens += usage.input_tokens ?? 0;
-  entry.usage.output_tokens += usage.output_tokens ?? 0;
-  entry.usage.cache_read_input_tokens += usage.cache_read_input_tokens ?? 0;
-  entry.usage.cache_creation_input_tokens += usage.cache_creation_input_tokens ?? 0;
+  entry.usage.input_tokens += tokens.input;
+  entry.usage.output_tokens += tokens.output;
+  entry.usage.cache_read_input_tokens += tokens.cacheRead;
+  entry.usage.cache_creation_input_tokens += tokens.cacheWrite;
   entry.costMicros += cost;
-  tokensUsed.input += (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
-  tokensUsed.output += usage.output_tokens ?? 0;
+  tokensUsed.input += tokens.input + tokens.cacheRead + tokens.cacheWrite;
+  tokensUsed.output += tokens.output;
   costSoFar += cost;
   return cost;
+}
+function record2(model, usage) {
+  const tokens = { input: usage.input_tokens ?? 0, output: usage.output_tokens ?? 0, cacheRead: usage.cache_read_input_tokens ?? 0, cacheWrite: usage.cache_creation_input_tokens ?? 0 };
+  return addCall(model, tokens, PRICES[model] ? costFromUsage(model, usage) : 0);
+}
+function recordOpenAI(model, usage, webSearches) {
+  return addCall(model, openaiTokens(usage), PRICES[model] ? costFromOpenAIUsage(model, usage, webSearches) : 0);
+}
+function warnIfOverBudget() {
+  if (overBudgetLogged || costSoFar <= task.budgetMicros) return;
+  overBudgetLogged = true;
+  log("over_budget", {
+    message: `Model cost is now ${formatMicros(costSoFar)}, over this agent's budget of ${formatMicros(task.budgetMicros)}. On Guild, calls are refused once the budget runs out; raise limits.budgetMicros or make the work cheaper.`
+  });
 }
 function required2(name) {
   const value = process.env[name];
@@ -20125,8 +20237,11 @@ function finish(outcome, detail) {
 }
 async function handleModelCall(request, response) {
   const body = JSON.parse((await readBody(request)).toString("utf8") || "{}");
-  if (!body.model || !ALLOWED_MODELS.includes(body.model)) {
+  if (!body.model || !ALLOWED_MODELS2.includes(body.model)) {
     return refuse(response, 403, "model_not_allowed", `Model ${body.model} is not in the manifest's models list.`);
+  }
+  if (providerOfModel(body.model) === "openai") {
+    return refuse(response, 403, "model_not_allowed", `${body.model} is an OpenAI model: call it at OPENAI_BASE_URL, not ANTHROPIC_BASE_URL.`);
   }
   if (Date.now() > Date.parse(task.deadline)) {
     return refuse(response, 403, "deadline_passed", "The task's deadline has passed.");
@@ -20215,12 +20330,84 @@ data: ${JSON.stringify(event)}
     output_tokens: usage?.output_tokens ?? 0,
     cost: formatMicros(costMicros)
   });
-  if (!overBudgetLogged && costSoFar > task.budgetMicros) {
-    overBudgetLogged = true;
-    log("over_budget", {
-      message: `Model cost is now ${formatMicros(costSoFar)}, over this agent's budget of ${formatMicros(task.budgetMicros)}. On Guild, calls are refused once the budget runs out; raise limits.budgetMicros or make the work cheaper.`
-    });
+  warnIfOverBudget();
+  response.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") ?? "application/json" });
+  response.end(text2);
+}
+async function handleOpenAICall(request, response) {
+  const body = JSON.parse((await readBody(request)).toString("utf8") || "{}");
+  if (!body.model || !ALLOWED_MODELS2.includes(body.model)) {
+    return refuse(response, 403, "model_not_allowed", `Model ${body.model} is not in the manifest's models list.`);
   }
+  if (providerOfModel(body.model) !== "openai") {
+    return refuse(response, 403, "model_not_allowed", `${body.model} isn't an OpenAI model. Claude models are called at ANTHROPIC_BASE_URL.`);
+  }
+  if (Date.now() > Date.parse(task.deadline)) {
+    return refuse(response, 403, "deadline_passed", "The task's deadline has passed.");
+  }
+  tokensUsed.calls += 1;
+  if (MOCK_MODELS) {
+    const usage2 = { input_tokens: 20, output_tokens: 8, total_tokens: 28 };
+    tokensUsed.input += usage2.input_tokens;
+    tokensUsed.output += usage2.output_tokens;
+    const call = tokensUsed.calls;
+    const hasToolOutput = JSON.stringify(body.input ?? "").includes('_call_output"');
+    const toolCall = MOCK_TOOL_CALL && !hasToolOutput ? { type: "function_call", id: `fc_mock_${call}`, call_id: `call_mock_${call}`, name: MOCK_TOOL_CALL.name, arguments: JSON.stringify(MOCK_TOOL_CALL.input), status: "completed" } : null;
+    const words2 = body.stream ? ["(mock ", "streamed ", "model ", "reply)"] : ["(mock model reply)"];
+    const part = { type: "output_text", text: words2.join(""), annotations: [] };
+    const message = { type: "message", id: `msg_mock_${call}`, role: "assistant", status: "completed", content: [part] };
+    const reply = { id: `resp_mock_${call}`, object: "response", status: "completed", model: body.model, output: [toolCall ?? message], usage: usage2 };
+    log("model_call", { model: body.model, mocked: true, streamed: Boolean(body.stream), max_output_tokens: body.max_output_tokens, ...toolCall ? { toolCall: toolCall.name } : {}, ...usage2 });
+    if (!body.stream) return sendJson(response, 200, reply);
+    response.writeHead(200, { "Content-Type": "text/event-stream" });
+    let sequence = 0;
+    const send = (event) => response.write(`event: ${event.type}
+data: ${JSON.stringify({ ...event, sequence_number: sequence++ })}
+
+`);
+    send({ type: "response.created", response: { ...reply, status: "in_progress", output: [], usage: null } });
+    if (toolCall) {
+      send({ type: "response.output_item.added", output_index: 0, item: { ...toolCall, arguments: "", status: "in_progress" } });
+      send({ type: "response.function_call_arguments.delta", item_id: toolCall.id, output_index: 0, delta: toolCall.arguments });
+      send({ type: "response.function_call_arguments.done", item_id: toolCall.id, output_index: 0, name: toolCall.name, arguments: toolCall.arguments });
+    } else {
+      const at = { item_id: message.id, output_index: 0, content_index: 0 };
+      send({ type: "response.output_item.added", output_index: 0, item: { ...message, status: "in_progress", content: [] } });
+      send({ type: "response.content_part.added", ...at, part: { ...part, text: "" } });
+      for (const word of words2) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        send({ type: "response.output_text.delta", ...at, delta: word });
+      }
+      send({ type: "response.output_text.done", ...at, text: part.text });
+      send({ type: "response.content_part.done", ...at, part });
+    }
+    send({ type: "response.output_item.done", output_index: 0, item: toolCall ?? message });
+    send({ type: "response.completed", response: reply });
+    return response.end();
+  }
+  const key = process.env.GUILD_DEV_OPENAI_API_KEY;
+  if (!key) {
+    return refuse(response, 503, "blocked", "No development model key is set. Use --mock-models or set OPENAI_API_KEY.");
+  }
+  const upstream = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+    // As on Guild: the response isn't kept at OpenAI.
+    body: JSON.stringify({ ...body, store: false })
+  });
+  const text2 = await upstream.text();
+  const result = upstream.ok ? openaiResultFromResponse(text2, Boolean(body.stream)) : null;
+  const usage = result?.usage ?? null;
+  const costMicros = result ? recordOpenAI(body.model, result.usage, result.webSearches) : 0;
+  log("model_call", {
+    model: body.model,
+    status: upstream.status,
+    ...body.stream ? { streamed: true } : {},
+    input_tokens: usage?.input_tokens ?? 0,
+    output_tokens: usage?.output_tokens ?? 0,
+    cost: formatMicros(costMicros)
+  });
+  warnIfOverBudget();
   response.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") ?? "application/json" });
   response.end(text2);
 }
@@ -20238,6 +20425,9 @@ var server = createServer(async (request, response) => {
     const id2 = task.taskId;
     if (request.method === "POST" && path === guildPaths.anthropicMessages) {
       return await handleModelCall(request, response);
+    }
+    if (request.method === "POST" && path === guildPaths.openaiResponses) {
+      return await handleOpenAICall(request, response);
     }
     if (!path.startsWith(`/v1/tasks/${id2}/`)) {
       return refuse(response, 404, "not_found", `Unknown path ${path}.`);

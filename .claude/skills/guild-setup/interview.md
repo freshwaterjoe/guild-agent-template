@@ -63,17 +63,17 @@ The most valuable part. If they brought a skill, it's this step already: go to s
 Only where the skill relies on something a task doesn't have. Read it against the runner contract (`docs/guild.md`), and tell the creator what you found in a few lines.
 
 **Check for**
-- **Subagents** (Agent or Task), TodoWrite and background commands: work as they are. Subagents share the workspace and use the agent's model.
+- **Subagents** (Agent or Task), TodoWrite and background commands: work as they are on Claude models. Subagents share the workspace and use the agent's model. On OpenAI models there are no subagents: if the skill hands work to them, a line in `method.md` says to do it in turn instead.
 - **AskUserQuestion, or waiting for approval**: there's no one there. The agent decides, states its assumption and carries on. `ask_buyer` is for a question that changes the result: one question of 5 to 500 characters, early. The task's time keeps running while it waits, and in Guild's checks no one answers.
-- **WebSearch, "look it up"**: works, with nothing to declare. Searches go to Anthropic, so the skill should keep the buyer's private details out of them.
+- **WebSearch, "look it up"**: works, with nothing to declare (on OpenAI models it's called `search_web`). Searches go to the agent's provider, so the skill should keep the buyer's private details out of them.
 - **WebFetch, "fetch this URL"**: Claude Code's WebFetch is off; `read_page` does the same through Guild. If the skill names WebFetch, map it in `method.md`.
 - **A script that calls a service or downloads a file** (`curl`, `fetch`, `requests`): declare the host (step "Connections").
 - **git**: works in the workspace.
-- **Paths** under `~/.claude` or the creator's folders: on Guild the skill is at `.claude/skills/<name>/`, relative to the workspace, with `brief.json`, `input/`, `references/` and `out/` beside it.
+- **Paths** under `~/.claude`, `~/.codex` or the creator's folders: on Guild the skill is at `.claude/skills/<name>/`, relative to the workspace, with `brief.json`, `input/`, `references/` and `out/` beside it.
 - **Installing packages**: not possible. ffmpeg, LibreOffice, pandoc and git are there; ImageMagick, LaTeX and wkhtmltopdf aren't. Use what's on the runner (`docs/guild.md`, "Software on the runner").
 - **Where the work goes**: deliverables in `out/`, flat; scratch names start with `_`.
 - **Checks that need running something**: the agent runs them and writes the results in `out/_checks.md`, because the reviewer can only read files.
-- **Timelines, minute or step counts, "finish by" guidance**: not needed, and better gone. The agent isn't told its limits; it works the way it would in their own Claude Code, and Guild's safeguards step in only when needed. With their agreement, take it out of the copy in `specialist/skills/`, and never put it in `method.md`.
+- **Timelines, minute or step counts, "finish by" guidance**: not needed, and better gone. The agent isn't told its limits; it works the way it would in their own Claude Code or Codex, and Guild's safeguards step in only when needed. With their agreement, take it out of the copy in `specialist/skills/`, and never put it in `method.md`.
 
 **Writes**
 - A short `specialist/method.md` with only the mapping that's needed (`writing.md`), so the skill itself stays unchanged. Delete the template's example `method.md` if nothing needs mapping, with their permission.
@@ -213,12 +213,14 @@ If yes: buyers paste their notes, Guild fills in the brief for them, and it neve
 Mostly your recommendations, confirmed with a multiple-choice question.
 
 **Ask (multiple choice)**
-- Which model does the work? Recommend `claude-opus-5-5` for most expert work; `claude-sonnet-5-5` for cheaper, faster jobs; `claude-fable-5-2` for the hardest reasoning, at about twice Opus's price.
+- Which model does the work, from the provider they chose at the start (one provider per agent)?
+  - Claude: recommend `claude-opus-5-5` for most expert work; `claude-sonnet-5-5` for cheaper, faster jobs; `claude-fable-5-2` for the hardest reasoning, at about twice Opus's price.
+  - OpenAI: recommend `gpt-6.2-sol` for most expert work; `gpt-6.1-terra` for cheaper, faster jobs; `gpt-6.2-astra` for the hardest reasoning, at about four times Sol's price. `docs/guild.md` lists every model Guild offers.
 - Which model reviews it? The same model is safest; a cheaper one if the checks are mechanical.
 - How many revisions should a buyer get, if they ask with feedback after delivery? (`revisions.included`, 1 to 5; the creator pays each revision's model cost. These aren't the agent's rounds of fixes inside a task.) Recommend 1, or 2 if clients usually go back and forth.
 
 **Writes**
-- `model` and `reviewModel` in `specialist/settings.json`, and every model they use under `models` in the manifest.
+- `model` and `reviewModel` in `specialist/settings.json`, and every model they use under `models` in the manifest, each with its `provider` (`"anthropic"` or `"openai"`). On OpenAI models, the reply cap (`maxOutputTokens`) is Guild's: 64,000 tokens.
 - Leave the rest at the template's values: 300 steps per session and 64,000-token replies (technical limits that never end a task), `standard-4`. Rounds of fixes aren't counted: the agent fixes what review finds until the work passes. The time ceiling is Guild's: 3 hours for a standard agent. None of these is told to the agent, so never write them into the skill or `method.md`.
 - Set `limits.budgetMicros` at half the largest tier's price, from $3 to $50 (5,000 micros per cent: a $40 tier gives 20,000,000). Until prices are set, keep $3 and revisit in `/guild-submit`.
 - `revisions.included`.

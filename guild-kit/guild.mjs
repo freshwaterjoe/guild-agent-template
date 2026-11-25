@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-23 (32b0d14). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-25 (9cadf304). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -20882,7 +20882,8 @@ function date5(params) {
 }
 
 // src/models.ts
-var ALLOWED_MODELS = [
+var RUNNER_HARNESSES = { anthropic: "claude", openai: "codex" };
+var ANTHROPIC_MODELS = [
   "claude-fable-5-2",
   "claude-fable-5-1",
   "claude-fable-5",
@@ -20899,8 +20900,23 @@ var ALLOWED_MODELS = [
   "claude-haiku-5-5",
   "claude-haiku-4-5"
 ];
+var OPENAI_MODELS = [
+  "gpt-6.2-astra",
+  "gpt-6-astra",
+  "gpt-6.2-sol",
+  "gpt-6.1-sol",
+  "gpt-6-sol",
+  "gpt-6.1-terra",
+  "gpt-6-luna"
+];
+var ALLOWED_MODELS = [...ANTHROPIC_MODELS, ...OPENAI_MODELS];
 function isAllowedModel(model) {
   return ALLOWED_MODELS.includes(model);
+}
+function providerOfModel(model) {
+  if (ANTHROPIC_MODELS.includes(model)) return "anthropic";
+  if (OPENAI_MODELS.includes(model)) return "openai";
+  return null;
 }
 
 // src/manifest.ts
@@ -20921,6 +20937,7 @@ var INSTANCE_SIZES = ["lite", "basic", "standard-1", "standard-2", "standard-3",
 var slug = external_exports.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters, numbers and single hyphens.").max(64);
 var RESERVED_KEY_NAMES = ["PATH", "HOME", "USER", "PWD", "SHELL", "LANG", "TZ", "HOSTNAME", "TERM"];
 var RESERVED_KEY_PREFIXES = ["GUILD_", "ANTHROPIC_", "NODE_", "NPM_", "LD_"];
+var OPENAI_RESERVED_KEY_PREFIXES = ["OPENAI_", "CODEX_"];
 var RESERVED_KEY_HEADERS = ["host", "content-length", "content-type", "transfer-encoding", "connection", "upgrade", "te", "trailer", "keep-alive"];
 var MAX_REVISIONS = 5;
 var MIN_REVISIONS = 1;
@@ -21020,12 +21037,19 @@ var manifestSchema = external_exports.object({
     deadlineSeconds: external_exports.int().min(60).max(4 * 60 * 60),
     instance: external_exports.enum(INSTANCE_SIZES)
   }).strict(),
+  // The models the agent may call; the gateway refuses any other. Claude models (decision 026) or
+  // OpenAI's GPT-6 models (decision 067), and one provider per agent.
   models: external_exports.array(
-    external_exports.object({
-      provider: external_exports.literal("anthropic"),
-      // Claude models only (decision 026).
-      model: external_exports.enum(ALLOWED_MODELS, { message: `Guild doesn't offer this model. Use one of: ${ALLOWED_MODELS.join(", ")}.` })
-    }).strict()
+    external_exports.discriminatedUnion("provider", [
+      external_exports.object({
+        provider: external_exports.literal("anthropic"),
+        model: external_exports.enum(ANTHROPIC_MODELS, { message: `Guild doesn't offer this model. Use one of: ${ANTHROPIC_MODELS.join(", ")}.` })
+      }).strict(),
+      external_exports.object({
+        provider: external_exports.literal("openai"),
+        model: external_exports.enum(OPENAI_MODELS, { message: `Guild doesn't offer this model. Use one of: ${OPENAI_MODELS.join(", ")}.` })
+      }).strict()
+    ])
   ).min(1),
   tools: external_exports.array(external_exports.object({ id: external_exports.string().min(1), description: external_exports.string() }).strict()).default([]),
   // Outside hosts the agent calls over HTTPS. The gateway passes these calls
@@ -21084,6 +21108,26 @@ var manifestSchema = external_exports.object({
       message: "Set max above 0 when questions are allowed, and to 0 when they are not."
     });
   }
+  const providers = new Set(manifest.models.map((entry) => entry.provider));
+  if (providers.size > 1) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["models"],
+      message: "An agent uses one provider: list Anthropic's models or OpenAI's, not both."
+    });
+  }
+  if (providers.has("openai")) {
+    manifest.network.hosts.forEach((entry, index) => {
+      const reserved = entry.key && OPENAI_RESERVED_KEY_PREFIXES.find((prefix) => entry.key.secret.startsWith(prefix));
+      if (reserved) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["network", "hosts", index, "key", "secret"],
+          message: `Key names starting ${reserved} are set by Guild for an agent on OpenAI models. Use another name.`
+        });
+      }
+    });
+  }
   const hosts = manifest.network.hosts.map((entry) => entry.host);
   hosts.forEach((host, index) => {
     if (hosts.indexOf(host) !== index) {
@@ -21106,6 +21150,9 @@ var manifestSchema = external_exports.object({
     }
   });
 });
+function manifestProvider(manifest) {
+  return manifest.models[0]?.provider ?? "anthropic";
+}
 function declaredKeys(manifest) {
   return manifest.network.hosts.flatMap((entry) => entry.key ? [{ host: entry.host, key: entry.key }] : []);
 }
@@ -21148,6 +21195,8 @@ var apiConnection = external_exports.object({
   keyPrefix: external_exports.string().max(20).regex(/^[A-Za-z]*\s?$/).optional()
 }).strict();
 var settingsSchema = external_exports.object({
+  // Claude's models or OpenAI's (decision 067), whichever the manifest lists: an agent uses one
+  // provider. The defaults are Claude's, so an agent on OpenAI models names both.
   /** Does the work. Must be listed under `models` in the manifest. */
   model: external_exports.enum(ALLOWED_MODELS).default("claude-opus-5-5"),
   /** Reviews the work against the rubric before delivery. Also listed in the manifest. */
@@ -21190,8 +21239,13 @@ function parseSettings(text) {
 function settingsIssues(settings, manifest) {
   const issues = [];
   const models = new Set(manifest.models.map((model) => model.model));
-  if (!models.has(settings.model)) issues.push({ path: "model", message: `${settings.model} does the work, so list it under models in the manifest.` });
-  if (!models.has(settings.reviewModel)) issues.push({ path: "reviewModel", message: `${settings.reviewModel} reviews the work, so list it under models in the manifest.` });
+  const provider = manifestProvider(manifest);
+  const otherProvider = (model) => providerOfModel(model) !== provider;
+  const choose = `Set it in specialist/settings.json to one of the manifest's models: ${[...models].join(", ")}.`;
+  if (otherProvider(settings.model)) issues.push({ path: "model", message: `${settings.model} isn't one of this agent's models. ${choose}` });
+  else if (!models.has(settings.model)) issues.push({ path: "model", message: `${settings.model} does the work, so list it under models in the manifest.` });
+  if (otherProvider(settings.reviewModel)) issues.push({ path: "reviewModel", message: `${settings.reviewModel} isn't one of this agent's models. ${choose}` });
+  else if (!models.has(settings.reviewModel)) issues.push({ path: "reviewModel", message: `${settings.reviewModel} reviews the work, so list it under models in the manifest.` });
   const hosts = new Map(manifest.network.hosts.map((entry) => [entry.host, entry]));
   const names = /* @__PURE__ */ new Set();
   settings.connections.services.forEach((service, index) => {
@@ -21394,7 +21448,9 @@ var TEMPLATE_CODE = /* @__PURE__ */ new Map([
   ["27da284ae11e0968550b2477c228e444afb42380291a722f1f987add8181929b", "2727dd8 2026-11-22"],
   ["7a11cb8d649ba90a89a1227699230d2ea9a5dd72b1dbca0468f9ec91d0e1aaab", "067d8e7 2026-11-22"],
   ["b3c03664eae6d4b1572c3353617b0104941047c0b82b2ef0f35abb5804811056", "02bd9ff 2026-11-23"],
-  ["a2016ba0c052753669fb5dc494e5d204f9b200599cb05ef8d33fd31db5cf009b", "b182026 2026-11-23"]
+  ["a2016ba0c052753669fb5dc494e5d204f9b200599cb05ef8d33fd31db5cf009b", "b182026 2026-11-23"],
+  ["5e23680e0898258622924799b93db86e188dfdfe9cefe0ec3be2de4337fec2d0", "f14ec53 2026-11-23"],
+  ["58381e9c43dd2e5cc6df7162500080b5c72af67cc578969ef5ff45b6ea182d7c", "b0bfa3c 2026-11-24"]
 ]);
 
 // src/content-files.ts
@@ -21468,6 +21524,11 @@ function undeclaredKindMessage(codeFiles) {
     '  "kind": "standard"   Guild runs your skills on its shared runner, and ignores this code.',
     `  "kind": "pro"        A Guild Pro agent: Guild builds this code into the agent's own image.`
   ].join("\n");
+}
+function harnessBuildArgs(agentDir2, manifest) {
+  const dockerfile = join(agentDir2, "Dockerfile");
+  if (!existsSync(dockerfile) || !/^ARG HARNESS\b/m.test(readFileSync(dockerfile, "utf8"))) return [];
+  return ["--build-arg", `HARNESS=${RUNNER_HARNESSES[manifestProvider(manifest)]}`];
 }
 
 // src/check.ts
@@ -21669,6 +21730,41 @@ function parseIntakeReply(manifest, reply) {
 }
 
 // src/prices.ts
+var OPENAI_LONG_CONTEXT_TOKENS = 272e3;
+function openaiPrice(input2, output2, cacheRead) {
+  return { input: input2, output: output2, cacheRead, longContextThreshold: OPENAI_LONG_CONTEXT_TOKENS, longContextInput: input2 * 2, longContextOutput: output2 * 1.5 };
+}
+var PRICES = {
+  "claude-fable-5-2": { input: 8e6, output: 4e7, cacheRead: 2e5 },
+  "claude-fable-5-1": { input: 1e7, output: 5e7, cacheRead: 25e4 },
+  "claude-fable-5": { input: 1e7, output: 5e7, cacheRead: 1e6 },
+  "claude-opus-5-5": { input: 4e6, output: 2e7, cacheRead: 2e5 },
+  "claude-opus-5": { input: 5e6, output: 25e6, cacheRead: 5e5 },
+  "claude-opus-4-8": { input: 5e6, output: 25e6, cacheRead: 5e5 },
+  "claude-opus-4-7": { input: 5e6, output: 25e6, cacheRead: 5e5 },
+  "claude-opus-4-6": { input: 5e6, output: 25e6, cacheRead: 5e5 },
+  "claude-opus-4-5": { input: 5e6, output: 25e6, cacheRead: 5e5 },
+  "claude-sonnet-5-5": { input: 2e6, output: 1e7, cacheRead: 1e5 },
+  "claude-sonnet-5": { input: 2e6, output: 1e7, cacheRead: 2e5 },
+  "claude-sonnet-4-6": { input: 3e6, output: 15e6, cacheRead: 3e5 },
+  "claude-sonnet-4-5": { input: 3e6, output: 15e6, cacheRead: 3e5 },
+  "claude-haiku-5-5": {
+    input: 1e5,
+    output: 5e5,
+    cacheRead: 1e4,
+    longContextThreshold: 1e5,
+    longContextInput: 5e5,
+    longContextOutput: 25e5
+  },
+  "claude-haiku-4-5": { input: 1e6, output: 5e6, cacheRead: 1e5 },
+  "gpt-6.2-astra": openaiPrice(8e6, 4e7, 4e5),
+  "gpt-6-astra": openaiPrice(1e7, 5e7, 1e6),
+  "gpt-6.2-sol": openaiPrice(2e6, 1e7, 1e5),
+  "gpt-6.1-sol": openaiPrice(2e6, 1e7, 1e5),
+  "gpt-6-sol": openaiPrice(2e6, 1e7, 2e5),
+  "gpt-6.1-terra": openaiPrice(1e6, 5e6, 5e4),
+  "gpt-6-luna": openaiPrice(1e5, 5e5, 1e4)
+};
 var GUILD_COMMISSION_BPS = 2500;
 function formatMicros(micros) {
   const dollars = micros / 1e6;
@@ -21680,6 +21776,7 @@ var GUILD_HOST = "guild.internal";
 var AGENT_NODE_OPTIONS = "--report-exclude-network";
 var CHECK_ANSWER = "This is an automated check, so there's no buyer to answer. Make a sensible assumption, state it in the work, and carry on.";
 var STANDARD_TIME_CEILING_SECONDS = 3 * 60 * 60;
+var OPENAI_BASE_PATH = "/v1/openai/v1";
 function isSafeFileName(name) {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) && !name.includes("..");
 }
@@ -21853,6 +21950,7 @@ var MAX_SCANNED_BYTES = 1e6;
 var MAX_SCANNED_FILES = 3e3;
 var CODE_EXTENSIONS = /\.(ts|tsx|mts|cts|js|mjs|cjs|py)$/;
 var PLATFORM_VARIABLE = /^(ANTHROPIC_|GUILD_|CLAUDE_|NODE_|NPM_)/;
+var OPENAI_PLATFORM_VARIABLE = /^(OPENAI_|CODEX_)/;
 var KEY_LIKE = /(API_?KEY|_KEY|_TOKEN|_SECRET|_PASSWORD|_PAT)$/;
 var IGNORED_HOSTS = /(^|\.)(guild\.internal|localhost|example\.(com|org|net)|json-schema\.org|w3\.org|schema\.org|anthropic\.com\/docs)$|^127\.0\.0\.1$/;
 function walk2(root, dir2 = root, out = []) {
@@ -21928,7 +22026,7 @@ function checkSettings(ctx) {
 function checkManifest(ctx) {
   const path = join3(ctx.dir, "guild.manifest.json");
   if (!existsSync3(path)) {
-    ctx.add("fail", "Guild's rules", "There's no guild.manifest.json. Start from the template's, or run the setup in Claude Code (/guild-setup).");
+    ctx.add("fail", "Guild's rules", "There's no guild.manifest.json. Start from the template's, or run the setup in Claude Code (/guild-setup) or Codex (the guild-setup skill).");
     return;
   }
   let json2;
@@ -22085,8 +22183,9 @@ function checkModels(ctx) {
   if (!m) return;
   const listed = new Set(m.models.map((model) => model.model));
   const used = /* @__PURE__ */ new Map();
-  for (const { path, text } of ctx.code) {
-    for (const match of withoutComments(text).matchAll(/["'`](claude-(?:fable|opus|sonnet|haiku|instant|\d)[a-z0-9.-]*)["'`]/g)) {
+  const run = ctx.kind?.kind === "standard" ? ctx.code.filter(({ path }) => path.startsWith("specialist/")) : ctx.code;
+  for (const { path, text } of run) {
+    for (const match of withoutComments(text).matchAll(/["'`]((?:claude-(?:fable|opus|sonnet|haiku|instant|\d)|gpt-\d)[a-z0-9.-]*)["'`]/g)) {
       if (!used.has(match[1])) used.set(match[1], path);
     }
   }
@@ -22100,9 +22199,14 @@ function checkModels(ctx) {
   const unused = [...listed].filter((model) => !used.has(model));
   if (used.size > 0 && unused.length > 0) ctx.add("tip", "Guild's rules", `The manifest lists ${unused.join(", ")}, which the code doesn't seem to use. Remove ${unused.length === 1 ? "it" : "them"} if so.`);
   if (used.size > 0 && [...used.keys()].every((model) => listed.has(model))) ctx.add("pass", "Guild's rules", `Every model the code uses is listed (${[...used.keys()].join(", ")}).`);
+  const onOpenAI = manifestProvider(m) === "openai";
   for (const { path, text } of ctx.code) {
-    if (/api\.anthropic\.com/.test(withoutComments(text))) {
+    const code = withoutComments(text);
+    if (/api\.anthropic\.com/.test(code)) {
       ctx.add("fail", "Guild's rules", `${path} calls api.anthropic.com directly. Use ANTHROPIC_BASE_URL and ANTHROPIC_API_KEY as Guild sets them.`);
+    }
+    if (onOpenAI && /api\.openai\.com/.test(code)) {
+      ctx.add("fail", "Guild's rules", `${path} calls api.openai.com directly. Use OPENAI_BASE_URL and OPENAI_API_KEY as Guild sets them.`);
     }
   }
 }
@@ -22111,6 +22215,7 @@ function checkKeysAndHosts(ctx) {
   if (!m) return;
   const declared = new Set(declaredKeys(m).map(({ key }) => key.secret));
   const hosts = new Set(m.network.hosts.map((entry) => entry.host.toLowerCase()));
+  const onOpenAI = manifestProvider(m) === "openai";
   const allCode = ctx.code.map(({ text }) => text).join("\n");
   const connected = /* @__PURE__ */ new Set([
     ...ctx.settings?.connections.services.map((service) => new URL(service.url).hostname) ?? [],
@@ -22130,7 +22235,7 @@ function checkKeysAndHosts(ctx) {
     }
   }
   for (const [name, path] of read) {
-    if (PLATFORM_VARIABLE.test(name) || declared.has(name) || !KEY_LIKE.test(name)) continue;
+    if (PLATFORM_VARIABLE.test(name) || onOpenAI && OPENAI_PLATFORM_VARIABLE.test(name) || declared.has(name) || !KEY_LIKE.test(name)) continue;
     ctx.add("warn", "Guild's rules", `${path} reads ${name}, which looks like a key but isn't declared. On Guild it won't be set: declare it on its host (\`network.hosts[].key\`), with \`"required": false\` if the agent can do without it.`);
   }
   const connectedKeys = new Set(declaredKeys(m).filter(({ host }) => connected.has(host)).map(({ key }) => key.secret));
@@ -22156,7 +22261,7 @@ function checkKeysAndHosts(ctx) {
     }
   }
   for (const [host, path] of called) {
-    if (IGNORED_HOSTS.test(host) || hosts.has(host) || host === "api.anthropic.com") continue;
+    if (IGNORED_HOSTS.test(host) || hosts.has(host) || host === "api.anthropic.com" || onOpenAI && host === "api.openai.com") continue;
     ctx.add("warn", "Guild's rules", `${path} mentions https://${host}, which isn't under \`network.hosts\`. If the agent calls it, Guild blocks the call: declare it with a plain \`purpose\`.`);
   }
   const skillText = ctx.files.filter((file2) => file2.startsWith("specialist/") && !/\.(png|jpe?g|gif|webp|pdf|zip|woff2?|ttf|otf|mp4|ico)$/i.test(file2)).map((file2) => readText(join3(ctx.dir, file2)) ?? "").join("\n");
@@ -22270,7 +22375,7 @@ function checkRuns(ctx, runs) {
   const m = ctx.manifest;
   const notRun = runs.filter((run) => run.outcome === "not-run").map((run) => `${run.brief}.json`);
   if (runs.length > 0 && runs.every((run) => run.outcome === "not-run" || run.mocked)) {
-    ctx.add("open", "Runs and cost", "No test brief has been run with real models yet, so nobody has seen the work or what it costs. Run them with /guild-try in Claude Code, or `npm run guild -- check --run` (it uses your own Anthropic key).");
+    ctx.add("open", "Runs and cost", "No test brief has been run with real models yet, so nobody has seen the work or what it costs. Run them with /guild-try in Claude Code (the guild-try skill in Codex), or `npm run guild -- check --run` (it uses your own model key).");
   } else if (notRun.length > 0) {
     ctx.add("warn", "Runs and cost", `Not run on this machine yet: ${notRun.join(", ")}. Run \`npm run guild -- check --run\`.`);
   }
@@ -22344,7 +22449,7 @@ function checkSetup(ctx) {
   const text = readText(join3(ctx.dir, "SETUP.md"));
   if (!text) return;
   const open2 = text.match(/^- \[ \] .+$/gm) ?? [];
-  if (open2.length > 0) ctx.add("tip", "Only you can check", `SETUP.md has ${plural2(open2.length, "item")} not ticked yet. Run /guild-setup in Claude Code to carry on, or delete SETUP.md if you're done.`);
+  if (open2.length > 0) ctx.add("tip", "Only you can check", `SETUP.md has ${plural2(open2.length, "item")} not ticked yet. Run /guild-setup in Claude Code (the guild-setup skill in Codex) to carry on, or delete SETUP.md if you're done.`);
 }
 var MANUAL_CHECKS = [
   ["Only you can check", "You've read every test brief's result as a buyer would, and you'd be happy to be paid for it."],
@@ -22407,7 +22512,7 @@ var SHORT_LIST = 3;
 var NOT_STARTED = [
   "# Not set up yet",
   "",
-  "This is a fresh copy of Guild's agent template. Open this folder in Claude Code and run /guild-setup: it asks about your work and writes your agent with you, one part at a time.",
+  "This is a fresh copy of Guild's agent template. Open this folder in Claude Code and run /guild-setup (in Codex, ask for the guild-setup skill): it asks about your work and writes your agent with you, one part at a time.",
   "",
   `The five parts: ${PARTS.join(" \xB7 ")}.`
 ];
@@ -22757,14 +22862,14 @@ function currentDockerHost() {
   const host = result.status === 0 ? result.stdout.trim() : "";
   return host || void 0;
 }
-async function uploadWithGuildCredentials(login, agentDir2, env, slug2, version2) {
+async function uploadWithGuildCredentials(login, agentDir2, env, slug2, version2, buildArgs) {
   console.log(`\xB7 Getting upload credentials from ${env} for ${login.creator.name}`);
   const credentials = await platformRequest(login, "POST", "/api/cli/push-credentials", { slug: slug2 });
   if (credentials.status !== 200) fail(credentials.body.error ?? `Couldn't get upload credentials (${credentials.status}).`);
   const { registry: registry2, username, password, repository } = credentials.body;
   const tag = `${repository}:${version2}`;
   console.log(`\xB7 Building ${slug2} ${version2} for linux/amd64`);
-  docker(["build", "-q", "--platform", "linux/amd64", "-t", tag, agentDir2], { cwd: agentDir2 });
+  docker(["build", "-q", "--platform", "linux/amd64", ...buildArgs, "-t", tag, agentDir2], { cwd: agentDir2 });
   const host = currentDockerHost();
   const dockerConfig = mkdtempSync(join6(tmpdir(), "guild-push-"));
   let digest;
@@ -22781,12 +22886,12 @@ async function uploadWithGuildCredentials(login, agentDir2, env, slug2, version2
   if (!digest) fail("The upload finished but Docker didn't report the image's digest.");
   return { repository, digest };
 }
-function uploadWithWrangler(agentDir2, env, slug2, version2) {
+function uploadWithWrangler(agentDir2, env, slug2, version2, buildArgs) {
   const accountId = PLATFORM_ACCOUNTS[env];
   if (!accountId) fail(`No Cloudflare account is known for ${env}.`);
   const tag = `guild-agent-${slug2}:${version2}`;
   console.log(`\xB7 Building ${slug2} ${version2} for linux/amd64`);
-  docker(["build", "-q", "--platform", "linux/amd64", "-t", tag, agentDir2], { cwd: agentDir2 });
+  docker(["build", "-q", "--platform", "linux/amd64", ...buildArgs, "-t", tag, agentDir2], { cwd: agentDir2 });
   console.log("\xB7 Uploading the image with your Cloudflare login");
   const pushed = spawnSync("npx", ["wrangler", "containers", "push", tag], {
     cwd: agentDir2,
@@ -22848,7 +22953,7 @@ async function submitCommand(agentDir2, env, options) {
     fail(undeclaredKindMessage(kind.codeFiles));
   } else {
     console.log("\xB7 A Guild Pro agent: building its code into its own image");
-    const { repository, digest } = options.uploadWithWrangler ? uploadWithWrangler(agentDir2, env, manifest.slug, manifest.version) : await uploadWithGuildCredentials(login, agentDir2, env, manifest.slug, manifest.version);
+    const { repository, digest } = options.uploadWithWrangler ? uploadWithWrangler(agentDir2, env, manifest.slug, manifest.version, harnessBuildArgs(agentDir2, manifest)) : await uploadWithGuildCredentials(login, agentDir2, env, manifest.slug, manifest.version, harnessBuildArgs(agentDir2, manifest));
     body = { manifest: raw, imageRef: `${repository}@${digest}`, testBriefs };
   }
   console.log("\xB7 Submitting");
@@ -22895,8 +23000,10 @@ function dotEnv(agentDir2) {
     throw new Error(`This agent's .env file couldn't be read: ${error62 instanceof Error ? error62.message : String(error62)}`);
   }
 }
-function modelKey(fromFile) {
-  return process.env.ANTHROPIC_API_KEY || fromFile.ANTHROPIC_API_KEY || void 0;
+var MODEL_KEY_NAMES = { anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY" };
+function modelKey(fromFile, provider = "anthropic") {
+  const name = MODEL_KEY_NAMES[provider];
+  return process.env[name] || fromFile[name] || void 0;
 }
 
 // src/try.ts
@@ -23196,7 +23303,7 @@ ${outcomes.filter((outcome) => outcome === "completed").length} of ${briefs.leng
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
 var GATEWAY_FILE = existsSync9(join9(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-23 (32b0d14)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-25 (9cadf304)" : "development (run from the Guild repository)";
 function fail3(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);
@@ -23328,9 +23435,10 @@ async function runCommand(agentDir2, options) {
   if (!existsSync9(options.brief)) fail3(`Brief file ${options.brief} not found.`);
   const brief = JSON.parse(readFileSync9(options.brief, "utf8"));
   const fromFile = dotEnv2(agentDir2);
-  const anthropicKey = modelKey(fromFile);
-  if (!options.mockModels && !anthropicKey) {
-    fail3("Set ANTHROPIC_API_KEY to your own development key (in your shell, or in this agent's .env file), or pass --mock-models.");
+  const provider = manifestProvider(manifest);
+  const devKey = modelKey(fromFile, provider);
+  if (!options.mockModels && !devKey) {
+    fail3(`Set ${MODEL_KEY_NAMES[provider]} to your own development key (in your shell, or in this agent's .env file), or pass --mock-models.`);
   }
   const passed = new Set(options.agentEnv.map((pair) => pair.split("=")[0]));
   const declared = [...new Set(declaredKeys(manifest).map(({ key }) => key.secret))];
@@ -23379,7 +23487,7 @@ async function runCommand(agentDir2, options) {
   const briefName = basename2(options.brief).replace(/\.json$/, "");
   await report(agentDir2, "run_started", { brief: briefName });
   console.log(`\xB7 Building ${image}`);
-  const build = spawnSync2("docker", ["build", "-q", "-t", image, agentDir2], { stdio: ["ignore", "ignore", "inherit"] });
+  const build = spawnSync2("docker", ["build", "-q", ...harnessBuildArgs(agentDir2, manifest), "-t", image, agentDir2], { stdio: ["ignore", "ignore", "inherit"] });
   if (build.status !== 0) fail3("docker build failed.");
   const cleanup = () => {
     for (const args of [["rm", "-f", agentName], ["rm", "-f", gatewayName], ["rm", "-f", dnsName], ["network", "rm", network]]) {
@@ -23421,6 +23529,8 @@ options timeout:5 attempts:2
       `ANTHROPIC_BASE_URL=http://${GUILD_HOST}/v1/anthropic`,
       "-e",
       `ANTHROPIC_API_KEY=${token}`,
+      // As on Guild: an agent on OpenAI models gets Guild's Responses route and the task token.
+      ...provider === "openai" ? ["-e", `OPENAI_BASE_URL=http://${GUILD_HOST}${OPENAI_BASE_PATH}`, "-e", `OPENAI_API_KEY=${token}`, "-e", `CODEX_API_KEY=${token}`] : [],
       "-e",
       `NODE_OPTIONS=${AGENT_NODE_OPTIONS}`,
       ...options.content ? ["-e", "GUILD_CONTENT=1"] : [],
@@ -23457,10 +23567,12 @@ options timeout:5 attempts:2
       // Passed by name only, so the key never appears in the command line.
       "-e",
       "GUILD_DEV_ANTHROPIC_API_KEY",
+      "-e",
+      "GUILD_DEV_OPENAI_API_KEY",
       GATEWAY_IMAGE,
       "node",
       `/kit/${GATEWAY_FILE}`
-    ], { env: { ...process.env, GUILD_DEV_ANTHROPIC_API_KEY: anthropicKey ?? "" } });
+    ], { env: { ...process.env, GUILD_DEV_ANTHROPIC_API_KEY: provider === "anthropic" ? devKey ?? "" : "", GUILD_DEV_OPENAI_API_KEY: provider === "openai" ? devKey ?? "" : "" } });
     if (!options.mockModels) docker2(["network", "connect", "bridge", gatewayName]);
     console.log(`\u25B6 Running ${manifest.name} with ${options.brief}${options.mockModels ? " (mock models)" : ""}
 `);
@@ -23501,8 +23613,9 @@ async function checkCommand(agentDir2, options) {
     const dir2 = join9(agentDir2, "test-briefs");
     const briefs = existsSync9(dir2) ? readdirSync5(dir2).filter((name) => name.endsWith(".json")).sort() : [];
     if (briefs.length === 0) fail3("There are no test briefs in test-briefs/ to run.");
-    if (!options.mockModels && !modelKey(dotEnv2(agentDir2))) {
-      fail3("Set ANTHROPIC_API_KEY to your own development key (in your shell, or in this agent's .env file) to run the test briefs, or pass --mock-models.");
+    const provider = manifestProvider(loadManifest2(agentDir2));
+    if (!options.mockModels && !modelKey(dotEnv2(agentDir2), provider)) {
+      fail3(`Set ${MODEL_KEY_NAMES[provider]} to your own development key (in your shell, or in this agent's .env file) to run the test briefs, or pass --mock-models.`);
     }
     const answers = options.answers;
     const checkAnswers = options.answers.length === 0;
@@ -23727,7 +23840,7 @@ switch (command) {
     });
     break;
   case "setup":
-    fail3("`guild setup` has been replaced by the setup in Claude Code: open this folder in Claude Code and run /guild-setup.");
+    fail3("`guild setup` has been replaced by the setup in Claude Code: open this folder in Claude Code and run /guild-setup, or in Codex and ask for the guild-setup skill.");
   case "version":
   case "--version":
     console.log(`guild ${KIT_VERSION}`);

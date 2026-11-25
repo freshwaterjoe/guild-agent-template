@@ -4,16 +4,18 @@ The starting point for a Guild agent. An agent is a skill (or several) that does
 
 ## Start a new agent
 
-You'll need [Claude Code](https://claude.com/claude-code), [Node.js](https://nodejs.org) 22.18 or later, and your own Anthropic API key for trying your agent. You try it on Guild with `npm run guild -- try`, so you don't need Docker.
+You'll need [Claude Code](https://claude.com/claude-code) or [Codex](https://developers.openai.com/codex), [Node.js](https://nodejs.org) 22.18 or later, and your own API key for the models your agent runs on, for trying it.
 
-The quickest way: in the Studio, choose **New agent**, name it, and copy the one command it gives you into a terminal. It makes your agent's folder from this template, connects it to the agent's page in the Studio, installs everything and opens Claude Code with `/guild-setup`.
+Your agent runs on Claude models (Anthropic) or GPT models (OpenAI), one provider per agent; the setup asks which. On Claude models you try it on Guild with `npm run guild -- try`, so you don't need Docker. An agent on OpenAI models is tried on your machine with `npm run guild -- run` for now, which needs [Docker](https://www.docker.com).
+
+The quickest way: in the Studio, choose **New agent**, name it, and copy the one command it gives you into a terminal. It makes your agent's folder from this template, connects it to the agent's page in the Studio, installs everything and opens Claude Code with `/guild-setup` (or Codex, if that's what you have).
 
 Or from a copy of this repository:
 
 1. **Make your repository** from this template (**Use this template** on GitHub), named after your agent, and clone it.
-2. **Run `npm install`.**
+2. **Run `npm install`.** It leaves out the runner's own programs, which only Docker needs (`.npmrc`).
 3. **Connect it** to your agent on Guild with the code from its page in the Studio: `npm run guild -- connect <code>`. Its page then shows where the agent has got to as you build.
-4. **Open it in Claude Code** and run `/guild-setup`. It starts from your skill, or writes one with you, and drafts the rest from it.
+4. **Open it in Claude Code** and run `/guild-setup`, **or in Codex** and ask for the guild-setup skill. It starts from your skill, or writes one with you, and drafts the rest from it.
 
 Start from a skill you already have, from past work and notes (drop them in `material/`, which is never committed), or from scratch. You can stop at any time and carry on in a new session.
 
@@ -27,7 +29,7 @@ A standard Guild agent is:
 
 If they help, add `specialist/method.md` (instructions, read after Guild's own rules), `specialist/rubric.md` (a quality checklist for the reviewer) and `specialist/references/` (examples of excellent work).
 
-Then `/guild-try` runs your test briefs on Guild and reads the work with you, and `/guild-submit` sends your agent to Guild. `npm run guild -- check` shows where you've got to at any time.
+Then `/guild-try` (the guild-try skill in Codex) runs your test briefs and reads the work with you, and `/guild-submit` sends your agent to Guild. `npm run guild -- check` shows where you've got to at any time.
 
 ## The code in this folder is Guild's
 
@@ -43,19 +45,20 @@ brief ──► work ──► review ──► deliver
             └──fix────┘  (round after round, until it passes)
 ```
 
-- **Work** is a Claude Code session with Guild's rules, then your skills (and `method.md`, if you have one), in a fresh workspace with the brief and the buyer's files. It has Claude Code's own tools, subagents and web search among them, and ffmpeg, LibreOffice, pandoc and git as well as Python and Node.
+- **Work** is a session with Guild's rules, then your skills (and `method.md`, if you have one), in a fresh workspace with the brief and the buyer's files: a Claude Code session on Claude models, a Codex session on OpenAI's. It has that tool's own abilities (files, the shell, web search), and ffmpeg, LibreOffice, pandoc and git as well as Python and Node. The same folder runs on either.
 - **Review** is a separate session that reads the work against the brief, your skills' standards, Guild's bar and `rubric.md`, if you have one. The agent fixes what it finds, round after round, until the work passes.
-- **Safeguards, not targets.** The agent isn't told any limits, so it works the way it would in your own Claude Code: write your skills that way, with no timelines or step counts. Guild steps in only if a task runs away (its cost or time ceiling, or rounds of fixes that stop making progress), and then what's in `out/` comes to you to sign off, with the reviewer's notes.
+- **Safeguards, not targets.** The agent isn't told any limits, so it works the way it would in your own Claude Code or Codex: write your skills that way, with no timelines or step counts. Guild steps in only if a task runs away (its cost or time ceiling, or rounds of fixes that stop making progress), and then what's in `out/` comes to you to sign off, with the reviewer's notes.
 - **Deliver** sends everything the agent wrote to `out/`, except scratch files whose names start with `_`.
 
 `docs/guild.md` has the full runner contract: the workspace, tools, safeguards, software, the web and the network your agent can rely on.
 
 ## Keys
 
-Put your own Anthropic key, and any keys your agent's connections use, in a `.env` file at the top of this repository. It's ignored by git and never goes into your agent:
+Put your own key for your agent's models, and any keys your agent's connections use, in a `.env` file at the top of this repository. It's ignored by git and never goes into your agent:
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY=sk-ant-...   # an agent on Claude models
+OPENAI_API_KEY=sk-...          # an agent on OpenAI models
 ```
 
 On Guild, you set your agent's keys in the Studio after submitting, and they never enter its container. Guild pays for the checks it runs on each submission and takes the cost from your first earnings, so you pay nothing before your first sale.

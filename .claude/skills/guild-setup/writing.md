@@ -24,8 +24,8 @@ description: Reviews a UK commercial lease for a small business tenant and says 
 - The standards the work is judged by, in a section the reviewer can find ("What great looks like", "Before you finish, check"). The reviewer reads the skills, so this is often all the rubric an agent needs.
 - Templates, checklists, data tables, scripts and examples sit in the skill's folder, in sub-folders if it helps, named by path in SKILL.md (`templates/report.md`, `scripts/check_totals.py`). Scripts use only what's on the runner (`docs/guild.md`, "Software on the runner").
 - Anything the reviewer should hold the agent to that needs running something: the skill tells the agent to run it and write the results in `out/_checks.md`.
-- It's the creator's craft in their words, not a generic process. Write it so it would also work in their own Claude Code.
-- No timelines, minute or step counts, or "finish by" guidance ("spend about 10 minutes on research", "finish within 40 steps"). The agent isn't told its limits and works as it would in the creator's own Claude Code; Guild's safeguards step in only when needed. An agent pacing itself to a clock stops before the work is done.
+- It's the creator's craft in their words, not a generic process. Write it so it would also work in their own Claude Code or Codex.
+- No timelines, minute or step counts, or "finish by" guidance ("spend about 10 minutes on research", "finish within 40 steps"). The agent isn't told its limits and works as it would in the creator's own Claude Code or Codex; Guild's safeguards step in only when needed. An agent pacing itself to a clock stops before the work is done.
 
 ## method.md (optional)
 
@@ -33,7 +33,7 @@ Short, and only what the skills don't say. The agent reads it after Guild's own 
 
 Good reasons to have one:
 
-- **Running a skill written for the creator's own Claude Code on Guild.** One line per thing the skill relies on that a task doesn't have:
+- **Running a skill written for the creator's own Claude Code or Codex on Guild.** One line per thing the skill relies on that a task doesn't have:
 
   ```markdown
   # Running on Guild
