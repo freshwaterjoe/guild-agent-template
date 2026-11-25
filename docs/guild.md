@@ -326,7 +326,6 @@ Connect it as a service with `"keyPrefix": "Bearer "`, and list only the tools i
 - Guild keeps the sign-in encrypted and renews it itself, and it never enters the container: the agent holds a stand-in, as for any key. If the sign-in ends, Guild emails you and calls are refused with `key_not_set` until you connect again.
 - Every task uses your sign-in, so the service's rate limits are shared across them, and its terms apply.
 - Locally, `guild run` can't reach declared hosts, so test the connection with `guild try` on Guild.
-- More in the Creator Kit's "MCP servers" page, under "A server you sign in to".
 
 ## Checking it locally
 
