@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guild agent kit 2026-11-25 (9cadf304). Generated from Guild's packages/kit: don't edit.
+// Guild agent kit 2026-11-25 (d891c0c6). Generated from Guild's packages/kit: don't edit.
 // Update it by copying guild-kit/ from the latest agent template.
 import { createRequire as __guildCreateRequire } from "node:module";
 const require = __guildCreateRequire(import.meta.url);
@@ -20919,6 +20919,16 @@ function providerOfModel(model) {
   return null;
 }
 
+// src/protocol.ts
+var GUILD_HOST = "guild.internal";
+var AGENT_NODE_OPTIONS = "--report-exclude-network";
+var CHECK_ANSWER = "This is an automated check, so there's no buyer to answer. Make a sensible assumption, state it in the work, and carry on.";
+var STANDARD_TIME_CEILING_SECONDS = 3 * 60 * 60;
+var OPENAI_BASE_PATH = "/v1/openai/v1";
+function isSafeFileName(name) {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) && !name.includes("..");
+}
+
 // src/manifest.ts
 var PLATFORM_STATEMENTS = {
   "network-gateway-only": {
@@ -20938,6 +20948,15 @@ var slug = external_exports.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowe
 var RESERVED_KEY_NAMES = ["PATH", "HOME", "USER", "PWD", "SHELL", "LANG", "TZ", "HOSTNAME", "TERM"];
 var RESERVED_KEY_PREFIXES = ["GUILD_", "ANTHROPIC_", "NODE_", "NPM_", "LD_"];
 var OPENAI_RESERVED_KEY_PREFIXES = ["OPENAI_", "CODEX_"];
+var GUILD_DOMAINS = [GUILD_HOST, "onguild.co"];
+var PROVIDER_API_HOSTS = { anthropic: "api.anthropic.com", openai: "api.openai.com" };
+function refusedHost(host, provider) {
+  if (GUILD_DOMAINS.some((domain2) => host === domain2 || host.endsWith(`.${domain2}`))) return `${host} is Guild's own. An agent reaches Guild at GUILD_URL.`;
+  if (host === PROVIDER_API_HOSTS[provider]) {
+    return `${host} is where this agent's models are. Guild carries those calls itself, at ${provider === "anthropic" ? "ANTHROPIC_BASE_URL" : "OPENAI_BASE_URL"}, so don't declare it.`;
+  }
+  return null;
+}
 var RESERVED_KEY_HEADERS = ["host", "content-length", "content-type", "transfer-encoding", "connection", "upgrade", "te", "trailer", "keep-alive"];
 var MAX_REVISIONS = 5;
 var MIN_REVISIONS = 1;
@@ -20970,8 +20989,18 @@ var hostKey = external_exports.object({
    * False for a key the agent can do without. Checks and hires don't wait for it, and while it
    * isn't set the agent's environment doesn't have the variable at all, so the agent can tell.
    */
-  required: external_exports.boolean().optional()
+  required: external_exports.boolean().optional(),
+  /**
+   * A key that's set by signing in (OAuth) in the Studio, not pasted (GLD-302): an access token in
+   * the Authorization header, as a bearer token, which the gateway keeps fresh. `url` is the
+   * address Guild signs in for, such as the MCP server's; it defaults to https://<host>/.
+   */
+  oauth: external_exports.object({ url: external_exports.url({ protocol: /^https$/, message: "Use an https address on this host." }).max(2e3).optional() }).strict().optional()
 }).strict().superRefine((key, ctx) => {
+  if (key.oauth && (key.in !== "header" || key.name?.toLowerCase() !== "authorization")) {
+    ctx.addIssue({ code: "custom", path: ["oauth"], message: 'A sign-in (OAuth) key goes in the Authorization header: use "in": "header", "name": "Authorization".' });
+    return;
+  }
   if (key.in === "basic") {
     if (key.name) ctx.addIssue({ code: "custom", path: ["name"], message: "Basic auth always uses the Authorization header. Leave name out." });
     return;
@@ -21129,9 +21158,23 @@ var manifestSchema = external_exports.object({
     });
   }
   const hosts = manifest.network.hosts.map((entry) => entry.host);
+  const provider = manifestProvider(manifest);
   hosts.forEach((host, index) => {
     if (hosts.indexOf(host) !== index) {
       ctx.addIssue({ code: "custom", path: ["network", "hosts", index, "host"], message: `${host} is declared twice.` });
+    }
+    const refused = refusedHost(host, provider);
+    if (refused) ctx.addIssue({ code: "custom", path: ["network", "hosts", index, "host"], message: refused });
+    const signIn = manifest.network.hosts[index].key?.oauth?.url;
+    if (signIn && new URL(signIn).hostname !== host) {
+      ctx.addIssue({ code: "custom", path: ["network", "hosts", index, "key", "oauth", "url"], message: `The sign-in address must be on ${host}.` });
+    }
+  });
+  manifest.network.hosts.forEach((entry, index) => {
+    if (!entry.key) return;
+    const shared = manifest.network.hosts.filter((other) => other.key?.secret === entry.key.secret);
+    if (shared.length > 1 && shared.some((other) => other.key.oauth) && shared[0] !== entry) {
+      ctx.addIssue({ code: "custom", path: ["network", "hosts", index, "key", "secret"], message: `${entry.key.secret} is a sign-in key, so it can be used on one host only.` });
     }
   });
   const keyNames = new Set(manifest.network.hosts.flatMap((entry) => entry.key ? [entry.key.secret] : []));
@@ -21173,6 +21216,7 @@ function validateManifest(input2) {
 
 // src/settings.ts
 var SETTINGS_PATH = "specialist/settings.json";
+var BEARER = "Bearer ";
 var fileName = external_exports.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/, "a plain file name, such as report.md").refine((name) => !name.includes("..") && !name.startsWith("_"), "a file the agent delivers (not starting with _)");
 var hostName = external_exports.string().regex(/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/, "a plain host name, such as api.example.com");
 var serviceConnection = external_exports.object({
@@ -21254,6 +21298,8 @@ function settingsIssues(settings, manifest) {
     if (!declared) issues.push({ path: `connections.services.${index}.url`, message: `${host} isn't under network.hosts in the manifest, so Guild would block it.` });
     else if (declared.key && declared.key.in !== "header") {
       issues.push({ path: `connections.services.${index}.url`, message: `${host}'s key goes in ${declared.key.in === "query" ? "the address" : "basic sign-in"}; a service needs it in a header.` });
+    } else if (declared.key?.oauth && service.keyPrefix !== BEARER) {
+      issues.push({ path: `connections.services.${index}.keyPrefix`, message: `${host} is signed in to, so its token goes as "Bearer ": set keyPrefix to "Bearer ".` });
     }
     if (names.has(service.name)) issues.push({ path: `connections.services.${index}.name`, message: `Two services are called ${service.name}.` });
     names.add(service.name);
@@ -21261,6 +21307,9 @@ function settingsIssues(settings, manifest) {
   const apiHosts = /* @__PURE__ */ new Set();
   settings.connections.apis.forEach((api, index) => {
     if (!hosts.has(api.host)) issues.push({ path: `connections.apis.${index}.host`, message: `${api.host} isn't under network.hosts in the manifest, so Guild would block it.` });
+    else if (hosts.get(api.host).key?.oauth && api.keyPrefix !== BEARER) {
+      issues.push({ path: `connections.apis.${index}.keyPrefix`, message: `${api.host} is signed in to, so its token goes as "Bearer ": set keyPrefix to "Bearer ".` });
+    }
     if (apiHosts.has(api.host)) issues.push({ path: `connections.apis.${index}.host`, message: `${api.host} is listed twice.` });
     apiHosts.add(api.host);
   });
@@ -21769,16 +21818,6 @@ var GUILD_COMMISSION_BPS = 2500;
 function formatMicros(micros) {
   const dollars = micros / 1e6;
   return `$${dollars >= 1 ? dollars.toFixed(2) : dollars.toFixed(4)}`;
-}
-
-// src/protocol.ts
-var GUILD_HOST = "guild.internal";
-var AGENT_NODE_OPTIONS = "--report-exclude-network";
-var CHECK_ANSWER = "This is an automated check, so there's no buyer to answer. Make a sensible assumption, state it in the work, and carry on.";
-var STANDARD_TIME_CEILING_SECONDS = 3 * 60 * 60;
-var OPENAI_BASE_PATH = "/v1/openai/v1";
-function isSafeFileName(name) {
-  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) && !name.includes("..");
 }
 
 // src/secrets.ts
@@ -23303,7 +23342,7 @@ ${outcomes.filter((outcome) => outcome === "completed").length} of ${briefs.leng
 var KIT_SRC = dirname2(fileURLToPath(import.meta.url));
 var GATEWAY_FILE = existsSync9(join9(KIT_SRC, "mock-gateway.mjs")) ? "mock-gateway.mjs" : "mock-gateway.ts";
 var GATEWAY_IMAGE = "node:22-slim";
-var KIT_VERSION = true ? "2026-11-25 (9cadf304)" : "development (run from the Guild repository)";
+var KIT_VERSION = true ? "2026-11-25 (d891c0c6)" : "development (run from the Guild repository)";
 function fail3(message) {
   console.error(`\u2717 ${message}`);
   process.exit(1);

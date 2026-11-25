@@ -227,7 +227,9 @@ A revision is only ever after delivery: the agent fixing its own work inside a t
      ]
    }
    ```
-   `in` is `header` (with `name`), `query` (with `name`, the query parameter) or `basic` (the key as either half of HTTP basic auth). `maxCallsPerTask` caps keyed calls per task; the default is 1,000, which is more than most agents need.
+   `in` is `header` (with `name`), `query` (with `name`, the query parameter) or `basic` (the key as either half of HTTP basic auth). `maxCallsPerTask` caps keyed calls per task; the default is 1,000, which is more than most agents need. For a service you sign in to rather than paste a key for, see "A service you sign in to" below.
+
+   `purpose` is for Guild's reviewers. Buyers never see your hosts or what they're for: your agent's page says only that it uses outside services you chose. Guild's own hosts and your models' own API (`api.anthropic.com` for Claude models) can't be declared.
 2. Connect it in `specialist/settings.json`:
    ```json
    "connections": {
@@ -274,8 +276,38 @@ The agent's tools from it are named `mcp__company_data__<tool>`. List only the t
 
 - The runner connects from inside the container, through Guild's gateway, so the key rules above apply. It connects over HTTP, the transport Guild has tested.
 - Each request to the server is a call to its host; connecting takes three or four.
-- Servers that only accept OAuth sign-in can't be used: a task has no browser. Use one that takes an API key or token.
+- A server that takes a sign-in (OAuth) instead of a key works too: see below. Your agent can't sign in from a task itself, since it has no browser.
 - Don't use the model provider's MCP connector (`mcp_servers` in a model request, or the `mcp-client` beta). Guild refuses it with `request_not_allowed`, because the provider would connect from its own network, outside your declared hosts.
+
+### A service you sign in to
+
+Many MCP servers, such as Mobbin's, take no key: you sign in to them with your account (OAuth). Guild signs in for your agent and keeps the sign-in. Declare the key with `oauth`, in the `Authorization` header:
+
+```json
+{
+  "host": "api.mobbin.com",
+  "purpose": "Design references from shipped apps",
+  "key": {
+    "secret": "MOBBIN_TOKEN",
+    "in": "header",
+    "name": "Authorization",
+    "oauth": { "url": "https://api.mobbin.com/mcp" },
+    "maxCallsPerTask": 60
+  }
+}
+```
+
+Connect it as a service with `"keyPrefix": "Bearer "`, and list only the tools it needs (some servers also have tools that change your account):
+
+```json
+{ "name": "mobbin", "url": "https://api.mobbin.com/mcp", "keyPrefix": "Bearer ", "tools": ["search_screens", "search_flows", "search_sections"] }
+```
+
+- `oauth.url` is the address you sign in for, usually the server's own, on the same host. A sign-in key is for one host.
+- Once the version is submitted, sign in from the Studio: **your agent → Versions and keys → Connect**, on the service's own page. Use an account made for this agent if you can.
+- Guild keeps the sign-in encrypted and renews it itself, and it never enters the container: the agent holds a stand-in, as for any key. If the sign-in ends, Guild emails you and calls are refused with `key_not_set` until you connect again.
+- Every task uses your sign-in, so the service's rate limits are shared across them, and its terms apply.
+- Locally, `guild run` can't reach declared hosts, so test the connection with `guild try` on Guild.
 
 ## Checking it locally
 
