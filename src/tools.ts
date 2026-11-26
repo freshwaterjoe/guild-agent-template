@@ -17,7 +17,7 @@
 //
 // Adding code here makes this an agent with its own code: it's submitted with `guild submit`,
 // which builds its image, rather than run by Guild's shared runner (Guild decision 032).
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { GuildClient } from "./guild.ts";
@@ -81,10 +81,22 @@ export interface ToolContext {
   web: WebAccess;
 }
 
+/**
+ * The highest number among replies call_api saved in the workspace already. A round of fixes or a
+ * carry-on is a new session on the same workspace, so it numbers on from there instead of
+ * overwriting _api/001-… (GLD-300).
+ */
+async function lastSavedReply(workdir: string): Promise<number> {
+  const names = await readdir(join(workdir, "_api")).catch(() => [] as string[]);
+  return Math.max(0, ...names.map((name) => Number(/^(\d+)-/.exec(name)?.[1] ?? 0)));
+}
+
 /** This agent's tools: Guild's, and any you add below. */
 export function agentTools({ guild, waitForAnswer, answerLater, specialist, workdir, web }: ToolContext): AgentTool[] {
   const apis = specialist.settings.connections.apis;
   let calls = 0;
+  // Read once per session; awaited by every call, so calls made at the same time still get their own numbers.
+  let saved: Promise<number> | undefined;
   const tools: AgentTool[] = [
     tool(
       "ask_buyer",
@@ -168,7 +180,9 @@ export function agentTools({ guild, waitForAnswer, answerLater, specialist, work
           const bytes = new Uint8Array(await response.arrayBuffer());
           const type = response.headers.get("content-type") ?? "";
           const textual = /json|text|xml|csv|javascript/.test(type) || type === "";
-          calls += 1;
+          const last = await (saved ??= lastSavedReply(workdir));
+          // Read calls only after the await: calls in flight together each take the next number.
+          calls = Math.max(calls, last) + 1;
           const file = `_api/${String(calls).padStart(3, "0")}-${host.replace(/[^a-z0-9.-]/gi, "")}.${/json/.test(type) ? "json" : textual ? "txt" : "bin"}`;
           await mkdir(join(workdir, "_api"), { recursive: true });
           await writeFile(join(workdir, file), bytes);
